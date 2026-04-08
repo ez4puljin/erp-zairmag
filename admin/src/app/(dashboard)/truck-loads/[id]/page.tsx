@@ -1,0 +1,752 @@
+'use client';
+
+import { useState, useEffect, Fragment } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import api from '@/lib/api';
+import {
+  ChevronLeft, Truck, Package, User, Calendar, Phone,
+  Clock, RefreshCw, Send, CheckCircle, Ban, ChevronDown,
+  ChevronUp, ShoppingCart, CreditCard, FileText, Hash,
+  AlertTriangle, CornerDownLeft, Printer, Plus, X, PackagePlus,
+} from 'lucide-react';
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  LOADING:              { label: 'Ачиж байна',          color: '#007AFF', bg: '#E3F2FD' },
+  DISPATCHED:           { label: 'Илгээсэн',            color: '#FF9500', bg: '#FFF3E0' },
+  COMPLETION_REQUESTED: { label: 'Дуусгах хүсэлт',      color: '#FF3B30', bg: '#FFEBEE' },
+  COMPLETED:            { label: 'Дууссан',             color: '#34C759', bg: '#E8F5E9' },
+  CANCELLED:            { label: 'Цуцлагдсан',          color: '#8E8E93', bg: '#F2F2F7' },
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: 'Бэлэн', BANK_TRANSFER: 'Шилжүүлэг', CARD: 'Карт',
+  MOBILE_MONEY: 'Мобайл', CHECK: 'Чек', CREDIT: 'Дараа тооцоо', COMBINED: 'Хосолсон',
+};
+
+const inputClass =
+  'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+
+// ====================== PRINT HELPERS ======================
+function printReceipt(title: string, content: string) {
+  const win = window.open('', '_blank', 'width=400,height=700');
+  if (!win) { alert('Popup хаалттай байна. Зөвшөөрнө үү.'); return; }
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+  <style>
+    body { font-family: monospace; font-size: 12px; line-height: 1.5; margin: 0; padding: 8px; color: #000; }
+    pre { margin: 0; white-space: pre-wrap; }
+    .page-break { page-break-after: always; }
+    @media print { body { margin: 0; padding: 4px; } }
+  </style></head><body>
+  <pre>${content}</pre>
+  <script>window.onload=function(){window.print();setTimeout(function(){window.close()},500)}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+function buildHandoverReceipt(load: any, type: 'dispatch' | 'additional' | 'return', copyLabel: string) {
+  const driverName = `${load.driver?.lastName ?? ''} ${load.driver?.firstName ?? ''}`.trim();
+  const date = new Date().toLocaleString('mn-MN');
+  const items = load.items || [];
+
+  const typeLabels: Record<string, string> = {
+    dispatch: 'АЧИЛТ ХҮЛЭЭЛЦСЭН БАРИМТ',
+    additional: 'НЭМЭЛТ АЧИЛТ БАРИМТ',
+    return: 'БУЦААЛТ ХҮЛЭЭЛЦСЭН БАРИМТ',
+  };
+
+  let lines = `====================================
+      ЗАЙРМАГ ТҮГЭЭЛТ
+    ${typeLabels[type]}
+       ${copyLabel}
+====================================
+Ачилт №: ${load.loadNumber}
+Жолооч:  ${driverName}
+Утас:    ${load.driver?.phone ?? '-'}
+Огноо:   ${date}
+------------------------------------`;
+
+  if (type === 'return') {
+    lines += `\nБАРАА          Ачсан Зарсн Буцсн Гэм`;
+    for (const item of items) {
+      const name = (item.product?.name ?? '').substring(0, 14).padEnd(14);
+      const loaded = String(item.loadedQty ?? 0).padStart(5);
+      const sold = String(item.soldQty ?? 0).padStart(5);
+      const returned = String(item.returnedQty ?? 0).padStart(5);
+      const damaged = String(item.damagedQty ?? 0).padStart(4);
+      lines += `\n${name} ${loaded} ${sold} ${returned} ${damaged}`;
+    }
+    const totalLoaded = items.reduce((s: number, i: any) => s + (i.loadedQty || 0), 0);
+    const totalSold = items.reduce((s: number, i: any) => s + (i.soldQty || 0), 0);
+    const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty || 0), 0);
+    const totalDamaged = items.reduce((s: number, i: any) => s + (i.damagedQty || 0), 0);
+    lines += `\n------------------------------------`;
+    lines += `\nНИЙТ:          ${String(totalLoaded).padStart(5)} ${String(totalSold).padStart(5)} ${String(totalReturned).padStart(5)} ${String(totalDamaged).padStart(4)}`;
+  } else {
+    lines += `\nБАРАА                        Тоо ш`;
+    for (const item of items) {
+      const name = (item.product?.name ?? '').substring(0, 28).padEnd(28);
+      const qty = type === 'additional' ? String(item._addedQty ?? item.loadedQty ?? 0).padStart(5)
+        : String(item.loadedQty ?? 0).padStart(5);
+      lines += `\n${name} ${qty}`;
+    }
+    const totalQty = type === 'additional'
+      ? items.reduce((s: number, i: any) => s + (i._addedQty ?? i.loadedQty ?? 0), 0)
+      : items.reduce((s: number, i: any) => s + (i.loadedQty ?? 0), 0);
+    lines += `\n------------------------------------`;
+    lines += `\nНИЙТ:                        ${String(totalQty).padStart(5)} ш`;
+  }
+
+  lines += `\n------------------------------------
+
+Хүлээлгэн өгсөн: ___________________
+  (Агуулахын ажилтан)
+
+Хүлээн авсан: _______________________
+  (Жолооч)
+
+------------------------------------
+       Баярлалаа!
+====================================`;
+
+  return lines;
+}
+
+// ====================== COMPONENT ======================
+export default function TruckLoadDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
+
+  const [load, setLoad] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Return form state
+  const [returnItems, setReturnItems] = useState<{ productId: string; returnedQty: number; damagedQty: number }[]>([]);
+  const [returnNotes, setReturnNotes] = useState('');
+  const [submittingReturn, setSubmittingReturn] = useState(false);
+
+  // Additional load form
+  const [showAddItems, setShowAddItems] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [addItems, setAddItems] = useState<{ productId: string; loadedQty: number }[]>([]);
+  const [addingItems, setAddingItems] = useState(false);
+
+  // Expanded sales
+  const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (id) fetchLoad();
+  }, [id]);
+
+  async function fetchLoad() {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/truck-loads/${id}`);
+      const data = res.data?.data ?? res.data;
+      setLoad(data);
+      if (data?.items) {
+        setReturnItems(
+          data.items.map((item: any) => {
+            const remaining = (item.loadedQty || 0) - (item.soldQty || 0);
+            return {
+              productId: item.productId,
+              returnedQty: item.returnedQty > 0 ? item.returnedQty : (remaining > 0 ? remaining : 0),
+              damagedQty: item.damagedQty || 0,
+            };
+          })
+        );
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Ачилтын мэдээлэл ачааллахад алдаа гарлаа');
+    }
+    setLoading(false);
+  }
+
+  async function fetchProducts() {
+    try {
+      const res = await api.get('/api/products?limit=100');
+      setProducts(res.data?.data ?? res.data ?? []);
+    } catch (err) { console.error(err); }
+  }
+
+  // --- Actions ---
+  async function handleDispatch() {
+    if (!confirm('Энэ ачилтыг илгээх үү? Агуулахаас бараа хасагдана.')) return;
+    setActionLoading(true);
+    try {
+      const res = await api.post(`/api/truck-loads/${id}/dispatch`);
+      const dispatched = res.data?.data ?? res.data;
+      await fetchLoad();
+      // Print dispatch handover receipt (2 copies)
+      const receipt1 = buildHandoverReceipt(dispatched, 'dispatch', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(dispatched, 'dispatch', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Ачилт баримт', receipt1 + '\n\n' + receipt2);
+    } catch (err: any) {
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
+    }
+    setActionLoading(false);
+  }
+
+  async function handleSubmitReturn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!confirm('Буцаалт илгээх үү?')) return;
+    setSubmittingReturn(true);
+    try {
+      await api.post(`/api/truck-loads/${id}/submit-return`, {
+        items: returnItems,
+        notes: returnNotes || undefined,
+      });
+      await fetchLoad();
+      alert('Буцаалт амжилттай илгээгдлээ. Менежер баталгаажуулна.');
+    } catch (err: any) {
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
+    }
+    setSubmittingReturn(false);
+  }
+
+  async function handleVerifyReturn() {
+    if (!confirm('Буцаалтыг баталгаажуулах уу? Бараа агуулахад буцна.')) return;
+    setActionLoading(true);
+    try {
+      const res = await api.post(`/api/truck-loads/${id}/verify-return`);
+      const completed = res.data?.data ?? res.data;
+      await fetchLoad();
+      // Print return handover receipt (2 copies)
+      const receipt1 = buildHandoverReceipt(completed, 'return', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(completed, 'return', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Буцаалт баримт', receipt1 + '\n\n' + receipt2);
+    } catch (err: any) {
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
+    }
+    setActionLoading(false);
+  }
+
+  // Driver requested completion → admin enters return quantities directly + approve
+  async function handleApproveCompletion() {
+    if (!load) return;
+    // Build items: pre-fill returnedQty = remaining for each item
+    const items = (load.items ?? [])
+      .filter((it: any) => (it.loadedQty ?? 0) - (it.soldQty ?? 0) > 0)
+      .map((it: any) => ({
+        productId: it.productId,
+        returnedQty: (it.loadedQty ?? 0) - (it.soldQty ?? 0),
+        damagedQty: 0,
+      }));
+
+    // Quick confirmation
+    const itemSummary = items.map((i: any) => {
+      const it = load.items.find((x: any) => x.productId === i.productId);
+      return `${it?.product?.name}: ${i.returnedQty}`;
+    }).join('\n');
+
+    if (!confirm(`Дараах үлдэгдлийг агуулахад буцаахыг баталгаажуулах уу?\n\n${itemSummary}\n\nБүх барааг сайн гэж тооцно. Хэрэв гэмтсэн бараа байгаа бол "Буцаалт бүртгэх" хэсгийг ашиглана уу.`)) return;
+
+    setActionLoading(true);
+    try {
+      const res = await api.post(`/api/truck-loads/${id}/approve-completion`, { items });
+      const completed = res.data?.data ?? res.data;
+      await fetchLoad();
+      const receipt1 = buildHandoverReceipt(completed, 'return', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(completed, 'return', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Буцаалт баримт', receipt1 + '\n\n' + receipt2);
+    } catch (err: any) {
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
+    }
+    setActionLoading(false);
+  }
+
+  async function handleCancel() {
+    if (!confirm('Энэ ачилтыг цуцлах уу?')) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/api/truck-loads/${id}/cancel`);
+      await fetchLoad();
+    } catch (err: any) {
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
+    }
+    setActionLoading(false);
+  }
+
+  async function handleAddItems(e: React.FormEvent) {
+    e.preventDefault();
+    const validItems = addItems.filter((i) => i.productId && i.loadedQty > 0);
+    if (validItems.length === 0) { alert('Бараа нэмнэ үү'); return; }
+    setAddingItems(true);
+    try {
+      const res = await api.post(`/api/truck-loads/${id}/add-items`, { items: validItems });
+      const updated = res.data?.data ?? res.data;
+      await fetchLoad();
+      setShowAddItems(false);
+      setAddItems([]);
+      // Print additional load receipt
+      const receiptItems = validItems.map((vi) => {
+        const prod = products.find((p: any) => p.id === vi.productId);
+        return { product: { name: prod?.name ?? '?' }, _addedQty: vi.loadedQty, loadedQty: vi.loadedQty };
+      });
+      const receiptLoad = { ...updated, items: receiptItems };
+      const receipt1 = buildHandoverReceipt(receiptLoad, 'additional', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(receiptLoad, 'additional', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Нэмэлт ачилт баримт', receipt1 + '\n\n' + receipt2);
+    } catch (err: any) {
+      alert('Алдаа: ' + (Array.isArray(err.response?.data?.message) ? err.response.data.message.join(', ') : err.response?.data?.message || err.message));
+    }
+    setAddingItems(false);
+  }
+
+  function handlePrintCurrentState() {
+    if (!load) return;
+    if (load.status === 'COMPLETED') {
+      const receipt1 = buildHandoverReceipt(load, 'return', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(load, 'return', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Буцаалт баримт', receipt1 + '\n\n' + receipt2);
+    } else {
+      const receipt1 = buildHandoverReceipt(load, 'dispatch', 'АГУУЛАХЫН ХУВЬ');
+      const receipt2 = buildHandoverReceipt(load, 'dispatch', 'ЖОЛООЧИЙН ХУВЬ');
+      printReceipt('Ачилт баримт', receipt1 + '\n\n' + receipt2);
+    }
+  }
+
+  async function handleVoidSale(saleId: string) {
+    if (!confirm('Энэ борлуулалтыг цуцлах уу? Бараа тоо буцаагдана.')) return;
+    setActionLoading(true);
+    try {
+      await api.delete(`/api/truck-sales/${saleId}/void`);
+      await fetchLoad();
+    } catch (err: any) {
+      alert('Борлуулалт цуцлахад алдаа гарлаа: ' + (err.response?.data?.message || err.message));
+    }
+    setActionLoading(false);
+  }
+
+  function toggleSaleExpand(saleId: string) {
+    setExpandedSales((prev) => {
+      const next = new Set(prev);
+      if (next.has(saleId)) next.delete(saleId);
+      else next.add(saleId);
+      return next;
+    });
+  }
+
+  function updateReturnItem(productId: string, field: 'returnedQty' | 'damagedQty', value: number) {
+    setReturnItems((prev) =>
+      prev.map((ri) => (ri.productId === productId ? { ...ri, [field]: value } : ri))
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="py-24 text-center">
+        <RefreshCw className="w-6 h-6 text-[#8E8E93] mx-auto animate-spin" />
+        <p className="text-[13px] text-[#8E8E93] mt-3">Ачааллаж байна...</p>
+      </div>
+    );
+  }
+
+  if (!load) {
+    return (
+      <div className="py-24 text-center">
+        <Truck className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
+        <p className="text-[17px] font-semibold text-[#1C1C1E]">Ачилт олдсонгүй</p>
+        <button
+          onClick={() => router.push('/truck-loads')}
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[14px] font-semibold text-[#007AFF] bg-[#007AFF]/10"
+        >
+          <ChevronLeft className="w-4 h-4" /> Буцах
+        </button>
+      </div>
+    );
+  }
+
+  const st = STATUS_CONFIG[load.status] || STATUS_CONFIG.LOADING;
+  const items: any[] = load.items || [];
+  const sales: any[] = load.sales || [];
+  const totalLoaded = items.reduce((s: number, i: any) => s + (i.loadedQty || 0), 0);
+  const totalSold = items.reduce((s: number, i: any) => s + (i.soldQty || 0), 0);
+  const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty || 0), 0);
+  const totalRemaining = totalLoaded - totalSold - totalReturned;
+
+  return (
+    <div className="space-y-5 animate-ios-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/truck-loads')} className="p-2 rounded-xl hover:bg-[#F2F2F7]">
+            <ChevronLeft className="w-5 h-5 text-[#007AFF]" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: st.bg }}>
+              <Truck className="w-5 h-5" style={{ color: st.color }} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[22px] font-bold text-[#1C1C1E]">#{load.loadNumber}</h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[12px] font-semibold" style={{ color: st.color, backgroundColor: st.bg }}>
+                  {st.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="inline-flex items-center gap-1 text-[13px] text-[#8E8E93]">
+                  <User className="w-3.5 h-3.5" />
+                  {load.driver?.lastName} {load.driver?.firstName}
+                </span>
+                {load.driver?.phone && (
+                  <span className="inline-flex items-center gap-1 text-[13px] text-[#8E8E93]">
+                    <Phone className="w-3.5 h-3.5" /> {load.driver.phone}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handlePrintCurrentState}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20"
+          >
+            <Printer className="w-3.5 h-3.5" /> Баримт хэвлэх
+          </button>
+          {load.status === 'LOADING' && (
+            <button onClick={handleDispatch} disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}>
+              <Send className="w-3.5 h-3.5" /> Илгээх
+            </button>
+          )}
+          {load.status === 'DISPATCHED' && (
+            <>
+              <button onClick={() => { setShowAddItems(true); fetchProducts(); }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20">
+                <PackagePlus className="w-3.5 h-3.5" /> Нэмэлт ачилт
+              </button>
+              <button onClick={handleVerifyReturn} disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #34C759, #30D158)' }}>
+                <CheckCircle className="w-3.5 h-3.5" /> Баталгаажуулах
+              </button>
+            </>
+          )}
+          {load.status === 'COMPLETION_REQUESTED' && (
+            <button onClick={handleApproveCompletion} disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #FF3B30, #FF6B6B)' }}>
+              <CheckCircle className="w-3.5 h-3.5" /> Дуусгах хүсэлтийг батлах
+            </button>
+          )}
+          {(load.status === 'LOADING' || load.status === 'DISPATCHED' || load.status === 'COMPLETION_REQUESTED') && (
+            <button onClick={handleCancel} disabled={actionLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 disabled:opacity-50">
+              <Ban className="w-3.5 h-3.5" /> Цуцлах
+            </button>
+          )}
+          {actionLoading && <RefreshCw className="w-4 h-4 text-[#8E8E93] animate-spin" />}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-4 text-center">
+          <p className="text-[11px] text-[#8E8E93] uppercase font-semibold">Ачсан</p>
+          <p className="text-[24px] font-bold text-[#1C1C1E]">{totalLoaded}</p>
+        </div>
+        <div className="bg-[#34C759]/5 rounded-2xl border border-[#34C759]/20 p-4 text-center">
+          <p className="text-[11px] text-[#34C759] uppercase font-semibold">Борлуулсан</p>
+          <p className="text-[24px] font-bold text-[#34C759]">{totalSold}</p>
+        </div>
+        <div className="bg-[#FF9500]/5 rounded-2xl border border-[#FF9500]/20 p-4 text-center">
+          <p className="text-[11px] text-[#FF9500] uppercase font-semibold">Буцаасан</p>
+          <p className="text-[24px] font-bold text-[#FF9500]">{totalReturned}</p>
+        </div>
+        <div className="bg-[#007AFF]/5 rounded-2xl border border-[#007AFF]/20 p-4 text-center">
+          <p className="text-[11px] text-[#007AFF] uppercase font-semibold">Үлдэгдэл</p>
+          <p className="text-[24px] font-bold text-[#007AFF]">{totalRemaining}</p>
+        </div>
+        <div className="bg-[#AF52DE]/5 rounded-2xl border border-[#AF52DE]/20 p-4 text-center">
+          <p className="text-[11px] text-[#AF52DE] uppercase font-semibold">Борлуулалт</p>
+          <p className="text-[24px] font-bold text-[#AF52DE]">{sales.length}</p>
+        </div>
+      </div>
+
+      {/* Additional Load Modal */}
+      {showAddItems && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#007AFF]/30 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E5EA]/50 bg-[#007AFF]/5">
+            <div className="flex items-center gap-2">
+              <PackagePlus className="w-5 h-5 text-[#007AFF]" />
+              <h2 className="text-[17px] font-bold text-[#1C1C1E]">Нэмэлт ачилт</h2>
+            </div>
+            <button onClick={() => setShowAddItems(false)} className="p-1 rounded-lg hover:bg-[#F2F2F7]">
+              <X className="w-5 h-5 text-[#8E8E93]" />
+            </button>
+          </div>
+          <form onSubmit={handleAddItems} className="p-5 space-y-3">
+            {addItems.map((ai, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <select value={ai.productId} onChange={(e) => {
+                  const next = [...addItems]; next[idx].productId = e.target.value; setAddItems(next);
+                }} className={inputClass + ' flex-1'}>
+                  <option value="">Бараа сонгох...</option>
+                  {products.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.sku}) — нөөц: {p.stockAvailable ?? '?'}</option>
+                  ))}
+                </select>
+                <input type="number" min={1} value={ai.loadedQty || ''} onChange={(e) => {
+                  const next = [...addItems]; next[idx].loadedQty = parseInt(e.target.value) || 0; setAddItems(next);
+                }} placeholder="Тоо" className={inputClass + ' w-28'} />
+                <button type="button" onClick={() => setAddItems(addItems.filter((_, i) => i !== idx))}
+                  className="p-2 rounded-lg text-[#FF3B30] hover:bg-[#FF3B30]/10"><X className="w-4 h-4" /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setAddItems([...addItems, { productId: '', loadedQty: 1 }])}
+              className="text-[13px] font-semibold text-[#007AFF] flex items-center gap-1">
+              <Plus className="w-3.5 h-3.5" /> Бараа нэмэх
+            </button>
+            <div className="flex gap-2 pt-2">
+              <button type="submit" disabled={addingItems}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}>
+                <PackagePlus className="w-4 h-4" /> {addingItems ? 'Нэмж байна...' : 'Нэмэлт ачилт хийх'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Items Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-[#E5E5EA]/50">
+          <Package className="w-5 h-5 text-[#007AFF]" />
+          <h2 className="text-[17px] font-bold text-[#1C1C1E]">Бараанууд</h2>
+          <span className="text-[13px] text-[#8E8E93]">({items.length})</span>
+        </div>
+        {items.length === 0 ? (
+          <div className="py-10 text-center text-[#8E8E93] text-[14px]">Бараа байхгүй</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F2F2F7] text-[12px] font-semibold text-[#8E8E93] uppercase">
+                  <th className="px-5 py-3">Бараа</th>
+                  <th className="px-4 py-3 text-center">Ачсан</th>
+                  <th className="px-4 py-3 text-center">Зарсан</th>
+                  <th className="px-4 py-3 text-center">Буцсан</th>
+                  <th className="px-4 py-3 text-center">Гэмтсэн</th>
+                  <th className="px-4 py-3 text-center">Үлдсэн</th>
+                  <th className="px-4 py-3 min-w-[140px]">Явц</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E5E5EA]/50">
+                {items.map((item: any) => {
+                  const loaded = item.loadedQty || 0;
+                  const sold = item.soldQty || 0;
+                  const returned = item.returnedQty || 0;
+                  const damaged = item.damagedQty || 0;
+                  const remaining = Math.max(0, loaded - sold - returned - damaged);
+                  const soldPct = loaded > 0 ? (sold / loaded) * 100 : 0;
+                  const returnedPct = loaded > 0 ? (returned / loaded) * 100 : 0;
+                  const damagedPct = loaded > 0 ? (damaged / loaded) * 100 : 0;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-[#F2F2F7]/50">
+                      <td className="px-5 py-3">
+                        <p className="text-[14px] font-medium text-[#1C1C1E]">{item.product?.name ?? '—'}</p>
+                        {item.product?.sku && <p className="text-[12px] text-[#8E8E93]">{item.product.sku}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-center text-[14px] font-semibold">{loaded}</td>
+                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#34C759]">{sold}</td>
+                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#FF9500]">{returned}</td>
+                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#FF3B30]">{damaged}</td>
+                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#8E8E93]">{remaining}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex h-2.5 rounded-full overflow-hidden bg-[#F2F2F7]">
+                          {soldPct > 0 && <div className="h-full bg-[#34C759]" style={{ width: `${soldPct}%` }} />}
+                          {returnedPct > 0 && <div className="h-full bg-[#FF9500]" style={{ width: `${returnedPct}%` }} />}
+                          {damagedPct > 0 && <div className="h-full bg-[#FF3B30]" style={{ width: `${damagedPct}%` }} />}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Sales History */}
+      {sales.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-[#E5E5EA]/50">
+            <ShoppingCart className="w-5 h-5 text-[#34C759]" />
+            <h2 className="text-[17px] font-bold text-[#1C1C1E]">Борлуулалтын түүх</h2>
+            <span className="text-[13px] text-[#8E8E93]">({sales.length})</span>
+          </div>
+          <div className="divide-y divide-[#E5E5EA]/50">
+            {sales.map((sale: any) => {
+              const isExpanded = expandedSales.has(sale.id);
+              return (
+                <Fragment key={sale.id}>
+                  <button onClick={() => toggleSaleExpand(sale.id)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F2F2F7]/50 text-left">
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-lg bg-[#34C759]/10 flex items-center justify-center shrink-0">
+                        <Hash className="w-4 h-4 text-[#34C759]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] font-semibold text-[#1C1C1E]">#{sale.saleNumber}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#F2F2F7] text-[#8E8E93]">
+                            {PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod}
+                          </span>
+                        </div>
+                        <span className="text-[13px] text-[#8E8E93]">
+                          {sale.customer?.storeName ?? sale.customer?.contactName ?? '—'}
+                          {sale.createdAt && ` • ${new Date(sale.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' })}`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[15px] font-bold text-[#1C1C1E]">₮{Number(sale.totalAmount || 0).toLocaleString()}</span>
+                      {load.status === 'DISPATCHED' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleVoidSale(sale.id); }}
+                          disabled={actionLoading}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
+                        >
+                          Цуцлах
+                        </button>
+                      )}
+                      {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8E8E93]" /> : <ChevronDown className="w-4 h-4 text-[#8E8E93]" />}
+                    </div>
+                  </button>
+                  {isExpanded && sale.items?.length > 0 && (
+                    <div className="px-5 pb-4">
+                      <div className="bg-[#F2F2F7] rounded-xl overflow-hidden">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="text-[11px] font-semibold text-[#8E8E93] uppercase">
+                              <th className="px-4 py-2">Бараа</th>
+                              <th className="px-4 py-2 text-center">Тоо</th>
+                              <th className="px-4 py-2 text-right">Үнэ</th>
+                              <th className="px-4 py-2 text-right">Нийт</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E5EA]/30">
+                            {sale.items.map((si: any, idx: number) => (
+                              <tr key={idx}>
+                                <td className="px-4 py-2 text-[13px]">{si.product?.name ?? '—'}</td>
+                                <td className="px-4 py-2 text-center text-[13px]">{si.quantity ?? 0}</td>
+                                <td className="px-4 py-2 text-right text-[13px] text-[#8E8E93]">₮{Number(si.unitPrice ?? 0).toLocaleString()}</td>
+                                <td className="px-4 py-2 text-right text-[13px] font-semibold">₮{Number(si.lineTotal ?? 0).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Return Form - DISPATCHED only */}
+      {load.status === 'DISPATCHED' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#FF9500]/30 overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-[#E5E5EA]/50 bg-[#FF9500]/5">
+            <CornerDownLeft className="w-5 h-5 text-[#FF9500]" />
+            <h2 className="text-[17px] font-bold text-[#1C1C1E]">Буцаалт бүртгэх</h2>
+          </div>
+          <form onSubmit={handleSubmitReturn} className="p-5 space-y-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-[#F2F2F7] text-[12px] font-semibold text-[#8E8E93] uppercase">
+                    <th className="px-4 py-3">Бараа</th>
+                    <th className="px-4 py-3 text-center">Ачсан</th>
+                    <th className="px-4 py-3 text-center">Зарсан</th>
+                    <th className="px-4 py-3 text-center">Үлдсэн</th>
+                    <th className="px-4 py-3 text-center">Буцаах тоо</th>
+                    <th className="px-4 py-3 text-center">Гэмтсэн</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E5EA]/50">
+                  {items.map((item: any) => {
+                    const ri = returnItems.find((r) => r.productId === item.productId);
+                    const loaded = item.loadedQty || 0;
+                    const sold = item.soldQty || 0;
+                    const remaining = loaded - sold;
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-4 py-3">
+                          <p className="text-[14px] font-medium text-[#1C1C1E]">{item.product?.name ?? '—'}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center text-[14px]">{loaded}</td>
+                        <td className="px-4 py-3 text-center text-[14px] text-[#34C759] font-semibold">{sold}</td>
+                        <td className="px-4 py-3 text-center text-[14px] text-[#007AFF] font-semibold">{remaining}</td>
+                        <td className="px-4 py-3">
+                          <input type="number" min={0} max={remaining}
+                            value={ri?.returnedQty ?? 0}
+                            onChange={(e) => updateReturnItem(item.productId, 'returnedQty', parseInt(e.target.value) || 0)}
+                            className="w-20 mx-auto block px-3 py-2 rounded-lg bg-[#F2F2F7] border border-[#E5E5EA] text-[14px] text-center outline-none focus:border-[#007AFF]"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input type="number" min={0} max={remaining}
+                            value={ri?.damagedQty ?? 0}
+                            onChange={(e) => updateReturnItem(item.productId, 'damagedQty', parseInt(e.target.value) || 0)}
+                            className="w-20 mx-auto block px-3 py-2 rounded-lg bg-[#F2F2F7] border border-[#FF3B30]/30 text-[14px] text-center outline-none focus:border-[#FF3B30]"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-[#8E8E93] mb-1">Тэмдэглэл</label>
+              <textarea value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)}
+                placeholder="Нэмэлт тайлбар..." rows={2} className={inputClass} />
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button type="submit" disabled={submittingReturn}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}>
+                <CornerDownLeft className="w-4 h-4" />
+                {submittingReturn ? 'Илгээж байна...' : 'Буцаалт илгээх'}
+              </button>
+              <button type="button" onClick={handleVerifyReturn} disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #34C759, #30D158)' }}>
+                <CheckCircle className="w-4 h-4" /> Баталгаажуулах + Баримт
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Completion Info */}
+      {load.status === 'COMPLETED' && (
+        <div className="bg-[#34C759]/5 rounded-2xl border border-[#34C759]/20 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle className="w-5 h-5 text-[#34C759]" />
+            <h3 className="text-[15px] font-bold text-[#34C759]">Ачилт дууссан</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-[13px] text-[#1C1C1E]">
+            {load.completedAt && <p>Дууссан: <span className="font-semibold">{new Date(load.completedAt).toLocaleString('mn-MN')}</span></p>}
+            {load.returnVerifiedBy && (
+              <p>Баталгаажуулсан: <span className="font-semibold">{load.returnVerifiedBy.lastName} {load.returnVerifiedBy.firstName}</span></p>
+            )}
+            {load.returnNotes && <p className="col-span-2">Тэмдэглэл: <span className="italic text-[#8E8E93]">{load.returnNotes}</span></p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

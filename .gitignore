@@ -1,0 +1,90 @@
+# ============ Node ============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============ Env файлууд — нууц үг, API key ============
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+!**/.env.example
+
+# ============ Backend builds ============
+backend/dist/
+backend/build/
+backend/coverage/
+backend/node_modules/.prisma/
+
+# ============ Admin (Next.js) builds ============
+admin/.next/
+admin/out/
+admin/.turbo/
+admin/coverage/
+
+# ============ Mobile (Expo / React Native) ============
+mobile/.expo/
+mobile/.expo-shared/
+mobile/android/
+mobile/ios/
+mobile/web-build/
+mobile/dist/
+
+# ============ Installer / Build artefacts ============
+installer/backend/dist/
+installer/admin/.next/
+zairmag_erp_installer/backend/node_modules/
+zairmag_erp_installer/admin/node_modules/
+zairmag_erp_installer/backend/dist/
+zairmag_erp_installer/admin/.next/
+
+# ============ Uploads (том бүтээгдэхүүний зургууд) ============
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ============ IDE / Editor ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# ============ OS ============
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ============ Logs / Temp ============
+logs/
+*.log
+tmp/
+temp/
+backups/
+
+# ============ Python cache ============
+__pycache__/
+*.pyc
+*.pyo
+
+# ============ Gradle / Android cache ============
+.gradle/
+*.apk
+*.ipa
+*.aab
+
+# ============ Temporary build folders used previously ============
+C:/im/
+/c/im/
+
+# ============ Secret / Keystore ============
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
+
+# ============ Misc ============
+receipt-preview.html

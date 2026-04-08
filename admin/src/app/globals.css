@@ -1,0 +1,530 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  /* Sidebar colors */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+
+  /* Chart colors */
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+
+  /* Core colors */
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* iOS-inspired radii */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* iOS system colors */
+  --color-ios-blue: oklch(0.488 0.243 264.376);
+  --color-ios-green: oklch(0.627 0.194 149.214);
+  --color-ios-orange: oklch(0.733 0.176 55.946);
+  --color-ios-red: oklch(0.577 0.245 27.325);
+  --color-ios-purple: oklch(0.553 0.213 306.285);
+  --color-ios-teal: oklch(0.65 0.13 220);
+  --color-ios-pink: oklch(0.6 0.23 10);
+  --color-ios-indigo: oklch(0.5 0.2 280);
+  --color-ios-gray: oklch(0.681 0 0);
+  --color-ios-label: oklch(0.216 0 0);
+  --color-ios-secondary-label: oklch(0.681 0 0);
+  --color-ios-separator: oklch(0.922 0 0);
+
+  /* Shadow tokens */
+  --shadow-ios-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-ios-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --shadow-ios-lg: 0 10px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-ios-xl: 0 20px 60px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================
+   Light Theme (iOS-inspired)
+   ============================================ */
+:root {
+  /* #F5F6FA Modern ERP background */
+  --background: oklch(0.967 0.005 270);
+  /* #1A1D26 Dark label */
+  --foreground: oklch(0.2 0.01 270);
+
+  /* White cards */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.216 0 0);
+
+  /* Popover */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.216 0 0);
+
+  /* Primary: iOS Blue #007AFF */
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(1 0 0);
+
+  /* Secondary: iOS light fill */
+  --secondary: oklch(0.961 0.003 286.067);
+  --secondary-foreground: oklch(0.216 0 0);
+
+  /* Muted */
+  --muted: oklch(0.952 0.003 286.067);
+  --muted-foreground: oklch(0.556 0 0);
+
+  /* Accent */
+  --accent: oklch(0.952 0.003 286.067);
+  --accent-foreground: oklch(0.216 0 0);
+
+  /* Destructive: iOS Red #FF3B30 */
+  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Borders: iOS separator */
+  --border: oklch(0.914 0.003 286.067);
+  --input: oklch(0.914 0.003 286.067);
+  --ring: oklch(0.488 0.243 264.376);
+
+  /* Chart colors mapped to iOS system colors */
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.627 0.194 149.214);
+  --chart-3: oklch(0.733 0.176 55.946);
+  --chart-4: oklch(0.553 0.213 306.285);
+  --chart-5: oklch(0.577 0.245 27.325);
+
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0.216 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.952 0.003 286.067);
+  --sidebar-accent-foreground: oklch(0.216 0 0);
+  --sidebar-border: oklch(0.914 0.003 286.067);
+  --sidebar-ring: oklch(0.488 0.243 264.376);
+}
+
+/* ============================================
+   Dark Theme (iOS Dark Mode)
+   ============================================ */
+.dark {
+  /* #1C1C1E */
+  --background: oklch(0.216 0 0);
+  /* #F5F5F7 */
+  --foreground: oklch(0.965 0 0);
+
+  /* #2C2C2E */
+  --card: oklch(0.274 0 0);
+  --card-foreground: oklch(0.965 0 0);
+
+  --popover: oklch(0.274 0 0);
+  --popover-foreground: oklch(0.965 0 0);
+
+  /* iOS Blue stays vibrant in dark */
+  --primary: oklch(0.547 0.245 264.376);
+  --primary-foreground: oklch(1 0 0);
+
+  /* #3A3A3C */
+  --secondary: oklch(0.32 0 0);
+  --secondary-foreground: oklch(0.965 0 0);
+
+  --muted: oklch(0.32 0 0);
+  --muted-foreground: oklch(0.681 0 0);
+
+  --accent: oklch(0.32 0 0);
+  --accent-foreground: oklch(0.965 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.547 0.245 264.376);
+
+  --chart-1: oklch(0.547 0.245 264.376);
+  --chart-2: oklch(0.67 0.194 149.214);
+  --chart-3: oklch(0.773 0.176 55.946);
+  --chart-4: oklch(0.6 0.213 306.285);
+  --chart-5: oklch(0.65 0.23 10);
+
+  --sidebar: oklch(0.216 0 0);
+  --sidebar-foreground: oklch(0.965 0 0);
+  --sidebar-primary: oklch(0.547 0.245 264.376);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.32 0 0);
+  --sidebar-accent-foreground: oklch(0.965 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.547 0.245 264.376);
+}
+
+/* ============================================
+   Base Layer
+   ============================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "ss02", "cv01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold;
+    letter-spacing: -0.02em;
+  }
+  h1 { @apply text-3xl lg:text-4xl; }
+  h2 { @apply text-2xl lg:text-3xl; }
+  h3 { @apply text-xl lg:text-2xl; }
+  h4 { @apply text-lg lg:text-xl; }
+}
+
+/* ============================================
+   Sidebar Scrollbar
+   ============================================ */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 10px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #D1D5DB transparent;
+}
+
+/* ============================================
+   iOS Keyframe Animations
+   ============================================ */
+@keyframes ios-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ios-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ios-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ios-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ios-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ios-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes ios-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes ios-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ============================================
+   Animation Utility Classes
+   ============================================ */
+.animate-ios-fade-in {
+  animation: ios-fade-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-ios-scale-in {
+  animation: ios-scale-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-ios-slide-up {
+  animation: ios-slide-up 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-ios-slide-down {
+  animation: ios-slide-down 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-ios-slide-right {
+  animation: ios-slide-right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-ios-pulse {
+  animation: ios-pulse 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+.animate-ios-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: ios-shimmer 1.5s ease infinite;
+}
+
+.animate-ios-bounce {
+  animation: ios-bounce 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/* ============================================
+   Stagger Delay Classes
+   ============================================ */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* ============================================
+   Glass / Frosted Utility
+   ============================================ */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-heavy {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.dark .glass {
+  background: rgba(44, 44, 46, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass-heavy {
+  background: rgba(44, 44, 46, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   iOS Card Utility
+   ============================================ */
+.ios-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: 1rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.ios-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.dark .ios-card {
+  background: #2C2C2E;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.dark .ios-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   Gradient Utility Classes
+   ============================================ */
+.gradient-blue {
+  background: linear-gradient(135deg, #007AFF, #5AC8FA);
+}
+
+.gradient-green {
+  background: linear-gradient(135deg, #34C759, #30D158);
+}
+
+.gradient-orange {
+  background: linear-gradient(135deg, #FF9500, #FFCC00);
+}
+
+.gradient-red {
+  background: linear-gradient(135deg, #FF3B30, #FF6961);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #AF52DE, #BF5AF2);
+}
+
+.gradient-teal {
+  background: linear-gradient(135deg, #5AC8FA, #64D2FF);
+}
+
+.gradient-pink {
+  background: linear-gradient(135deg, #FF2D55, #FF375F);
+}
+
+.gradient-indigo {
+  background: linear-gradient(135deg, #5856D6, #7A79E0);
+}
+
+/* ============================================
+   Custom Scrollbar (thin, iOS-like)
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* ============================================
+   iOS-style Focus Rings
+   ============================================ */
+.ios-focus {
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.ios-focus:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+}
+
+/* ============================================
+   iOS Active State (press effect)
+   ============================================ */
+.ios-press {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ios-press:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+
+/* ============================================
+   iOS-style Dividers
+   ============================================ */
+.ios-divider {
+  height: 0.5px;
+  background: rgba(60, 60, 67, 0.12);
+}
+
+.dark .ios-divider {
+  background: rgba(84, 84, 88, 0.65);
+}
