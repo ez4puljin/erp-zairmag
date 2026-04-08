@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TruckLoadStatus" ADD VALUE 'COMPLETION_REQUESTED';

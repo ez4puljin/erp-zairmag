@@ -1,0 +1,157 @@
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { PaginationDto, PaginatedResponse } from '../../common/dto/pagination.dto';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+export declare class CustomersService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    findAll(pagination: PaginationDto, city?: string): Promise<PaginatedResponse<any>>;
+    findOne(id: string): Promise<{
+        customerCategory: {
+            id: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            type: string;
+            description: string | null;
+        } | null;
+    } & {
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    create(dto: CreateCustomerDto): Promise<{
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    update(id: string, dto: UpdateCustomerDto): Promise<{
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    softDelete(id: string): Promise<{
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    deactivateCustomer(id: string): Promise<{
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    activateCustomer(id: string): Promise<{
+        id: string;
+        email: string | null;
+        phone: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        storeName: string;
+        contactName: string;
+        address: string;
+        city: string | null;
+        latitude: Prisma.Decimal | null;
+        longitude: Prisma.Decimal | null;
+        creditLimit: Prisma.Decimal;
+        outstandingDebt: Prisma.Decimal;
+        pricingTier: import("@prisma/client").$Enums.PricingTierLevel;
+        deletedAt: Date | null;
+        userId: string | null;
+        customerCategoryId: string | null;
+    }>;
+    createCredentials(customerId: string, data: {
+        email: string;
+        password: string;
+    }): Promise<{
+        message: string;
+        userId: string;
+    }>;
+    resetPassword(customerId: string, newPassword: string): Promise<{
+        message: string;
+    }>;
+    getBalance(customerId: string): Promise<{
+        totalDebt: Prisma.Decimal;
+        creditLimit: Prisma.Decimal;
+        lastPaymentDate: Date | null;
+        outstandingOrders: number;
+    }>;
+    getOrders(customerId: string, pagination: PaginationDto): Promise<PaginatedResponse<any>>;
+}

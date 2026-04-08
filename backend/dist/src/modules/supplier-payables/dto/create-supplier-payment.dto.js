@@ -1,0 +1,58 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CreateSupplierPaymentDto = void 0;
+const class_validator_1 = require("class-validator");
+const client_1 = require("@prisma/client");
+class CreateSupplierPaymentDto {
+    supplierId;
+    type = client_1.SupplierPaymentType.PAYMENT;
+    amount;
+    method;
+    description;
+    referenceNo;
+    date;
+}
+exports.CreateSupplierPaymentDto = CreateSupplierPaymentDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "supplierId", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)(client_1.SupplierPaymentType),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "type", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateSupplierPaymentDto.prototype, "amount", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)(client_1.PaymentMethod),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "method", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "referenceNo", void 0);
+__decorate([
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], CreateSupplierPaymentDto.prototype, "date", void 0);
+//# sourceMappingURL=create-supplier-payment.dto.js.map

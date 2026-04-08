@@ -1,0 +1,125 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CashClosingsService = void 0;
+const common_1 = require("@nestjs/common");
+const prisma_service_1 = require("../../prisma/prisma.service");
+let CashClosingsService = class CashClosingsService {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async create(dto, userId) {
+        const existing = await this.prisma.cashClosing.findUnique({
+            where: { closingDate: new Date(dto.closingDate) },
+        });
+        if (existing) {
+            throw new common_1.BadRequestException(`${dto.closingDate} өдрийн мөнгөн хаалт аль хэдийн хийгдсэн байна`);
+        }
+        return this.prisma.cashClosing.create({
+            data: {
+                closingDate: new Date(dto.closingDate),
+                openingBalance: dto.openingBalance,
+                totalCashIn: dto.totalCashIn,
+                totalCashOut: dto.totalCashOut,
+                totalBankIn: dto.totalBankIn,
+                closingBalance: dto.closingBalance,
+                notes: dto.notes,
+                closedById: userId,
+            },
+            include: {
+                closedBy: { select: { firstName: true, lastName: true } },
+            },
+        });
+    }
+    async findAll(dateFrom, dateTo) {
+        const where = {};
+        if (dateFrom || dateTo) {
+            where.closingDate = {};
+            if (dateFrom)
+                where.closingDate.gte = new Date(dateFrom);
+            if (dateTo)
+                where.closingDate.lte = new Date(dateTo);
+        }
+        return this.prisma.cashClosing.findMany({
+            where,
+            orderBy: { closingDate: 'desc' },
+            include: {
+                closedBy: { select: { firstName: true, lastName: true } },
+            },
+        });
+    }
+    async getLatest() {
+        return this.prisma.cashClosing.findFirst({
+            orderBy: { closingDate: 'desc' },
+        });
+    }
+    async getDailySummary(date) {
+        const dayStart = new Date(date);
+        const dayEnd = new Date(date + 'T23:59:59');
+        const payments = await this.prisma.payment.findMany({
+            where: {
+                paidAt: { gte: dayStart, lte: dayEnd },
+                status: 'COMPLETED',
+            },
+            include: {
+                customer: { select: { storeName: true } },
+            },
+        });
+        const cashPayments = payments.filter((p) => p.method === 'CASH');
+        const bankPayments = payments.filter((p) => p.method === 'BANK_TRANSFER');
+        const purchases = await this.prisma.purchaseReceipt.findMany({
+            where: {
+                receivedAt: { gte: dayStart, lte: dayEnd },
+            },
+            include: { supplier: { select: { name: true } } },
+        });
+        const previousClosing = await this.prisma.cashClosing.findFirst({
+            where: { closingDate: { lt: dayStart } },
+            orderBy: { closingDate: 'desc' },
+        });
+        const openingBalance = previousClosing ? Number(previousClosing.closingBalance) : 0;
+        const totalCashIn = cashPayments.reduce((s, p) => s + Number(p.amount), 0);
+        const totalBankIn = bankPayments.reduce((s, p) => s + Number(p.amount), 0);
+        const totalCashOut = purchases.reduce((s, p) => s + Number(p.totalAmount), 0);
+        return {
+            date,
+            openingBalance,
+            totalCashIn,
+            totalBankIn,
+            totalCashOut,
+            suggestedClosingBalance: openingBalance + totalCashIn - totalCashOut,
+            cashPayments: cashPayments.map((p) => ({
+                id: p.id,
+                customer: p.customer.storeName,
+                amount: Number(p.amount),
+                ref: p.externalRef,
+            })),
+            bankPayments: bankPayments.map((p) => ({
+                id: p.id,
+                customer: p.customer.storeName,
+                amount: Number(p.amount),
+                ref: p.externalRef,
+            })),
+            purchases: purchases.map((p) => ({
+                id: p.id,
+                supplier: p.supplier.name,
+                amount: Number(p.totalAmount),
+            })),
+        };
+    }
+};
+exports.CashClosingsService = CashClosingsService;
+exports.CashClosingsService = CashClosingsService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+], CashClosingsService);
+//# sourceMappingURL=cash-closings.service.js.map

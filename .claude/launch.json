@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "NestJS Backend (Dev)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["backend/start-dev.js"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "Next.js Admin (Dev)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["admin/start-dev.js"],
+      "port": 3001,
+      "autoPort": false
+    }
+  ]
+}
