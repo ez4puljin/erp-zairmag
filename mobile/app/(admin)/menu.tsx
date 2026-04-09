@@ -13,7 +13,6 @@ const SECTIONS: Section[] = [
     title: 'БОРЛУУЛАЛТ',
     items: [
       { icon: 'bag-handle', label: 'POS', color: '#34C759', route: '/(admin)/features/pos' },
-      { icon: 'receipt', label: 'Нэхэмжлэл', color: '#AF52DE', route: '/(admin)/features/invoices' },
     ],
   },
   {
@@ -36,8 +35,6 @@ const SECTIONS: Section[] = [
       { icon: 'document', label: 'Нийлүүлэгч тооцоо', color: '#EA580C', route: '/(admin)/features/supplier-payables' },
       { icon: 'card-outline', label: 'Дансны мэдээлэл', color: '#0EA5E9', route: '/(admin)/features/bank-accounts' },
       { icon: 'cash', label: 'Мөнгөн хаалт', color: '#A855F7', route: '/(admin)/features/cash-closings' },
-      { icon: 'wallet', label: 'Зардал', color: '#FF3B30', route: '/(admin)/features/expenses' },
-      { icon: 'pricetags', label: 'Зардлын ангилал', color: '#FF9500', route: '/(admin)/features/expense-categories' },
     ],
   },
   {
