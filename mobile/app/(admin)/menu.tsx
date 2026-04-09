@@ -31,9 +31,9 @@ const SECTIONS: Section[] = [
     title: 'САНХҮҮ',
     items: [
       { icon: 'card', label: 'Төлбөр', color: '#EF4444', route: '/(admin)/features/payments' },
-      { icon: 'book', label: 'Авлага', color: '#F472B6', route: '/(admin)/features/receivables' },
+      { icon: 'book', label: 'Тооцоо', color: '#F472B6', route: '/(admin)/features/receivables' },
       { icon: 'document', label: 'Нийлүүлэгч тооцоо', color: '#EA580C', route: '/(admin)/features/supplier-payables' },
-      { icon: 'card-outline', label: 'Дансны мэдээлэл', color: '#0EA5E9', route: '/(admin)/features/bank-accounts' },
+      { icon: 'card-outline', label: 'Данс', color: '#0EA5E9', route: '/(admin)/features/bank-accounts' },
       { icon: 'cash', label: 'Мөнгөн хаалт', color: '#A855F7', route: '/(admin)/features/cash-closings' },
     ],
   },
@@ -50,7 +50,7 @@ const SECTIONS: Section[] = [
     items: [
       { icon: 'stats-chart', label: 'Тайлан', color: '#6366F1', route: '/(admin)/features/reports' },
       { icon: 'chatbox', label: 'SMS тохиргоо', color: '#5856D6', route: '/(admin)/features/sms-settings' },
-      { icon: 'document-text', label: 'Баримт тохиргоо', color: '#FF9500', route: '/(admin)/features/receipt-settings' },
+      { icon: 'document-text', label: 'Баримтын загвар', color: '#FF9500', route: '/(admin)/features/receipt-settings' },
     ],
   },
 ];
