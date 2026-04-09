@@ -856,6 +856,15 @@ function ProductGrid({
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock'>('all');
+  // Per-product input mode toggle: 'box' (default if upb>1) or 'piece'
+  const [inputMode, setInputMode] = useState<Record<string, 'box' | 'piece'>>({});
+  const getMode = (p: any): 'box' | 'piece' => {
+    if (inputMode[p.id]) return inputMode[p.id];
+    return (p.unitsPerBox ?? 1) > 1 ? 'box' : 'piece';
+  };
+  const setMode = (productId: string, mode: 'box' | 'piece') => {
+    setInputMode(prev => ({ ...prev, [productId]: mode }));
+  };
 
   const filtered = products.filter((p: any) => {
     if (search) {
@@ -1034,24 +1043,76 @@ function ProductGrid({
                       )}
                     </div>
 
-                    {/* Direct qty input */}
-                    <div className="mt-auto">
-                      <input
-                        type="number"
-                        min={0}
-                        value={qty || ''}
-                        onChange={(e) => setQty(p, Math.max(0, parseInt(e.target.value) || 0))}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="0"
-                        className={`w-full h-10 text-center rounded-lg border-2 text-[15px] font-bold outline-none transition-all ${
-                          isSelected
-                            ? 'bg-[#EFF6FF] border-[#007AFF] text-[#007AFF]'
-                            : 'bg-white border-[#E8ECF0] text-[#1A1D26] focus:border-[#007AFF]'
-                        }`}
-                      />
+                    {/* Box/Piece toggle + qty input */}
+                    <div className="mt-auto space-y-1.5">
+                      {upb > 1 && (
+                        <div className="flex items-center gap-0 bg-[#F5F6FA] rounded-lg p-0.5 border border-[#E8ECF0]">
+                          <button
+                            type="button"
+                            onClick={() => setMode(p.id, 'box')}
+                            className={`flex-1 py-1 rounded text-[10px] font-bold transition-all ${
+                              getMode(p) === 'box'
+                                ? 'bg-[#007AFF] text-white shadow-sm'
+                                : 'text-[#8C8FA3] hover:text-[#4A4D5C]'
+                            }`}
+                          >
+                            Хайрцаг
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMode(p.id, 'piece')}
+                            className={`flex-1 py-1 rounded text-[10px] font-bold transition-all ${
+                              getMode(p) === 'piece'
+                                ? 'bg-[#FF9500] text-white shadow-sm'
+                                : 'text-[#8C8FA3] hover:text-[#4A4D5C]'
+                            }`}
+                          >
+                            Ширхэг
+                          </button>
+                        </div>
+                      )}
+
+                      {(() => {
+                        const mode = getMode(p);
+                        const displayValue = mode === 'box' ? (qty > 0 ? Math.floor(qty / upb) : 0) : qty;
+                        const placeholder = mode === 'box' ? 'хайрцаг' : 'ширхэг';
+                        const accentColor = mode === 'box' ? '#007AFF' : '#FF9500';
+                        return (
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={0}
+                              value={displayValue || ''}
+                              onChange={(e) => {
+                                const v = Math.max(0, parseInt(e.target.value) || 0);
+                                if (mode === 'box') {
+                                  setQty(p, v * upb);
+                                } else {
+                                  setQty(p, v);
+                                }
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              placeholder="0"
+                              className={`w-full h-10 px-2 text-center rounded-lg border-2 text-[15px] font-bold outline-none transition-all ${
+                                isSelected
+                                  ? 'bg-white text-[#1A1D26]'
+                                  : 'bg-white border-[#E8ECF0] text-[#1A1D26] focus:border-[#007AFF]'
+                              }`}
+                              style={isSelected ? { borderColor: accentColor, color: accentColor, backgroundColor: `${accentColor}08` } : undefined}
+                            />
+                            <span
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold pointer-events-none"
+                              style={{ color: isSelected ? accentColor : '#A0A3B1' }}
+                            >
+                              {placeholder}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       {isSelected && upb > 1 && (
-                        <p className="text-[9px] text-[#007AFF] font-semibold text-center mt-1">
-                          {boxes} хайрцаг {pieces > 0 ? `+ ${pieces} ш` : ''}
+                        <p className="text-[9px] text-[#007AFF] font-semibold text-center">
+                          = {qty} ш {boxes > 0 ? `(${boxes} хайрцаг${pieces > 0 ? ` + ${pieces} ш` : ''})` : ''}
                         </p>
                       )}
                     </div>
