@@ -218,24 +218,24 @@ export default function BankAccountsPage() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center gap-3 p-6 border-b border-[#E5E5EA]">
-              <div className="w-12 h-12 rounded-2xl bg-[#007AFF15] flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-[#007AFF]" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center gap-3 p-5 border-b border-[#E5E5EA] shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-[#007AFF15] flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5 text-[#007AFF]" />
               </div>
-              <div className="flex-1">
-                <h2 className="text-[20px] font-bold text-[#1C1C1E]">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-[18px] font-bold text-[#1C1C1E] truncate">
                   {editingId ? 'Данс засах' : 'Шинэ данс'}
                 </h2>
-                <p className="text-[12px] text-[#8E8E93]">Банкны данс үүсгэх/засах</p>
+                <p className="text-[11px] text-[#8E8E93]">Банкны данс үүсгэх/засах</p>
               </div>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-[#F2F2F7]">
+              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-[#F2F2F7] shrink-0">
                 <X className="w-5 h-5 text-[#8E8E93]" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 170px)' }}>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
               <div>
                 <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Банкны нэр *</label>
                 <input
@@ -319,7 +319,7 @@ export default function BankAccountsPage() {
               </label>
             </div>
 
-            <div className="flex gap-3 p-6 border-t border-[#E5E5EA]">
+            <div className="flex gap-3 p-5 border-t border-[#E5E5EA] shrink-0">
               <button
                 onClick={() => setShowForm(false)}
                 className="flex-1 px-5 py-3 rounded-xl bg-[#F2F2F7] text-[#8E8E93] font-semibold text-[14px] hover:bg-[#E5E5EA]"

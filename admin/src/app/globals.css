@@ -240,14 +240,14 @@
 /* ============================================
    iOS Keyframe Animations
    ============================================ */
+/* NOTE: avoid transform here — transform on animation-fill-mode: both creates
+   a containing block that breaks position:fixed modals inside the animated element. */
 @keyframes ios-fade-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
