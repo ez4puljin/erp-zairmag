@@ -33,6 +33,9 @@ import {
   ChevronRight,
   ArrowLeft,
   ChevronDown,
+  Wallet,
+  MessageSquare,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -75,9 +78,10 @@ const menuGroups: NavGroup[] = [
   },
   {
     title: 'САНХҮҮ',
-    description: 'Төлбөр, авлага, өглөг',
+    description: 'Төлбөр, авлага, өглөг, данс',
     items: [
       { href: '/payments', label: 'Төлбөр', description: 'Төлбөр бүртгэх', icon: CreditCard, color: '#EF4444', bg: '#FEF2F2' },
+      { href: '/bank-accounts', label: 'Данс', description: 'Банкны данс', icon: Wallet, color: '#0EA5E9', bg: '#F0F9FF' },
       { href: '/receivables', label: 'Тооцоо', description: 'Харилцагчдын тооцоо', icon: BookOpen, color: '#F472B6', bg: '#FDF2F8' },
       { href: '/supplier-payables', label: 'Нийлүүлэгч тооцоо', description: 'Нийлүүлэгчдийн тооцоо', icon: FileText, color: '#EA580C', bg: '#FFF7ED' },
       { href: '/cash-closings', label: 'Мөнгөн хаалт', description: 'Кассын хаалт', icon: Landmark, color: '#A855F7', bg: '#FAF5FF' },
@@ -99,6 +103,15 @@ const menuGroups: NavGroup[] = [
       { href: '/product-ledger', label: 'Бараа тайлан', description: 'Барааны хөдөлгөөн', icon: ScrollText, color: '#0891B2', bg: '#ECFEFF' },
       { href: '/reports', label: 'Тайлан', description: 'Нэгдсэн тайлан', icon: BarChart3, color: '#6366F1', bg: '#EEF2FF' },
       { href: '/reports/drivers', label: 'Жолоочийн тайлан', description: 'Ачилт, борлуулалт', icon: Truck, color: '#5856D6', bg: '#EEF2FF' },
+      { href: '/reports/bank-accounts', label: 'Дансны тайлан', description: 'Орлого, зарлага', icon: Wallet, color: '#0EA5E9', bg: '#F0F9FF' },
+    ],
+  },
+  {
+    title: 'ТОХИРГОО',
+    description: 'Системийн тохиргоонууд',
+    items: [
+      { href: '/sms-settings', label: 'SMS тохиргоо', description: 'SMS илгээх API', icon: MessageSquare, color: '#5856D6', bg: '#EEF2FF' },
+      { href: '/receipt-settings', label: 'Баримтын загвар', description: 'Хэвлэх загвар', icon: Receipt, color: '#FF9500', bg: '#FFF7ED' },
     ],
   },
 ];
