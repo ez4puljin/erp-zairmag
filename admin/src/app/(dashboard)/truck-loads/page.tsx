@@ -8,7 +8,10 @@ import {
   RefreshCw, X, Send, CheckCircle, Ban, Hash,
   ChevronRight, DollarSign, Clock, Archive,
   PackageCheck, ShoppingBag, AlertTriangle,
+  Search, Filter, ImageOff,
 } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ====================== TYPES ======================
 interface TruckLoadItem {
@@ -64,6 +67,7 @@ export default function TruckLoadsKanban() {
   // Form state
   const [drivers, setDrivers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [formDriverId, setFormDriverId] = useState('');
   const [formVehicle, setFormVehicle] = useState('');
   const [formDate, setFormDate] = useState(today);
@@ -129,9 +133,11 @@ export default function TruckLoadsKanban() {
     Promise.all([
       api.get('/api/drivers'),
       api.get('/api/products', { params: { limit: 100 } }),
-    ]).then(([dRes, pRes]) => {
+      api.get('/api/categories'),
+    ]).then(([dRes, pRes, cRes]) => {
       setDrivers(dRes.data?.data ?? dRes.data ?? []);
       setProducts((pRes.data?.data ?? pRes.data ?? []).filter((p: any) => p.isActive));
+      setCategories(cRes.data?.data ?? cRes.data ?? []);
     }).catch(() => {});
   }, [showForm, addItemsLoadId]);
 
@@ -377,101 +383,152 @@ export default function TruckLoadsKanban() {
         </div>
       </div>
 
-      {/* New Load Sheet/Overlay */}
+      {/* New Load Full-Screen Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowForm(false); resetForm(); }} />
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto animate-ios-slide-right" style={{ animationDuration: '0.3s' }}>
-            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#E8ECF0] flex items-center justify-between">
-              <h2 className="text-[17px] font-bold text-[#1A1D26]">Шинэ ачилт</h2>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] h-full max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#E8ECF0] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#007AFF]/10 flex items-center justify-center">
+                  <Truck className="w-5 h-5 text-[#007AFF]" />
+                </div>
+                <div>
+                  <h2 className="text-[18px] font-bold text-[#1A1D26]">Шинэ ачилт үүсгэх</h2>
+                  <p className="text-[11px] text-[#8C8FA3]">Бараа сонгож, жолоочид хуваарилна</p>
+                </div>
+              </div>
               <button onClick={() => { setShowForm(false); resetForm(); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              {/* Driver */}
-              <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Жолооч *</label>
-                <select value={formDriverId} onChange={(e) => setFormDriverId(e.target.value)} className={inputClass}>
-                  <option value="">Сонгох...</option>
-                  {drivers.map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.firstName} {d.lastName} ({d.phone})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Vehicle */}
-              <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Машин</label>
-                <input
-                  type="text"
-                  value={formVehicle}
-                  onChange={(e) => setFormVehicle(e.target.value)}
-                  placeholder="Машины дугаар, нэр..."
-                  className={inputClass}
+            {/* Body — 2 column layout: left product grid, right form */}
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+              {/* LEFT: Product Grid */}
+              <div className="flex-1 overflow-hidden flex flex-col min-w-0 border-r border-[#E8ECF0]">
+                <ProductGrid
+                  products={products}
+                  categories={categories}
+                  selectedItems={formItems}
+                  onUpdate={(items) => setFormItems(items)}
                 />
               </div>
 
-              {/* Date */}
-              <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Огноо</label>
-                <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className={inputClass} />
-              </div>
+              {/* RIGHT: Form */}
+              <div className="w-full lg:w-[360px] shrink-0 overflow-y-auto bg-[#FAFBFC]">
+                <div className="p-5 space-y-4">
+                  {/* Driver */}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Жолооч *</label>
+                    <select value={formDriverId} onChange={(e) => setFormDriverId(e.target.value)} className={inputClass}>
+                      <option value="">Сонгох...</option>
+                      {drivers.map((d: any) => (
+                        <option key={d.id} value={d.id}>{d.firstName} {d.lastName} ({d.phone})</option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Location type */}
-              <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Ачилтын төрөл *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormLocationType('URBAN')}
-                    className={`px-4 py-3 rounded-xl text-[14px] font-semibold transition-all border-2 ${
-                      formLocationType === 'URBAN'
-                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md'
-                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#007AFF]/40'
-                    }`}
-                  >
-                    🏙️ Мөрөн
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormLocationType('RURAL')}
-                    className={`px-4 py-3 rounded-xl text-[14px] font-semibold transition-all border-2 ${
-                      formLocationType === 'RURAL'
-                        ? 'bg-[#34C759] text-white border-[#34C759] shadow-md'
-                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#34C759]/40'
-                    }`}
-                  >
-                    🏞️ Орон нутаг
-                  </button>
+                  {/* Vehicle */}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Машин</label>
+                    <input
+                      type="text"
+                      value={formVehicle}
+                      onChange={(e) => setFormVehicle(e.target.value)}
+                      placeholder="Машины дугаар, нэр..."
+                      className={inputClass}
+                    />
+                  </div>
+
+                  {/* Date */}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Огноо</label>
+                    <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className={inputClass} />
+                  </div>
+
+                  {/* Location type */}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Ачилтын төрөл *</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormLocationType('URBAN')}
+                        className={`px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all border-2 ${
+                          formLocationType === 'URBAN'
+                            ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md'
+                            : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#007AFF]/40'
+                        }`}
+                      >
+                        🏙️ Мөрөн
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormLocationType('RURAL')}
+                        className={`px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all border-2 ${
+                          formLocationType === 'RURAL'
+                            ? 'bg-[#34C759] text-white border-[#34C759] shadow-md'
+                            : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#34C759]/40'
+                        }`}
+                      >
+                        🏞️ Орон нутаг
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-[#8C8FA3] mt-1">
+                      {formLocationType === 'URBAN' ? 'Жолоочийн POS-д Мөрөн үнэ хэрэглэгдэнэ' : 'Жолоочийн POS-д орон нутгийн үнэ хэрэглэгдэнэ'}
+                    </p>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Тэмдэглэл</label>
+                    <input type="text" value={formNotes} onChange={(e) => setFormNotes(e.target.value)} placeholder="Нэмэлт мэдээлэл..." className={inputClass} />
+                  </div>
+
+                  {/* Selected summary */}
+                  {formItems.length > 0 && (
+                    <div className="bg-white rounded-xl border border-[#E8ECF0] p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold text-[#8C8FA3] uppercase">Сонгогдсон</span>
+                        <span className="text-[12px] font-bold text-[#007AFF]">
+                          {formItems.length} бараа · {formItems.reduce((s, i) => s + i.loadedQty, 0)} ш
+                        </span>
+                      </div>
+                      <div className="space-y-1 max-h-[160px] overflow-y-auto">
+                        {formItems.map((fi) => (
+                          <div key={fi.productId} className="flex items-center justify-between text-[12px]">
+                            <span className="text-[#4A4D5C] truncate flex-1 mr-2">{fi.productName}</span>
+                            <span className="font-bold text-[#1A1D26]">{fi.loadedQty} ш</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-[#8C8FA3] mt-1">
-                  {formLocationType === 'URBAN' ? 'Жолоочийн POS-д Мөрөн үнэ хэрэглэгдэнэ' : 'Жолоочийн POS-д орон нутгийн үнэ хэрэглэгдэнэ'}
-                </p>
               </div>
+            </div>
 
-              {/* Notes */}
-              <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Тэмдэглэл</label>
-                <input type="text" value={formNotes} onChange={(e) => setFormNotes(e.target.value)} placeholder="Нэмэлт мэдээлэл..." className={inputClass} />
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#E8ECF0] flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="text-[12px] text-[#8C8FA3]">
+                {formItems.length === 0 ? 'Бараа сонгоно уу' : `${formItems.length} бараа · нийт ${formItems.reduce((s, i) => s + i.loadedQty, 0)} ш`}
               </div>
-
-              {/* Product Grid — All products with stock */}
-              <ProductGrid
-                products={products}
-                selectedItems={formItems}
-                onUpdate={(items) => setFormItems(items)}
-              />
-
-              {/* Submit */}
-              <button
-                onClick={handleCreateLoad}
-                disabled={submitting || !formDriverId || formItems.length === 0}
-                className="w-full py-3 rounded-xl bg-[#007AFF] text-white text-[14px] font-semibold shadow-md shadow-[#007AFF]/25 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#0066D6] transition-colors"
-              >
-                {submitting ? 'Үүсгэж байна...' : 'Ачилт үүсгэх'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowForm(false); resetForm(); }}
+                  className="px-5 py-2.5 rounded-xl bg-[#F5F6FA] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
+                >
+                  Цуцлах
+                </button>
+                <button
+                  onClick={handleCreateLoad}
+                  disabled={submitting || !formDriverId || formItems.length === 0}
+                  className="px-6 py-2.5 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-md shadow-[#007AFF]/25 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#0066D6] transition-colors flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {submitting ? 'Үүсгэж байна...' : 'Ачилт үүсгэх'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -499,6 +556,7 @@ export default function TruckLoadsKanban() {
               {/* Product Grid — All products with stock */}
               <ProductGrid
                 products={products}
+                categories={categories}
                 selectedItems={addItemsFormItems}
                 onUpdate={(items) => setAddItemsFormItems(items)}
               />
@@ -783,21 +841,31 @@ function KanbanCard({
 }
 
 // ====================== PRODUCT GRID ======================
-// Shows ALL products as a grid. Each product card shows stock, +/- qty controls.
+// Full grid layout with image, stock, direct qty input, category filter
 function ProductGrid({
   products,
+  categories = [],
   selectedItems,
   onUpdate,
 }: {
   products: any[];
+  categories?: any[];
   selectedItems: { productId: string; productName: string; loadedQty: number; unitsPerBox: number }[];
   onUpdate: (items: { productId: string; productName: string; loadedQty: number; unitsPerBox: number }[]) => void;
 }) {
   const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState<string>('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in_stock'>('all');
 
-  const filtered = products.filter((p: any) =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter((p: any) => {
+    if (search) {
+      const q = search.toLowerCase();
+      if (!p.name?.toLowerCase().includes(q) && !p.sku?.toLowerCase().includes(q)) return false;
+    }
+    if (categoryId && p.categoryId !== categoryId && p.category?.id !== categoryId) return false;
+    if (stockFilter === 'in_stock' && (p.stockAvailable ?? 0) <= 0) return false;
+    return true;
+  });
 
   const getQty = (productId: string) => selectedItems.find((fi) => fi.productId === productId)?.loadedQty ?? 0;
 
@@ -819,133 +887,179 @@ function ProductGrid({
     }
   };
 
-  const addBox = (product: any) => {
-    const upb = product.unitsPerBox ?? 1;
-    const current = getQty(product.id);
-    setQty(product, current + upb);
-  };
-
   const totalSelected = selectedItems.reduce((s, fi) => s + fi.loadedQty, 0);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <label className="text-[11px] font-bold text-[#8C8FA3] uppercase">
-          Бараа сонгох
-        </label>
-        {selectedItems.length > 0 && (
-          <span className="text-[11px] font-bold text-[#007AFF]">
-            {selectedItems.length} бараа · {totalSelected} ш
-          </span>
+    <div className="flex flex-col h-full">
+      {/* Toolbar: search + filters */}
+      <div className="px-5 py-3 border-b border-[#E8ECF0] bg-white shrink-0">
+        <div className="flex items-center gap-2 mb-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A0A3B1]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Бараа хайх (нэр, баркод)..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[13px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
+            />
+          </div>
+
+          {/* Stock toggle */}
+          <div className="flex items-center gap-1 bg-[#F5F6FA] rounded-xl p-1 border border-[#E8ECF0]">
+            <button
+              type="button"
+              onClick={() => setStockFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                stockFilter === 'all' ? 'bg-white text-[#1A1D26] shadow-sm' : 'text-[#8C8FA3]'
+              }`}
+            >
+              Бүгд
+            </button>
+            <button
+              type="button"
+              onClick={() => setStockFilter('in_stock')}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
+                stockFilter === 'in_stock' ? 'bg-white text-[#10B981] shadow-sm' : 'text-[#8C8FA3]'
+              }`}
+            >
+              Нөөцтэй
+            </button>
+          </div>
+
+          <div className="text-[11px] font-semibold text-[#007AFF] whitespace-nowrap">
+            {selectedItems.length > 0 ? `${selectedItems.length} бараа · ${totalSelected} ш` : `${filtered.length} бараа`}
+          </div>
+        </div>
+
+        {/* Category chips */}
+        {categories.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+            <button
+              type="button"
+              onClick={() => setCategoryId('')}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all border ${
+                categoryId === ''
+                  ? 'bg-[#007AFF] text-white border-[#007AFF]'
+                  : 'bg-white text-[#4A4D5C] border-[#E8ECF0] hover:border-[#007AFF]/40'
+              }`}
+            >
+              Бүх ангилал
+            </button>
+            {categories.map((c: any) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCategoryId(c.id)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all border ${
+                  categoryId === c.id
+                    ? 'bg-[#007AFF] text-white border-[#007AFF]'
+                    : 'bg-white text-[#4A4D5C] border-[#E8ECF0] hover:border-[#007AFF]/40'
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Бараа хайх..."
-          className="w-full px-3 py-2 pl-9 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[13px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
-        />
-        <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A0A3B1]" />
-      </div>
-
-      {/* Product list */}
-      <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+      {/* Grid */}
+      <div className="flex-1 overflow-y-auto p-5 bg-[#FAFBFC] min-h-0">
         {filtered.length === 0 ? (
-          <div className="text-center py-6 text-[13px] text-[#A0A3B1]">Бараа олдсонгүй</div>
+          <div className="text-center py-16 text-[13px] text-[#A0A3B1]">
+            <Package className="w-12 h-12 text-[#E8ECF0] mx-auto mb-2" />
+            Бараа олдсонгүй
+          </div>
         ) : (
-          filtered.map((p: any) => {
-            const qty = getQty(p.id);
-            const upb = p.unitsPerBox ?? 1;
-            const stock = p.stockAvailable ?? 0;
-            const boxes = upb > 1 ? Math.floor(qty / upb) : 0;
-            const pieces = upb > 1 ? qty % upb : qty;
-            const isSelected = qty > 0;
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {filtered.map((p: any) => {
+              const qty = getQty(p.id);
+              const upb = p.unitsPerBox ?? 1;
+              const stock = p.stockAvailable ?? 0;
+              const isSelected = qty > 0;
+              const boxes = upb > 1 ? Math.floor(qty / upb) : 0;
+              const pieces = upb > 1 ? qty % upb : qty;
 
-            return (
-              <div
-                key={p.id}
-                className={`rounded-xl border p-3 transition-all ${
-                  isSelected
-                    ? 'bg-[#EFF6FF] border-[#007AFF]/30'
-                    : 'bg-white border-[#E8ECF0] hover:border-[#D0D2DA]'
-                }`}
-              >
-                {/* Product info row */}
-                <div className="flex items-start justify-between mb-1.5">
-                  <div className="flex-1 min-w-0 mr-2">
-                    <p className="text-[13px] font-semibold text-[#1A1D26] leading-tight truncate">{p.name}</p>
-                    <p className="text-[10px] text-[#A0A3B1] mt-0.5">{p.sku}</p>
+              return (
+                <div
+                  key={p.id}
+                  className={`rounded-xl border-2 overflow-hidden transition-all flex flex-col ${
+                    isSelected
+                      ? 'border-[#007AFF] shadow-md shadow-[#007AFF]/15 bg-white'
+                      : stock > 0
+                      ? 'border-[#E8ECF0] bg-white hover:border-[#007AFF]/40'
+                      : 'border-[#E8ECF0] bg-[#F5F6FA] opacity-75'
+                  }`}
+                >
+                  {/* Image */}
+                  <div className="relative w-full aspect-square bg-[#F5F6FA] flex items-center justify-center">
+                    {p.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`${API_URL}${p.imageUrl}`}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageOff className="w-10 h-10 text-[#D0D2DA]" />
+                    )}
+                    {/* Stock badge overlay */}
+                    <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                      stock > 0 ? 'bg-[#10B981] text-white' : 'bg-[#EF4444] text-white'
+                    }`}>
+                      {stock} нөөц
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[#007AFF] text-white flex items-center justify-center text-[10px] font-bold shadow-md">
+                        ✓
+                      </div>
+                    )}
                   </div>
-                  {/* Stock badge */}
-                  <div className={`text-right shrink-0 px-2 py-0.5 rounded-lg ${stock > 0 ? 'bg-[#ECFDF5]' : 'bg-[#FEF2F2]'}`}>
-                    <span className={`text-[12px] font-bold ${stock > 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                      {stock}
-                    </span>
-                    <span className="text-[9px] text-[#8C8FA3] ml-0.5">нөөц</span>
+
+                  {/* Info */}
+                  <div className="p-2.5 flex-1 flex flex-col">
+                    <p className="text-[12px] font-semibold text-[#1A1D26] leading-tight line-clamp-2 min-h-[30px]">
+                      {p.name}
+                    </p>
+                    <div className="flex items-center justify-between mt-1 mb-2">
+                      <span className="text-[11px] font-semibold text-[#4A4D5C]">
+                        ₮{Number(p.sellingPrice ?? 0).toLocaleString()}
+                      </span>
+                      {upb > 1 && (
+                        <span className="text-[9px] text-[#8C8FA3] bg-[#F5F6FA] px-1 py-0.5 rounded">
+                          {upb}ш/хайрцаг
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Direct qty input */}
+                    <div className="mt-auto">
+                      <input
+                        type="number"
+                        min={0}
+                        value={qty || ''}
+                        onChange={(e) => setQty(p, Math.max(0, parseInt(e.target.value) || 0))}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="0"
+                        className={`w-full h-10 text-center rounded-lg border-2 text-[15px] font-bold outline-none transition-all ${
+                          isSelected
+                            ? 'bg-[#EFF6FF] border-[#007AFF] text-[#007AFF]'
+                            : 'bg-white border-[#E8ECF0] text-[#1A1D26] focus:border-[#007AFF]'
+                        }`}
+                      />
+                      {isSelected && upb > 1 && (
+                        <p className="text-[9px] text-[#007AFF] font-semibold text-center mt-1">
+                          {boxes} хайрцаг {pieces > 0 ? `+ ${pieces} ш` : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Price + box info */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[11px] font-semibold text-[#4A4D5C]">₮{Number(p.sellingPrice ?? 0).toLocaleString()}</span>
-                  {upb > 1 && (
-                    <span className="text-[10px] text-[#A0A3B1] bg-[#F5F6FA] px-1.5 py-0.5 rounded">{upb} ш/хайрцаг</span>
-                  )}
-                </div>
-
-                {/* Qty controls */}
-                <div className="flex items-center gap-2">
-                  {/* Add box button */}
-                  {upb > 1 && (
-                    <button
-                      onClick={() => addBox(p)}
-                      disabled={stock <= 0}
-                      className="px-2.5 py-1.5 rounded-lg bg-[#007AFF] text-white text-[10px] font-bold hover:bg-[#0066D6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      +1 хайрцаг
-                    </button>
-                  )}
-
-                  {/* +/- unit buttons */}
-                  <div className="flex items-center gap-0 ml-auto">
-                    <button
-                      onClick={() => setQty(p, qty - 1)}
-                      disabled={qty <= 0}
-                      className="w-8 h-8 rounded-l-lg bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center text-[#4A4D5C] font-bold hover:bg-[#E8ECF0] disabled:opacity-30 transition-colors"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min={0}
-                      value={qty || ''}
-                      onChange={(e) => setQty(p, Math.max(0, parseInt(e.target.value) || 0))}
-                      placeholder="0"
-                      className="w-14 h-8 text-center border-y border-[#E8ECF0] text-[13px] font-bold text-[#1A1D26] outline-none bg-white"
-                    />
-                    <button
-                      onClick={() => setQty(p, qty + 1)}
-                      disabled={stock <= 0}
-                      className="w-8 h-8 rounded-r-lg bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center text-[#4A4D5C] font-bold hover:bg-[#E8ECF0] disabled:opacity-30 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                {/* Show selected qty breakdown */}
-                {isSelected && upb > 1 && (
-                  <div className="mt-1.5 text-[10px] text-[#007AFF] font-semibold">
-                    = {boxes} хайрцаг + {pieces} ширхэг
-                  </div>
-                )}
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
