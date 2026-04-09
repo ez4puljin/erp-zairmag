@@ -69,10 +69,16 @@ export default function NewPaymentPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5 space-y-4">
           <div>
             <label className={labelClass}>Харилцагч</label>
-            <select value={form.customerId} onChange={e => setForm(prev => ({ ...prev, customerId: e.target.value }))} required className={inputClass}>
-              <option value="">Сонгох...</option>
-              {customers.map((c: any) => (<option key={c.id} value={c.id}>{c.storeName}</option>))}
-            </select>
+            {customers.length === 0 ? (
+              <a href="/customers" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                ⚠️ Харилцагч бүртгээгүй байна. Эхлээд харилцагч бүртгэнэ үү. <span className="underline font-bold">Харилцагч бүртгэх</span>
+              </a>
+            ) : (
+              <select value={form.customerId} onChange={e => setForm(prev => ({ ...prev, customerId: e.target.value }))} required className={inputClass}>
+                <option value="">Сонгох...</option>
+                {customers.map((c: any) => (<option key={c.id} value={c.id}>{c.storeName}</option>))}
+              </select>
+            )}
           </div>
 
           {selectedCustomer && (

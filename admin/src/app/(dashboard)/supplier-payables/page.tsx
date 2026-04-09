@@ -310,10 +310,16 @@ export default function SupplierPayablesPage() {
             <form onSubmit={handlePayment} className="space-y-4">
               <div>
                 <label className={labelClass}>Нийлүүлэгч *</label>
-                <select value={paymentForm.supplierId} onChange={e => setPaymentForm(p => ({ ...p, supplierId: e.target.value }))} required className={inputClass}>
-                  <option value="">Сонгох...</option>
-                  {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                {suppliers.length === 0 ? (
+                  <a href="/suppliers" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                    ⚠️ Нийлүүлэгч бүртгээгүй байна. Эхлээд нийлүүлэгч бүртгэнэ үү. <span className="underline font-bold">Нийлүүлэгч бүртгэх</span>
+                  </a>
+                ) : (
+                  <select value={paymentForm.supplierId} onChange={e => setPaymentForm(p => ({ ...p, supplierId: e.target.value }))} required className={inputClass}>
+                    <option value="">Сонгох...</option>
+                    {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

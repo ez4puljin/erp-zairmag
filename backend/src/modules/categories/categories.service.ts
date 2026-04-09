@@ -3,15 +3,26 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export class CreateCategoryDto {
+  @IsString()
+  @IsNotEmpty()
   name: string;
+
+  @IsOptional()
+  @IsUUID()
   parentId?: string;
 }
 
 export class UpdateCategoryDto {
+  @IsOptional()
+  @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsUUID()
   parentId?: string;
 }
 

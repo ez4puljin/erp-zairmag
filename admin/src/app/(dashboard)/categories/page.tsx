@@ -47,15 +47,13 @@ export default function CategoriesPage() {
     setError('');
     try {
       if (editItem) {
-        await api.patch(`/api/categories/${editItem.id}`, {
-          name: form.name,
-          parentId: form.parentId || null,
-        });
+        const payload: any = { name: form.name };
+        if (form.parentId) payload.parentId = form.parentId;
+        await api.patch(`/api/categories/${editItem.id}`, payload);
       } else {
-        await api.post('/api/categories', {
-          name: form.name,
-          parentId: form.parentId || undefined,
-        });
+        const payload: any = { name: form.name };
+        if (form.parentId) payload.parentId = form.parentId;
+        await api.post('/api/categories', payload);
       }
       setShowModal(false);
       fetchCategories();

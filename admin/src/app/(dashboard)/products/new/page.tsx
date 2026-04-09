@@ -170,17 +170,28 @@ export default function NewProductPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>Ангилал *</label>
-                    <select value={form.categoryId} onChange={e => handleChange('categoryId', e.target.value)} required className={inputClass}>
-                      <option value="">Сонгох...</option>
-                      {categories.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                    </select>
+                    {categories.length === 0 ? (
+                      <a href="/categories" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                        ⚠️ Ангилал бүртгээгүй байна. Эхлээд <span className="underline font-bold">ангилал үүсгэнэ</span> үү.
+                      </a>
+                    ) : (
+                      <select value={form.categoryId} onChange={e => handleChange('categoryId', e.target.value)} required className={inputClass}>
+                        <option value="">Сонгох...</option>
+                        {categories.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Нийлүүлэгч</label>
                     <select value={form.supplierId} onChange={e => handleChange('supplierId', e.target.value)} className={inputClass}>
-                      <option value="">Сонгох...</option>
+                      <option value="">Сонгох... (заавал биш)</option>
                       {suppliers.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
                     </select>
+                    {suppliers.length === 0 && (
+                      <a href="/suppliers" className="text-[10px] text-[#007AFF] font-semibold mt-1 inline-block hover:underline">
+                        + Нийлүүлэгч үүсгэх
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

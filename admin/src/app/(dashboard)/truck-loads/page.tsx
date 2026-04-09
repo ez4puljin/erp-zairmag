@@ -421,12 +421,18 @@ export default function TruckLoadsKanban() {
                   {/* Driver */}
                   <div>
                     <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Жолооч *</label>
-                    <select value={formDriverId} onChange={(e) => setFormDriverId(e.target.value)} className={inputClass}>
-                      <option value="">Сонгох...</option>
-                      {drivers.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.firstName} {d.lastName} ({d.phone})</option>
-                      ))}
-                    </select>
+                    {drivers.length === 0 ? (
+                      <a href="/drivers" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                        ⚠️ Жолооч бүртгээгүй байна. Эхлээд жолооч бүртгэнэ үү. <span className="underline font-bold">Жолооч бүртгэх</span>
+                      </a>
+                    ) : (
+                      <select value={formDriverId} onChange={(e) => setFormDriverId(e.target.value)} className={inputClass}>
+                        <option value="">Сонгох...</option>
+                        {drivers.map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.firstName} {d.lastName} ({d.phone})</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {/* Vehicle */}
