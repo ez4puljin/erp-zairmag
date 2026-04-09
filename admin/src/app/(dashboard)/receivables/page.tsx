@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { BookOpen, ChevronRight, Calendar, Printer, Clock, MessageSquare, X, CheckCircle, XCircle } from 'lucide-react';
+import { BookOpen, ChevronRight, Calendar, Printer, Clock, MessageSquare, X, CheckCircle, XCircle, Wallet, CreditCard } from 'lucide-react';
 
 const fmt = (n: number) => n ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -27,6 +27,44 @@ export default function ReceivablesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [filterCustomerId, setFilterCustomerId] = useState('');
   const [filterCategoryId, setFilterCategoryId] = useState('');
+
+  // Payment modal state
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payCustomer, setPayCustomer] = useState<any>(null);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', bankAccountId: '', note: '' });
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    api.get('/api/bank-accounts').then(r => setBankAccounts(r.data ?? [])).catch(() => {});
+  }, []);
+
+  function openPayModal(customer: any) {
+    setPayCustomer(customer);
+    setPayForm({ amount: String(Math.max(0, Number(customer.closingBalance ?? customer.outstandingDebt ?? 0))), method: 'CASH', bankAccountId: '', note: '' });
+    setPayModalOpen(true);
+  }
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payCustomer || !payForm.amount || !payForm.bankAccountId) return;
+    setPaying(true);
+    try {
+      await api.post('/api/payments', {
+        customerId: payCustomer.id,
+        amount: Number(payForm.amount),
+        method: payForm.method,
+        bankAccountId: payForm.bankAccountId,
+        note: payForm.note || undefined,
+      });
+      setPayModalOpen(false);
+      loadSummary();
+      if (selectedCustomer) loadLedger(selectedCustomer.id, selectedCustomer.storeName);
+      alert('Тооцоо амжилттай хаагдлаа');
+    } catch (err: any) {
+      alert('Алдаа: ' + (err?.response?.data?.message || err.message));
+    } finally { setPaying(false); }
+  }
 
   // SMS state
   const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
@@ -369,7 +407,20 @@ export default function ReceivablesPage() {
                       <td className="px-3 py-3 text-right text-[#FF3B30]" onClick={() => loadLedger(c.id, c.storeName)}>{fmt(c.periodDebit)}</td>
                       <td className="px-3 py-3 text-right text-[#34C759]" onClick={() => loadLedger(c.id, c.storeName)}>{fmt(c.periodCredit)}</td>
                       <td className="px-3 py-3 text-right font-bold" onClick={() => loadLedger(c.id, c.storeName)}>{c.closingBalance > 0 ? <span className="text-[#FF9500]">{fmt(c.closingBalance)}</span> : <span className="text-[#34C759]">{fmt(c.closingBalance)}</span>}</td>
-                      <td className="px-2 py-3" onClick={() => loadLedger(c.id, c.storeName)}><ChevronRight className="w-4 h-4 text-[#C7C7CC]" /></td>
+                      <td className="px-2 py-3 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          {c.closingBalance > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openPayModal(c)}
+                              className="px-2 py-1 rounded-lg bg-[#34C759]/10 text-[#34C759] text-[11px] font-bold hover:bg-[#34C759]/20 transition-all"
+                            >
+                              Хаах
+                            </button>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-[#C7C7CC] cursor-pointer" onClick={() => loadLedger(c.id, c.storeName)} />
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   <tr className="bg-[#F2F2F7] font-bold">
@@ -607,6 +658,125 @@ export default function ReceivablesPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment / Тооцоо хаах Modal */}
+      {payModalOpen && payCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPayModalOpen(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-[#E5E5EA] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#34C759]/10 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-[#34C759]" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-[17px] font-bold text-[#1C1C1E]">Тооцоо хаах</h3>
+                <p className="text-[12px] text-[#8E8E93]">{payCustomer.storeName}</p>
+              </div>
+              <button onClick={() => setPayModalOpen(false)} className="p-2 rounded-lg hover:bg-[#F2F2F7]">
+                <X className="w-5 h-5 text-[#8E8E93]" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePay} className="p-5 space-y-4">
+              {/* Current debt */}
+              <div className="bg-[#FF9500]/5 border border-[#FF9500]/20 rounded-xl p-3 text-center">
+                <p className="text-[11px] text-[#8E8E93] uppercase font-semibold">Одоогийн өр</p>
+                <p className="text-[22px] font-bold text-[#FF9500]">₮{fmt(Number(payCustomer.closingBalance ?? payCustomer.outstandingDebt ?? 0))}</p>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#8E8E93] uppercase mb-1">Хаах дүн (₮) *</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={payForm.amount}
+                  onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] outline-none focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+                />
+              </div>
+
+              {/* Payment method */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#8E8E93] uppercase mb-1">Төлбөрийн хэлбэр *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPayForm(p => ({ ...p, method: 'CASH' }))}
+                    className={`py-2.5 rounded-xl text-[13px] font-semibold border-2 transition-all ${
+                      payForm.method === 'CASH'
+                        ? 'bg-[#34C759] text-white border-[#34C759]'
+                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA]'
+                    }`}
+                  >
+                    💵 Бэлэн мөнгө
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayForm(p => ({ ...p, method: 'BANK_TRANSFER' }))}
+                    className={`py-2.5 rounded-xl text-[13px] font-semibold border-2 transition-all ${
+                      payForm.method === 'BANK_TRANSFER'
+                        ? 'bg-[#007AFF] text-white border-[#007AFF]'
+                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA]'
+                    }`}
+                  >
+                    🏦 Дансаар
+                  </button>
+                </div>
+              </div>
+
+              {/* Bank account */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#8E8E93] uppercase mb-1">Данс *</label>
+                {bankAccounts.length === 0 ? (
+                  <a href="/bank-accounts" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                    ⚠️ Данс бүртгээгүй. <span className="underline font-bold">Данс үүсгэх</span>
+                  </a>
+                ) : (
+                  <select
+                    value={payForm.bankAccountId}
+                    onChange={e => setPayForm(p => ({ ...p, bankAccountId: e.target.value }))}
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[14px] text-[#1C1C1E] outline-none focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+                  >
+                    <option value="">Данс сонгох...</option>
+                    {bankAccounts.map((acc: any) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.bankName} — {acc.accountNumber} ({acc.holderName})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-[11px] font-bold text-[#8E8E93] uppercase mb-1">Тэмдэглэл</label>
+                <input
+                  type="text"
+                  value={payForm.note}
+                  onChange={e => setPayForm(p => ({ ...p, note: e.target.value }))}
+                  placeholder="Нэмэлт мэдээлэл..."
+                  className="w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[14px] text-[#1C1C1E] outline-none focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setPayModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl text-[14px] font-semibold text-[#8E8E93] bg-[#F2F2F7] hover:bg-[#E5E5EA] transition-all">
+                  Болих
+                </button>
+                <button type="submit" disabled={paying || !payForm.bankAccountId}
+                  className="flex-1 py-3 rounded-xl text-[14px] font-semibold text-white bg-[#34C759] hover:bg-[#2DB84E] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  {paying ? 'Хадгалж байна...' : 'Тооцоо хаах'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

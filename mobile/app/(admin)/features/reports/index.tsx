@@ -13,6 +13,7 @@ export default function ReportsHubScreen() {
           <MenuTile icon="pie-chart" label="Ашиг" color="#AF52DE" onPress={() => router.push('/(admin)/features/reports/profit' as any)} />
           <MenuTile icon="wallet" label="Өрийн тайлан" color="#FF3B30" onPress={() => router.push('/(admin)/features/reports/debt' as any)} />
           <MenuTile icon="car" label="Жолоочийн тайлан" color="#5856D6" onPress={() => router.push('/(admin)/features/reports/drivers' as any)} />
+          <MenuTile icon="card" label="Дансны тайлан" color="#0EA5E9" onPress={() => router.push('/(admin)/features/reports/bank-accounts' as any)} />
         </View>
       </ScrollView>
     </View>
