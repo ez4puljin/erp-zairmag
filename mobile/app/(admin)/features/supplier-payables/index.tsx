@@ -16,7 +16,9 @@ export default function SupplierPayablesScreen() {
   const fetchData = async () => {
     setError(null);
     try {
-      const res = await api.get('/api/supplier-payables/summary');
+      const today = new Date().toISOString().split('T')[0];
+      const yearStart = `${new Date().getFullYear()}-01-01`;
+      const res = await api.get('/api/supplier-payables/summary', { params: { startDate: yearStart, endDate: today } });
       setData(res.data?.data ?? res.data ?? []);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Алдаа');
