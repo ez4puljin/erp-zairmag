@@ -92,10 +92,19 @@ export default function AdminTruckLoadsScreen() {
         activeOpacity={0.7}
         onPress={() => router.push(`/(admin)/features/truck-loads/${item.id}` as any)}
       >
-        {/* Header: load # + status */}
+        {/* Header: load # + location + status */}
         <View style={styles.cardHeader}>
-          <View style={styles.numberWrap}>
-            <Text style={styles.loadNumber}>#{item.loadNumber}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={styles.numberWrap}>
+              <Text style={styles.loadNumber}>#{item.loadNumber}</Text>
+            </View>
+            {(item as any).locationType && (
+              <View style={[styles.badge, { backgroundColor: (item as any).locationType === 'RURAL' ? '#34C75915' : '#007AFF15' }]}>
+                <Text style={[styles.badgeText, { color: (item as any).locationType === 'RURAL' ? '#34C759' : '#007AFF' }]}>
+                  {(item as any).locationType === 'RURAL' ? '🏞️ Орон нутаг' : '🏙️ Мөрөн'}
+                </Text>
+              </View>
+            )}
           </View>
           <View style={[styles.badge, { backgroundColor: `${status.color}15` }]}>
             <Ionicons name={status.icon} size={11} color={status.color} />

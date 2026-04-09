@@ -123,6 +123,12 @@ export default function TruckLoadDetailScreen() {
 
         <DetailSection title="ҮНДСЭН МЭДЭЭЛЭЛ">
           <DetailRow label="Дугаар" value={`#${data.loadNumber}`} icon="pricetag-outline" iconColor="#007AFF" bold />
+          <DetailRow
+            label="Төрөл"
+            value={data.locationType === 'RURAL' ? '🏞️ Орон нутаг' : '🏙️ Мөрөн'}
+            icon="location-outline"
+            iconColor={data.locationType === 'RURAL' ? '#34C759' : '#007AFF'}
+          />
           <DetailRow label="Жолооч" value={driverName} icon="person-outline" iconColor="#5856D6" />
           {data.driver?.phone ? <DetailRow label="Утас" value={data.driver.phone} icon="call-outline" iconColor="#34C759" /> : null}
           <DetailRow label="Огноо" value={formatDate(data.loadDate || data.createdAt)} icon="calendar-outline" iconColor="#FF9500" />

@@ -31,10 +31,14 @@ export interface Product {
   category: Category;
   costPrice: number;
   sellingPrice: number;
+  sellingPriceRural?: number;
   unit: string;
+  unitsPerBox?: number;
   stockAvailable: number;
   reorderLevel: number;
   imageUrl?: string;
+  supplierId?: string;
+  categoryId?: string;
 }
 
 export interface OrderItem {

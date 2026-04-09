@@ -18,7 +18,7 @@ export default function EditProductScreen() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [form, setForm] = useState({
     name: '', sku: '', categoryId: '', supplierId: '', unit: 'PIECE',
-    costPrice: '', sellingPrice: '', reorderLevel: '', unitsPerBox: '1',
+    costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '', unitsPerBox: '1',
   });
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
@@ -40,6 +40,7 @@ export default function EditProductScreen() {
         unit: p.unit ?? 'PIECE',
         costPrice: String(Number(p.costPrice ?? 0)),
         sellingPrice: String(Number(p.sellingPrice ?? 0)),
+        sellingPriceRural: String(Number(p.sellingPriceRural ?? 0)),
         reorderLevel: String(Number(p.reorderLevel ?? 0)),
         unitsPerBox: String(Number(p.unitsPerBox ?? 1)),
       });
@@ -83,6 +84,7 @@ export default function EditProductScreen() {
         unit: form.unit,
         costPrice: Number(form.costPrice || 0),
         sellingPrice: Number(form.sellingPrice || 0),
+        sellingPriceRural: Number(form.sellingPriceRural || form.sellingPrice || 0),
         reorderLevel: Number(form.reorderLevel || 0),
         unitsPerBox: Number(form.unitsPerBox || 1),
       });
@@ -133,7 +135,8 @@ export default function EditProductScreen() {
       <FormField label="Нэгж" value={form.unit} onChange={v => update('unit', v)} type="select" options={[{label:'Ширхэг',value:'PIECE'},{label:'Хайрцаг',value:'BOX'},{label:'Кг',value:'KG'},{label:'Литр',value:'LITER'},{label:'Баглаа',value:'PACK'}]} />
       <FormField label="Хайрцагт (ш)" value={form.unitsPerBox} onChange={v => update('unitsPerBox', v)} type="number" />
       <FormField label="Өртөг" value={form.costPrice} onChange={v => update('costPrice', v)} type="currency" prefix="₮" />
-      <FormField label="Зарах үнэ" value={form.sellingPrice} onChange={v => update('sellingPrice', v)} type="currency" prefix="₮" />
+      <FormField label="🏙️ Мөрөн үнэ" value={form.sellingPrice} onChange={v => update('sellingPrice', v)} type="currency" prefix="₮" required helperText="Мөрөн хотод зарах үнэ" />
+      <FormField label="🏞️ Орон нутгийн үнэ" value={form.sellingPriceRural} onChange={v => update('sellingPriceRural', v)} type="currency" prefix="₮" helperText="Хоосон бол Мөрөн үнэтэй ижил" />
       <FormField label="Доод хэмжээ" value={form.reorderLevel} onChange={v => update('reorderLevel', v)} type="number" />
 
       <View style={{ paddingHorizontal: 12, marginTop: 20 }}>
