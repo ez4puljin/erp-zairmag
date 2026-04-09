@@ -63,6 +63,9 @@ export default function ProductsListScreen() {
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={s.price}>{formatCurrency(p.sellingPrice)}</Text>
+                    {p.sellingPriceRural && Number(p.sellingPriceRural) !== Number(p.sellingPrice) ? (
+                      <Text style={{ fontSize: 10, color: '#34C759', fontWeight: '600' }}>О.Н: {formatCurrency(p.sellingPriceRural)}</Text>
+                    ) : null}
                     <Text style={[s.stock, low && { color: '#FF9500' }]}>{p.stockAvailable ?? 0} ш</Text>
                   </View>
                 </View>

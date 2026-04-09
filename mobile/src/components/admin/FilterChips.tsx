@@ -14,9 +14,16 @@ interface Props {
 }
 
 export function FilterChips({ options, value, onChange }: Props) {
+  // Filter out options with empty labels
+  const validOptions = options.filter(o => o.label && o.label.trim());
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.wrap}>
-      {options.map(opt => {
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={s.wrap}
+    >
+      {validOptions.map(opt => {
         const active = opt.value === value;
         const color = opt.color || '#007AFF';
         return (
@@ -24,8 +31,11 @@ export function FilterChips({ options, value, onChange }: Props) {
             key={opt.value}
             onPress={() => onChange(opt.value)}
             style={[s.chip, active && { backgroundColor: color, borderColor: color }]}
+            activeOpacity={0.7}
           >
-            <Text style={[s.text, active && { color: '#fff' }]}>{opt.label}</Text>
+            <Text style={[s.text, active && { color: '#fff' }]} numberOfLines={1}>
+              {opt.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -34,7 +44,16 @@ export function FilterChips({ options, value, onChange }: Props) {
 }
 
 const s = StyleSheet.create({
-  wrap: { gap: 6, paddingHorizontal: 12, paddingVertical: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E8ECF0' },
-  text: { fontSize: 12, fontWeight: '600', color: '#4A4D5C' },
+  wrap: { gap: 6, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center' },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F2F4F7',
+    borderWidth: 1.5,
+    borderColor: '#E8ECF0',
+    height: 36,
+    justifyContent: 'center',
+  },
+  text: { fontSize: 13, fontWeight: '600', color: '#4A4D5C' },
 });
