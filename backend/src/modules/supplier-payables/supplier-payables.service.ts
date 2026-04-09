@@ -12,18 +12,38 @@ export class SupplierPayablesService {
     });
     if (!supplier) throw new NotFoundException('Supplier not found');
 
-    return this.prisma.supplierPayment.create({
-      data: {
-        supplierId: dto.supplierId,
-        type: dto.type ?? 'PAYMENT',
-        amount: dto.amount,
-        method: dto.method,
-        description: dto.description,
-        referenceNo: dto.referenceNo,
-        date: new Date(dto.date),
-        createdById: userId,
-      },
-      include: { supplier: { select: { name: true } } },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.bankAccountId) {
+        const acc = await tx.bankAccount.findUnique({ where: { id: dto.bankAccountId } });
+        if (!acc) throw new NotFoundException('Bank account not found');
+        if (!acc.isActive) throw new NotFoundException('Bank account is inactive');
+      }
+
+      const payment = await tx.supplierPayment.create({
+        data: {
+          supplierId: dto.supplierId,
+          bankAccountId: dto.bankAccountId,
+          type: dto.type ?? 'PAYMENT',
+          amount: dto.amount,
+          method: dto.method,
+          description: dto.description,
+          referenceNo: dto.referenceNo,
+          date: new Date(dto.date),
+          createdById: userId,
+        },
+        include: { supplier: { select: { name: true } }, bankAccount: true },
+      });
+
+      // Deduct outflow from bank account for PAYMENT type; credit it for REFUND
+      if (dto.bankAccountId) {
+        const delta = (dto.type ?? 'PAYMENT') === 'PAYMENT' ? -Number(dto.amount) : Number(dto.amount);
+        await tx.bankAccount.update({
+          where: { id: dto.bankAccountId },
+          data: { currentBalance: { increment: delta } },
+        });
+      }
+
+      return payment;
     });
   }
 

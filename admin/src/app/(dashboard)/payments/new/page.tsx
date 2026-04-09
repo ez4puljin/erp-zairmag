@@ -8,12 +8,14 @@ import { ChevronLeft } from 'lucide-react';
 export default function NewPaymentPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ customerId: '', amount: '', method: 'CASH', externalRef: '', notes: '' });
+  const [form, setForm] = useState({ customerId: '', amount: '', method: 'CASH', bankAccountId: '', externalRef: '', notes: '' });
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
   useEffect(() => {
     api.get('/api/customers?limit=100').then(res => setCustomers(res.data?.data ?? [])).catch((err) => { console.error('Failed to load customers', err); });
+    api.get('/api/bank-accounts').then(res => setBankAccounts(res.data ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -27,12 +29,17 @@ export default function NewPaymentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.bankAccountId) {
+      alert('Данс заавал сонгоно уу (төлбөр хүлээн авсан данс)');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post('/api/payments', {
         customerId: form.customerId,
         amount: Number(form.amount),
         method: form.method,
+        bankAccountId: form.bankAccountId,
         reference: form.externalRef || undefined,
         note: form.notes || undefined,
       });
@@ -88,6 +95,21 @@ export default function NewPaymentPage() {
               <option value="MOBILE_MONEY">Мобайл төлбөр</option>
               <option value="CHECK">Чек</option>
             </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Хүлээн авсан данс *</label>
+            <select value={form.bankAccountId} onChange={e => setForm(prev => ({ ...prev, bankAccountId: e.target.value }))} required className={inputClass}>
+              <option value="">Данс сонгох...</option>
+              {bankAccounts.map((acc: any) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.bankName} — {acc.accountNumber} ({acc.holderName})
+                </option>
+              ))}
+            </select>
+            {bankAccounts.length === 0 && (
+              <p className="text-[11px] text-[#FF3B30] mt-1">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
+            )}
           </div>
 
           <div>

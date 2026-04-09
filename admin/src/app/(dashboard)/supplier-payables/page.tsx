@@ -19,13 +19,15 @@ export default function SupplierPayablesPage() {
   const [ledger, setLedger] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ supplierId: '', type: 'PAYMENT', amount: '', method: 'CASH', description: '', referenceNo: '', date: today });
+  const [paymentForm, setPaymentForm] = useState({ supplierId: '', type: 'PAYMENT', amount: '', method: 'CASH', bankAccountId: '', description: '', referenceNo: '', date: today });
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [filterSupplierId, setFilterSupplierId] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get('/api/suppliers?limit=100').then(r => setSuppliers(r.data?.data ?? r.data)).catch((err) => { console.error('Failed to load suppliers', err); });
+    api.get('/api/bank-accounts').then(r => setBankAccounts(r.data ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -56,6 +58,10 @@ export default function SupplierPayablesPage() {
   async function handlePayment(e: React.FormEvent) {
     e.preventDefault();
     if (!paymentForm.supplierId || !paymentForm.amount) return;
+    if (!paymentForm.bankAccountId) {
+      alert('Данс заавал сонгоно уу (төлбөр гарсан данс)');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post('/api/supplier-payables/payments', {
@@ -63,11 +69,11 @@ export default function SupplierPayablesPage() {
         amount: Number(paymentForm.amount),
       });
       setShowPaymentModal(false);
-      setPaymentForm({ supplierId: '', type: 'PAYMENT', amount: '', method: 'CASH', description: '', referenceNo: '', date: today });
+      setPaymentForm({ supplierId: '', type: 'PAYMENT', amount: '', method: 'CASH', bankAccountId: '', description: '', referenceNo: '', date: today });
       loadSummary();
       if (selectedSupplier) loadLedger(selectedSupplier.id);
     } catch (err: any) {
-      alert('Алдаа: ' + (err.message || 'Unknown'));
+      alert('Алдаа: ' + (err.response?.data?.message || err.message || 'Unknown'));
     }
     setSubmitting(false);
   }
@@ -337,6 +343,20 @@ export default function SupplierPayablesPage() {
                   <label className={labelClass}>Огноо *</label>
                   <input type="date" value={paymentForm.date} onChange={e => setPaymentForm(p => ({ ...p, date: e.target.value }))} required className={inputClass} />
                 </div>
+              </div>
+              <div>
+                <label className={labelClass}>Гарсан данс *</label>
+                <select value={paymentForm.bankAccountId} onChange={e => setPaymentForm(p => ({ ...p, bankAccountId: e.target.value }))} required className={inputClass}>
+                  <option value="">Данс сонгох...</option>
+                  {bankAccounts.map((acc: any) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.bankName} — {acc.accountNumber} ({acc.holderName})
+                    </option>
+                  ))}
+                </select>
+                {bankAccounts.length === 0 && (
+                  <p className="text-[11px] text-[#FF3B30] mt-1">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

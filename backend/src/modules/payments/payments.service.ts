@@ -26,6 +26,13 @@ export class PaymentsService {
       const currentDebt = Number(customer.outstandingDebt);
       // Allow overpayment (advance payment) - negative balance means credit
 
+      // Validate bank account if provided
+      if (dto.bankAccountId) {
+        const acc = await tx.bankAccount.findUnique({ where: { id: dto.bankAccountId } });
+        if (!acc) throw new NotFoundException('Bank account not found');
+        if (!acc.isActive) throw new NotFoundException('Bank account is inactive');
+      }
+
       // Create the payment record
       const payment = await tx.payment.create({
         data: {
@@ -36,9 +43,18 @@ export class PaymentsService {
           externalRef: dto.reference,
           notes: dto.note,
           orderId: dto.orderId,
+          bankAccountId: dto.bankAccountId,
           paidAt: new Date(),
         },
       });
+
+      // Update bank account balance (inflow)
+      if (dto.bankAccountId) {
+        await tx.bankAccount.update({
+          where: { id: dto.bankAccountId },
+          data: { currentBalance: { increment: dto.amount } },
+        });
+      }
 
       // Compute new balance from DB-fresh value
       const newBalance = currentDebt - dto.amount;

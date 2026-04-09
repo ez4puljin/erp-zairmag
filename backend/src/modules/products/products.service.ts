@@ -31,6 +31,7 @@ export class ProductsService {
         unit: dto.unit,
         costPrice: dto.costPrice,
         sellingPrice: dto.sellingPrice,
+        sellingPriceRural: dto.sellingPriceRural ?? dto.sellingPrice,
         reorderLevel: dto.reorderLevel,
         imageUrl: dto.imageUrl,
         supplierId: dto.supplierId,

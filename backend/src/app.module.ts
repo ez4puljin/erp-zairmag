@@ -27,6 +27,7 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { SmsModule } from './modules/sms/sms.module';
 import { ReceiptSettingsModule } from './modules/receipt-settings/receipt-settings.module';
+import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -65,6 +66,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     ExpensesModule,
     SmsModule,
     ReceiptSettingsModule,
+    BankAccountsModule,
   ],
   providers: [
     {

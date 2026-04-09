@@ -18,11 +18,11 @@ import { printImageBase64, feedLines, getSavedPrinter, scanBluetoothDevices, con
 
 interface TruckLoadItem {
   id: string;
-  product: { id: string; name: string; sku: string; sellingPrice: number | string; unitsPerBox?: number; imageUrl?: string | null };
+  product: { id: string; name: string; sku: string; sellingPrice: number | string; sellingPriceRural?: number | string; unitsPerBox?: number; imageUrl?: string | null };
   loadedQty: number;
   soldQty: number;
 }
-interface TruckLoad { id: string; loadNumber: number; status: string; items: TruckLoadItem[]; driver?: { firstName?: string; lastName?: string; phone?: string }; }
+interface TruckLoad { id: string; loadNumber: number; status: string; locationType?: 'URBAN' | 'RURAL'; items: TruckLoadItem[]; driver?: { firstName?: string; lastName?: string; phone?: string }; }
 interface Customer { id: string; storeName: string; contactName: string; phone: string; address: string; }
 interface CartItem { productId: string; productName: string; unitPrice: number; quantity: number; maxQuantity: number; unitsPerBox: number; }
 interface CombinedLine { method: string; amount: string; }
@@ -127,15 +127,25 @@ export default function POSScreen() {
     return list;
   }, [truckLoad, productSearch, selectedFilter]);
 
+  // Resolve unit price based on truck load location type (URBAN / RURAL)
+  const getProductPrice = (product: TruckLoadItem['product']): number => {
+    const isRural = truckLoad?.locationType === 'RURAL';
+    if (isRural && product.sellingPriceRural !== undefined && Number(product.sellingPriceRural) > 0) {
+      return Number(product.sellingPriceRural);
+    }
+    return Number(product.sellingPrice);
+  };
+
   const setCartQty = (item: TruckLoadItem, qty: number) => {
     const upb = item.product.unitsPerBox || 1;
     const maxQ = item.loadedQty - item.soldQty;
     const safeQty = Math.max(0, Math.min(qty, maxQ));
+    const price = getProductPrice(item.product);
     setCart(prev => {
       if (safeQty <= 0) return prev.filter(c => c.productId !== item.product.id);
       const exists = prev.find(c => c.productId === item.product.id);
       if (exists) return prev.map(c => c.productId === item.product.id ? { ...c, quantity: safeQty } : c);
-      return [...prev, { productId: item.product.id, productName: item.product.name, unitPrice: Number(item.product.sellingPrice), quantity: safeQty, maxQuantity: maxQ, unitsPerBox: upb }];
+      return [...prev, { productId: item.product.id, productName: item.product.name, unitPrice: price, quantity: safeQty, maxQuantity: maxQ, unitsPerBox: upb }];
     });
   };
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(c => c.productId !== pid));
@@ -430,7 +440,7 @@ export default function POSScreen() {
                     <Text style={{ fontSize: 11, color: '#007AFF', marginTop: 2 }}>{fmtStock(remaining, upb)}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={st.prodPrice}>₮{Number(item.product.sellingPrice).toLocaleString()}</Text>
+                    <Text style={st.prodPrice}>₮{getProductPrice(item.product).toLocaleString()}</Text>
                     {qty > 0 && <View style={st.qtyBadge}><Text style={st.qtyBadgeText}>{qty}ш</Text></View>}
                   </View>
                 </View>
@@ -455,7 +465,7 @@ export default function POSScreen() {
                   )}
                   {qty > 0 && <TouchableOpacity style={st.trashBtn} onPress={() => removeFromCart(item.product.id)}><Ionicons name="trash-outline" size={16} color="#FF3B30" /></TouchableOpacity>}
                 </View>
-                {qty > 0 && <Text style={{ fontSize: 12, color: '#8E8E93', textAlign: 'right', marginTop: 4 }}>{qty}ш × ₮{Number(item.product.sellingPrice).toLocaleString()} = <Text style={{ fontWeight: '700', color: '#1C1C1E' }}>₮{(qty * Number(item.product.sellingPrice)).toLocaleString()}</Text></Text>}
+                {qty > 0 && <Text style={{ fontSize: 12, color: '#8E8E93', textAlign: 'right', marginTop: 4 }}>{qty}ш × ₮{getProductPrice(item.product).toLocaleString()} = <Text style={{ fontWeight: '700', color: '#1C1C1E' }}>₮{(qty * getProductPrice(item.product)).toLocaleString()}</Text></Text>}
               </View>
             );
           })}

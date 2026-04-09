@@ -18,6 +18,9 @@ export class TruckSalesService {
       throw new BadRequestException('Ачилт идэвхтэй биш байна.');
     }
 
+    // Determine which price to use based on truck load location type
+    const isRural = (truckLoad as any).locationType === 'RURAL';
+
     // Verify customer exists (include creditLimit and outstandingDebt for credit check)
     const customer = await this.prisma.customer.findFirst({
       where: { id: dto.customerId, isActive: true, deletedAt: null },
@@ -47,21 +50,26 @@ export class TruckSalesService {
       }
     }
 
-    // Validate unit prices against product prices
-    for (const saleItem of dto.items) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: saleItem.productId },
-        select: { sellingPrice: true, name: true },
-      });
-      if (saleItem.unitPrice <= 0) {
-        throw new BadRequestException(`Бараа "${product?.name}"-ын үнэ буруу: ${saleItem.unitPrice}`);
-      }
-    }
+    // Auto-resolve unit prices from product based on load locationType (URBAN vs RURAL)
+    // This ignores client-provided unitPrice to enforce correct pricing per load location.
+    const productIds = dto.items.map(i => i.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, sellingPrice: true, sellingPriceRural: true },
+    });
+    const productMap = new Map(products.map(p => [p.id, p]));
 
-    // Calculate totals
     const itemsData = dto.items.map(item => {
-      const lineTotal = item.quantity * item.unitPrice;
-      return { ...item, lineTotal };
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw new BadRequestException(`Бараа ${item.productId} олдсонгүй.`);
+      }
+      const serverPrice = Number(isRural ? (product as any).sellingPriceRural : product.sellingPrice);
+      if (serverPrice <= 0) {
+        throw new BadRequestException(`Бараа "${product.name}"-ын ${isRural ? 'орон нутгийн' : 'Мөрөн'} үнэ тохируулаагүй байна.`);
+      }
+      const lineTotal = item.quantity * serverPrice;
+      return { ...item, unitPrice: serverPrice, lineTotal };
     });
     const subtotal = itemsData.reduce((sum, i) => sum + i.lineTotal, 0);
     const totalAmount = subtotal;

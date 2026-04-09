@@ -34,4 +34,8 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsUUID()
   orderId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  bankAccountId?: string;
 }

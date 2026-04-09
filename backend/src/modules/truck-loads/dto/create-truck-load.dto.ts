@@ -1,5 +1,6 @@
-import { IsUUID, IsNotEmpty, IsOptional, IsString, IsDateString, IsArray, ValidateNested, IsInt, Min } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsOptional, IsString, IsDateString, IsArray, ValidateNested, IsInt, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TruckLoadLocation } from '@prisma/client';
 
 export class TruckLoadItemDto {
   @IsUUID()
@@ -19,6 +20,10 @@ export class CreateTruckLoadDto {
 
   @IsDateString()
   loadDate: string;
+
+  @IsOptional()
+  @IsEnum(TruckLoadLocation)
+  locationType?: TruckLoadLocation;  // URBAN (Мөрөн) | RURAL (Орон нутаг)
 
   @IsOptional()
   @IsString()

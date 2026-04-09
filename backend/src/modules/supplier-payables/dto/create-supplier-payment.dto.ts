@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsDateString, IsUUID } from 'class-validator';
 import { SupplierPaymentType, PaymentMethod } from '@prisma/client';
 
 export class CreateSupplierPaymentDto {
@@ -27,4 +27,8 @@ export class CreateSupplierPaymentDto {
 
   @IsDateString()
   date: string;
+
+  @IsOptional()
+  @IsUUID()
+  bankAccountId?: string;
 }

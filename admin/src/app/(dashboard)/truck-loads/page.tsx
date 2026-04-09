@@ -67,6 +67,7 @@ export default function TruckLoadsKanban() {
   const [formDriverId, setFormDriverId] = useState('');
   const [formVehicle, setFormVehicle] = useState('');
   const [formDate, setFormDate] = useState(today);
+  const [formLocationType, setFormLocationType] = useState<'URBAN' | 'RURAL'>('URBAN');
   const [formNotes, setFormNotes] = useState('');
   const [formItems, setFormItems] = useState<{ productId: string; productName: string; loadedQty: number; unitsPerBox: number }[]>([]);
   const [formProductId, setFormProductId] = useState('');
@@ -255,6 +256,7 @@ export default function TruckLoadsKanban() {
       await api.post('/api/truck-loads', {
         driverId: formDriverId,
         loadDate: formDate,
+        locationType: formLocationType,
         notes: formNotes || undefined,
         vehicleInfo: formVehicle || undefined,
         items: formItems.map((fi) => ({ productId: fi.productId, loadedQty: fi.loadedQty })),
@@ -286,6 +288,7 @@ export default function TruckLoadsKanban() {
     setFormDriverId('');
     setFormVehicle('');
     setFormDate(today);
+    setFormLocationType('URBAN');
     setFormNotes('');
     setFormItems([]);
     setFormProductId('');
@@ -414,6 +417,38 @@ export default function TruckLoadsKanban() {
               <div>
                 <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Огноо</label>
                 <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className={inputClass} />
+              </div>
+
+              {/* Location type */}
+              <div>
+                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Ачилтын төрөл *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormLocationType('URBAN')}
+                    className={`px-4 py-3 rounded-xl text-[14px] font-semibold transition-all border-2 ${
+                      formLocationType === 'URBAN'
+                        ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md'
+                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#007AFF]/40'
+                    }`}
+                  >
+                    🏙️ Мөрөн
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormLocationType('RURAL')}
+                    className={`px-4 py-3 rounded-xl text-[14px] font-semibold transition-all border-2 ${
+                      formLocationType === 'RURAL'
+                        ? 'bg-[#34C759] text-white border-[#34C759] shadow-md'
+                        : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#34C759]/40'
+                    }`}
+                  >
+                    🏞️ Орон нутаг
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#8C8FA3] mt-1">
+                  {formLocationType === 'URBAN' ? 'Жолоочийн POS-д Мөрөн үнэ хэрэглэгдэнэ' : 'Жолоочийн POS-д орон нутгийн үнэ хэрэглэгдэнэ'}
+                </p>
               </div>
 
               {/* Notes */}

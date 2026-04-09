@@ -45,7 +45,13 @@ export class CreateProductDto {
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  sellingPrice: number;
+  sellingPrice: number;  // Мөрөн (хот) үнэ
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  sellingPriceRural?: number;  // Орон нутгийн үнэ
 
   @IsOptional()
   @Type(() => Number)

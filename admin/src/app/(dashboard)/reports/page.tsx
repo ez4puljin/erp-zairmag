@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { format, subDays } from 'date-fns';
-import { BarChart3, TrendingUp, Users, DollarSign, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { BarChart3, TrendingUp, Users, DollarSign, RefreshCw, Wallet, Truck } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const tabs = [
@@ -56,15 +57,30 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="inline-flex bg-[#E5E5EA]/60 rounded-xl p-1 gap-0.5">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
-              activeTab === t.id ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
-            }`}>
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex bg-[#E5E5EA]/60 rounded-xl p-1 gap-0.5">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={`px-5 py-2 rounded-lg text-[13px] font-semibold transition-all ${
+                activeTab === t.id ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <Link
+          href="/reports/drivers"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E5E5EA] text-[13px] font-semibold text-[#5856D6] hover:bg-[#5856D6]/5 transition-all"
+        >
+          <Truck className="w-4 h-4" /> Жолоочийн тайлан
+        </Link>
+        <Link
+          href="/reports/bank-accounts"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E5E5EA] text-[13px] font-semibold text-[#007AFF] hover:bg-[#007AFF]/5 transition-all"
+        >
+          <Wallet className="w-4 h-4" /> Дансны тайлан
+        </Link>
       </div>
 
       {loading ? (

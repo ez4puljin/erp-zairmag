@@ -14,6 +14,7 @@ import {
   Truck,
   BarChart3,
   MessageSquare,
+  Wallet,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -40,6 +41,7 @@ const navItems = [
   { title: 'Харилцагч', href: '/customers', icon: Users },
   { title: 'Агуулах', href: '/inventory', icon: Warehouse },
   { title: 'Төлбөр', href: '/payments', icon: CreditCard },
+  { title: 'Данс', href: '/bank-accounts', icon: Wallet },
   { title: 'Зардал', href: '/expenses', icon: Receipt },
   { title: 'Зардлын ангилал', href: '/expense-categories', icon: Tag },
   { title: 'Жолооч', href: '/drivers', icon: Truck },

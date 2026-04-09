@@ -49,7 +49,9 @@
       "Bash(ls \"C:/Users/pulji/Desktop/Ice Cream Distribution/admin/src/app/\\(auth\\)/\")",
       "Bash(ls \"C:/Users/pulji/Desktop/Ice Cream Distribution/admin/src/app/\\(dashboard\\)/orders/[id]/\")",
       "Bash(ls \"C:/Users/pulji/Desktop/Ice Cream Distribution/admin/src/app/\\(dashboard\\)/payments/\")",
-      "Bash(ls \"C:/Users/pulji/Desktop/Ice Cream Distribution/admin/src/app/\\(dashboard\\)/products\")"
+      "Bash(ls \"C:/Users/pulji/Desktop/Ice Cream Distribution/admin/src/app/\\(dashboard\\)/products\")",
+      "mcp__Windows-MCP__PowerShell",
+      "Bash(ls .git/*.lock)"
     ]
   }
 }

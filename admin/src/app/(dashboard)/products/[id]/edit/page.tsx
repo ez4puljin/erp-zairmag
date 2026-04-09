@@ -18,7 +18,7 @@ export default function EditProductPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '', sku: '', description: '', categoryId: '', supplierId: '',
-    unit: '', unitsPerBox: '1', costPrice: '', sellingPrice: '', reorderLevel: '',
+    unit: '', unitsPerBox: '1', costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '',
   });
 
   useEffect(() => {
@@ -30,7 +30,9 @@ export default function EditProductPage() {
           categoryId: p.categoryId ?? '', supplierId: p.supplierId ?? '',
           unit: p.unit ?? '', unitsPerBox: String(p.unitsPerBox ?? '1'),
           costPrice: String(p.costPrice ?? ''),
-          sellingPrice: String(p.sellingPrice ?? ''), reorderLevel: String(p.reorderLevel ?? ''),
+          sellingPrice: String(p.sellingPrice ?? ''),
+          sellingPriceRural: String(p.sellingPriceRural ?? ''),
+          reorderLevel: String(p.reorderLevel ?? ''),
         });
         if (p.imageUrl) setImagePreview(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${p.imageUrl}`);
       }),
@@ -61,6 +63,7 @@ export default function EditProductPage() {
         ...form,
         costPrice: Number(form.costPrice),
         sellingPrice: Number(form.sellingPrice),
+        sellingPriceRural: Number(form.sellingPriceRural || form.sellingPrice),
         unitsPerBox: Number(form.unitsPerBox) || 1,
         reorderLevel: Number(form.reorderLevel),
         supplierId: form.supplierId || null,
@@ -177,18 +180,26 @@ export default function EditProductPage() {
           </div>
           <div className="border-t border-[#E5E5EA]/50 pt-5">
             <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide mb-4">Үнэ & Нөөц</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Өртөг (₮)</label>
                 <input type="number" value={form.costPrice} onChange={e => handleChange('costPrice', e.target.value)} required className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Зарах үнэ (₮)</label>
-                <input type="number" value={form.sellingPrice} onChange={e => handleChange('sellingPrice', e.target.value)} required className={inputClass} />
-              </div>
-              <div>
                 <label className={labelClass}>Доод хэмжээ</label>
                 <input type="number" value={form.reorderLevel} onChange={e => handleChange('reorderLevel', e.target.value)} required className={inputClass} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Мөрөн үнэ (₮) *</label>
+                <input type="number" value={form.sellingPrice} onChange={e => handleChange('sellingPrice', e.target.value)} required className={inputClass} />
+                <p className="text-[10px] text-[#8E8E93] mt-1">Мөрөн хот дахь зарах үнэ</p>
+              </div>
+              <div>
+                <label className={labelClass}>Орон нутгийн үнэ (₮)</label>
+                <input type="number" value={form.sellingPriceRural} onChange={e => handleChange('sellingPriceRural', e.target.value)} className={inputClass} />
+                <p className="text-[10px] text-[#8E8E93] mt-1">Орон нутагт зарах үнэ</p>
               </div>
             </div>
           </div>
