@@ -15,6 +15,7 @@ import {
   BarChart3,
   MessageSquare,
   Wallet,
+  FileText,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
-const navItems = [
+const mainNavItems = [
   { title: 'Хянах самбар', href: '/', icon: LayoutDashboard },
   { title: 'Захиалга', href: '/orders', icon: ShoppingCart },
   { title: 'Бүтээгдэхүүн', href: '/products', icon: Package },
@@ -46,8 +47,12 @@ const navItems = [
   { title: 'Зардлын ангилал', href: '/expense-categories', icon: Tag },
   { title: 'Жолооч', href: '/drivers', icon: Truck },
   { title: 'Тайлан', href: '/reports', icon: BarChart3 },
+];
+
+const settingsNavItems = [
   { title: 'SMS тохиргоо', href: '/sms-settings', icon: MessageSquare },
-  { title: 'Баримтын загвар', href: '/receipt-settings', icon: Receipt },
+  { title: 'Баримтын загвар', href: '/receipt-settings', icon: FileText },
+  { title: 'Дансны тохиргоо', href: '/bank-accounts', icon: Wallet },
 ];
 
 export function AppSidebar() {
@@ -65,15 +70,36 @@ export function AppSidebar() {
       <Separator />
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Цэс</SidebarGroupLabel>
+          <SidebarGroupLabel>Үндсэн цэс</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => {
+              {mainNavItems.map((item) => {
                 const isActive =
                   item.href === '/'
                     ? pathname === '/'
                     : pathname.startsWith(item.href);
 
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton isActive={isActive}>
+                      <Link href={item.href} className="flex items-center gap-2 w-full">
+                        <item.icon className="size-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Тохиргоо</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsNavItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton isActive={isActive}>
