@@ -88,6 +88,7 @@ export default function DriverReportPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api.get('/api/drivers').then(r => setDrivers(r.data ?? [])).catch(() => {});
@@ -116,6 +117,42 @@ export default function DriverReportPage() {
       return next;
     });
   };
+
+  const toggleSale = (id: string) => {
+    setExpandedSales(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Print receipt for a sale
+  function printSaleReceipt(sale: any, driverName: string, loadNumber: number) {
+    const items = sale.items ?? [];
+    const pm: Record<string, string> = { CASH:'Бэлэн', BANK_TRANSFER:'Шилжүүлэг', CARD:'Карт', CREDIT:'Зээл', COMBINED:'Хосолсон', MOBILE_MONEY:'Мобайл' };
+    const date = sale.createdAt ? new Date(sale.createdAt).toLocaleString('mn-MN') : '';
+    let html = `<div style="font-family:sans-serif;max-width:400px;margin:auto;padding:20px">`;
+    html += `<h2 style="text-align:center;margin:0">БОРЛУУЛАЛТЫН БАРИМТ</h2>`;
+    html += `<p style="text-align:center;font-size:12px;color:#888">Баримт #${sale.saleNumber ?? '-'}</p>`;
+    html += `<hr/>`;
+    html += `<p><b>Огноо:</b> ${date}</p>`;
+    html += `<p><b>Жолооч:</b> ${driverName} · Ачилт #${loadNumber}</p>`;
+    html += `<p><b>Харилцагч:</b> ${sale.customer?.storeName ?? '-'}${sale.customer?.phone ? ' (' + sale.customer.phone + ')' : ''}</p>`;
+    html += `<hr/>`;
+    html += `<table style="width:100%;font-size:13px;border-collapse:collapse">`;
+    html += `<tr style="border-bottom:1px solid #ddd"><th style="text-align:left">Бараа</th><th style="text-align:center">Тоо</th><th style="text-align:right">Үнэ</th><th style="text-align:right">Нийт</th></tr>`;
+    items.forEach((it: any, i: number) => {
+      html += `<tr style="border-bottom:1px solid #f0f0f0"><td>${i+1}. ${it.productName}</td><td style="text-align:center">${it.quantity}</td><td style="text-align:right">₮${Number(it.unitPrice).toLocaleString()}</td><td style="text-align:right">₮${Number(it.lineTotal).toLocaleString()}</td></tr>`;
+    });
+    html += `</table><hr/>`;
+    html += `<p style="text-align:right;font-size:16px"><b>НИЙТ: ₮${Number(sale.totalAmount).toLocaleString()}</b></p>`;
+    html += `<p><b>Төлбөр:</b> ${pm[sale.paymentMethod] ?? sale.paymentMethod}</p>`;
+    html += `</div>`;
+    const win = window.open('', '_blank', 'width=450,height=700');
+    if (!win) { alert('Popup хаалттай'); return; }
+    win.document.write(`<!DOCTYPE html><html><head><title>Баримт #${sale.saleNumber}</title></head><body>${html}<script>window.print();</script></body></html>`);
+    win.document.close();
+  }
 
   // Build chart data: stacked bar by driver, segments by payment method
   const chartData = useMemo(() => {
@@ -306,29 +343,85 @@ export default function DriverReportPage() {
               })}
             </div>
 
-            {/* Loads list (expanded) */}
+            {/* Loads + Sales list (expanded) */}
             {isOpen && (
               <div className="border-t border-[#E5E5EA]/60 bg-[#F9FAFB]">
-                <div className="grid grid-cols-[80px_120px_auto_120px_120px_140px] gap-3 px-5 py-3 text-[10px] font-bold text-[#8E8E93] uppercase tracking-wider border-b border-[#E5E5EA]/60">
-                  <div>Ачилт #</div>
-                  <div>Огноо</div>
-                  <div>Төлөв</div>
-                  <div className="text-right">Зарагдсан</div>
-                  <div className="text-right">Борлуулалт</div>
-                  <div className="text-right">Орлого</div>
-                </div>
-                {d.loads.map((load) => (
-                  <div key={load.loadId} className="grid grid-cols-[80px_120px_auto_120px_120px_140px] gap-3 px-5 py-3 border-b border-[#F2F2F7] last:border-b-0 text-[12px]">
-                    <div className="font-mono font-semibold text-[#007AFF]">#{load.loadNumber}</div>
-                    <div className="text-[#1C1C1E]">{load.loadDate}</div>
-                    <div>
+                {d.loads.map((load: any) => (
+                  <div key={load.loadId} className="border-b border-[#E5E5EA]/60 last:border-b-0">
+                    {/* Load header row */}
+                    <div className="flex items-center gap-4 px-5 py-3 bg-[#F2F4F7]/50">
+                      <span className="font-mono font-bold text-[13px] text-[#007AFF]">#{load.loadNumber}</span>
+                      <span className="text-[12px] text-[#1C1C1E]">{load.loadDate}</span>
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${STATUS_LABELS[load.status]?.color || '#8E8E93'}15`, color: STATUS_LABELS[load.status]?.color || '#8E8E93' }}>
                         {STATUS_LABELS[load.status]?.label || load.status}
                       </span>
+                      <span className="text-[12px] text-[#8E8E93] ml-auto">{load.sold}/{load.loaded} ш · {load.salesCount} борлуулалт</span>
+                      <span className="text-[14px] font-bold text-[#34C759]">{fmt(load.salesRevenue)}</span>
                     </div>
-                    <div className="text-right text-[#1C1C1E]">{load.sold}/{load.loaded} ш</div>
-                    <div className="text-right text-[#1C1C1E]">{load.salesCount}</div>
-                    <div className="text-right font-bold text-[#34C759]">{fmt(load.salesRevenue)}</div>
+
+                    {/* Sales within this load */}
+                    {(load.sales ?? []).length > 0 && (
+                      <div className="divide-y divide-[#F2F2F7]">
+                        {load.sales.map((sale: any) => {
+                          const saleExpanded = expandedSales.has(sale.id);
+                          const pmInfo = PAYMENT_LABELS[sale.paymentMethod] ?? { label: sale.paymentMethod, color: '#8E8E93' };
+                          return (
+                            <div key={sale.id}>
+                              <div
+                                className="flex items-center gap-3 px-5 pl-10 py-2.5 hover:bg-[#F9FAFB] cursor-pointer transition-colors text-[12px]"
+                                onClick={() => toggleSale(sale.id)}
+                              >
+                                <span className="font-mono text-[#007AFF] font-semibold w-14">#{sale.saleNumber}</span>
+                                <span className="text-[#1C1C1E] flex-1 truncate">{sale.customer?.storeName ?? '—'}</span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${pmInfo.color}15`, color: pmInfo.color }}>
+                                  {pmInfo.label}
+                                </span>
+                                <span className="text-[13px] font-bold text-[#1C1C1E] w-24 text-right">{fmt(sale.totalAmount)}</span>
+                                <span className="text-[10px] text-[#8E8E93] w-14 text-right">
+                                  {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); printSaleReceipt(sale, d.driverName, load.loadNumber); }}
+                                  className="px-2 py-1 rounded-lg text-[10px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
+                                  title="Баримт хэвлэх"
+                                >
+                                  🖨️
+                                </button>
+                                {saleExpanded ? <ChevronDown className="w-3.5 h-3.5 text-[#8E8E93]" /> : <ChevronRight className="w-3.5 h-3.5 text-[#8E8E93]" />}
+                              </div>
+
+                              {/* Sale items expanded */}
+                              {saleExpanded && sale.items?.length > 0 && (
+                                <div className="bg-white mx-5 ml-10 mb-2 rounded-lg border border-[#E8ECF0] overflow-hidden">
+                                  <table className="w-full text-[11px]">
+                                    <thead>
+                                      <tr className="bg-[#F9FAFB] text-[#8E8E93] text-[10px] uppercase">
+                                        <th className="px-3 py-2 text-left font-semibold">#</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Бараа</th>
+                                        <th className="px-3 py-2 text-center font-semibold">Тоо</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Үнэ</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Нийт</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {sale.items.map((it: any, idx: number) => (
+                                        <tr key={idx} className="border-t border-[#F2F2F7]">
+                                          <td className="px-3 py-1.5 text-[#8E8E93]">{idx + 1}</td>
+                                          <td className="px-3 py-1.5 text-[#1C1C1E] font-medium">{it.productName}</td>
+                                          <td className="px-3 py-1.5 text-center">{it.quantity}</td>
+                                          <td className="px-3 py-1.5 text-right">{fmt(it.unitPrice)}</td>
+                                          <td className="px-3 py-1.5 text-right font-semibold">{fmt(it.lineTotal)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

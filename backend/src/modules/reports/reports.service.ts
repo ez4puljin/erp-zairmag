@@ -346,7 +346,15 @@ export class ReportsService {
             paymentMethod: true,
             notes: true,
             createdAt: true,
-            customer: { select: { id: true, storeName: true } },
+            customer: { select: { id: true, storeName: true, phone: true } },
+            items: {
+              select: {
+                quantity: true,
+                unitPrice: true,
+                lineTotal: true,
+                product: { select: { id: true, name: true, sku: true } },
+              },
+            },
           },
         },
       },
@@ -493,6 +501,22 @@ export class ReportsService {
         salesCount: load.sales.length,
         salesRevenue,
         paymentBreakdown: loadBreakdown,
+        sales: load.sales.map((s: any) => ({
+          id: s.id,
+          saleNumber: s.saleNumber,
+          totalAmount: Number(s.totalAmount ?? 0),
+          paymentMethod: s.paymentMethod,
+          notes: s.notes,
+          createdAt: s.createdAt,
+          customer: s.customer,
+          items: (s.items ?? []).map((i: any) => ({
+            productName: i.product?.name ?? '-',
+            sku: i.product?.sku,
+            quantity: i.quantity,
+            unitPrice: Number(i.unitPrice ?? 0),
+            lineTotal: Number(i.lineTotal ?? 0),
+          })),
+        })),
       });
 
       d.summary.totalLoads += 1;
