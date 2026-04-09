@@ -226,12 +226,16 @@ export default function TruckLoadDetailPage() {
   // Driver requested completion → admin enters return quantities directly + approve
   async function handleApproveCompletion() {
     if (!load) return;
-    // Build items: pre-fill returnedQty = remaining for each item
+    // Build items: pre-fill returnedQty = unaccounted remaining for each item
+    // Account for any previously returned/damaged quantities
     const items = (load.items ?? [])
-      .filter((it: any) => (it.loadedQty ?? 0) - (it.soldQty ?? 0) > 0)
+      .filter((it: any) => {
+        const unaccounted = (it.loadedQty ?? 0) - (it.soldQty ?? 0) - (it.returnedQty ?? 0) - (it.damagedQty ?? 0);
+        return unaccounted > 0;
+      })
       .map((it: any) => ({
         productId: it.productId,
-        returnedQty: (it.loadedQty ?? 0) - (it.soldQty ?? 0),
+        returnedQty: (it.loadedQty ?? 0) - (it.soldQty ?? 0) - (it.returnedQty ?? 0) - (it.damagedQty ?? 0),
         damagedQty: 0,
       }));
 
@@ -416,25 +420,23 @@ export default function TruckLoadDetailPage() {
               <Send className="w-3.5 h-3.5" /> Илгээх
             </button>
           )}
-          {load.status === 'DISPATCHED' && (
+          {(load.status === 'DISPATCHED' || load.status === 'COMPLETION_REQUESTED') && (
             <>
-              <button onClick={() => { setShowAddItems(true); fetchProducts(); }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20">
-                <PackagePlus className="w-3.5 h-3.5" /> Нэмэлт ачилт
-              </button>
-              <button onClick={handleVerifyReturn} disabled={actionLoading}
+              {load.status === 'DISPATCHED' && (
+                <button onClick={() => { setShowAddItems(true); fetchProducts(); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20">
+                  <PackagePlus className="w-3.5 h-3.5" /> Нэмэлт ачилт
+                </button>
+              )}
+              <button onClick={handleApproveCompletion} disabled={actionLoading}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #34C759, #30D158)' }}>
-                <CheckCircle className="w-3.5 h-3.5" /> Баталгаажуулах
+                style={{ background: load.status === 'COMPLETION_REQUESTED'
+                  ? 'linear-gradient(135deg, #FF3B30, #FF6B6B)'
+                  : 'linear-gradient(135deg, #34C759, #30D158)' }}>
+                <CheckCircle className="w-3.5 h-3.5" />
+                {load.status === 'COMPLETION_REQUESTED' ? 'Дуусгах хүсэлтийг батлах' : 'Ачилт дуусгаж батлах'}
               </button>
             </>
-          )}
-          {load.status === 'COMPLETION_REQUESTED' && (
-            <button onClick={handleApproveCompletion} disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #FF3B30, #FF6B6B)' }}>
-              <CheckCircle className="w-3.5 h-3.5" /> Дуусгах хүсэлтийг батлах
-            </button>
           )}
           {(load.status === 'LOADING' || load.status === 'DISPATCHED' || load.status === 'COMPLETION_REQUESTED') && (
             <button onClick={handleCancel} disabled={actionLoading}
@@ -589,8 +591,10 @@ export default function TruckLoadDetailPage() {
               const isExpanded = expandedSales.has(sale.id);
               return (
                 <Fragment key={sale.id}>
-                  <button onClick={() => toggleSaleExpand(sale.id)}
-                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F2F2F7]/50 text-left">
+                  <div
+                    onClick={() => toggleSaleExpand(sale.id)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#F2F2F7]/50 text-left cursor-pointer"
+                  >
                     <div className="flex items-center gap-4">
                       <div className="w-9 h-9 rounded-lg bg-[#34C759]/10 flex items-center justify-center shrink-0">
                         <Hash className="w-4 h-4 text-[#34C759]" />
@@ -610,7 +614,7 @@ export default function TruckLoadDetailPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[15px] font-bold text-[#1C1C1E]">₮{Number(sale.totalAmount || 0).toLocaleString()}</span>
-                      {load.status === 'DISPATCHED' && (
+                      {(load.status === 'DISPATCHED' || load.status === 'COMPLETION_REQUESTED') && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleVoidSale(sale.id); }}
                           disabled={actionLoading}
@@ -621,7 +625,7 @@ export default function TruckLoadDetailPage() {
                       )}
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8E8E93]" /> : <ChevronDown className="w-4 h-4 text-[#8E8E93]" />}
                     </div>
-                  </button>
+                  </div>
                   {isExpanded && sale.items?.length > 0 && (
                     <div className="px-5 pb-4">
                       <div className="bg-[#F2F2F7] rounded-xl overflow-hidden">

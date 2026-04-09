@@ -377,7 +377,10 @@ export class TruckLoadsService {
         const damaged = returnItem.damagedQty || 0;
         const returned = returnItem.returnedQty;
         const totalBack = returned + damaged;
-        const remaining = loadItem.loadedQty - loadItem.soldQty;
+        // Account for any previously returned/damaged quantities
+        const remaining = loadItem.loadedQty - loadItem.soldQty - loadItem.returnedQty - loadItem.damagedQty;
+
+        if (remaining <= 0) continue; // Already fully accounted for
 
         if (totalBack !== remaining) {
           throw new BadRequestException(
@@ -385,10 +388,13 @@ export class TruckLoadsService {
           );
         }
 
-        // Update item return quantities
+        // Update item return quantities (add to existing)
         await tx.truckLoadItem.update({
           where: { id: loadItem.id },
-          data: { returnedQty: returned, damagedQty: damaged },
+          data: {
+            returnedQty: loadItem.returnedQty + returned,
+            damagedQty: loadItem.damagedQty + damaged,
+          },
         });
 
         // Return good stock to warehouse
@@ -427,9 +433,12 @@ export class TruckLoadsService {
         }
       }
 
-      // Verify all items with remaining quantity were included
+      // Verify all items with un-accounted remaining quantity were included
       const missingItems = truckLoad.items.filter(
-        (item) => item.loadedQty - item.soldQty > 0 && !returnedProductIds.has(item.productId),
+        (item) => {
+          const unaccounted = item.loadedQty - item.soldQty - item.returnedQty - item.damagedQty;
+          return unaccounted > 0 && !returnedProductIds.has(item.productId);
+        },
       );
       if (missingItems.length > 0) {
         const missingNames = missingItems.map((i) => i.product.name).join(', ');
