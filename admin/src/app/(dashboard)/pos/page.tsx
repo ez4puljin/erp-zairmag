@@ -54,7 +54,6 @@ interface Customer {
   id: string;
   storeName: string;
   contactName?: string;
-  contactName?: string;
   phone?: string;
   address?: string;
   region?: { name: string };
