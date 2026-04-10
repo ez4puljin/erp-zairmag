@@ -170,12 +170,40 @@ cd admin && npm install --legacy-peer-deps && npm run build && cd ..
 
 ## Backup
 
+### Гараар backup хийх
+
 ```bat
 pg_dump -U postgres -d icecream_erp -F c -f backup.dump
 ```
 
-Сэргээх:
+### Google Drive руу автомат backup
+
+1. **Google Drive for Desktop** суулгах: https://www.google.com/drive/download/
+2. `backup.bat` давхар дарж ажиллуулах — database + зургууд Google Drive руу хадгалагдана
+3. Өдөр бүр автомат ажиллуулахын тулд (admin CMD):
 
 ```bat
-pg_restore -U postgres -d icecream_erp --clean backup.dump
+schtasks /create /tn "Zairmag ERP Backup" /tr "C:\erp-zairmag\backup.bat" /sc daily /st 23:00
+```
+
+Backup хадгалагдах байршил: `G:\My Drive\zairmag-backup\`
+
+- `db_YYYYMMDD_HHMM.dump` — database бүрэн backup
+- `uploads\` — барааны зургууд
+- 7 хоногоос хуучин backup автомат устгагдана
+
+### Backup-аас сэргээх
+
+```bat
+pg_restore -U postgres -d icecream_erp --clean "G:\My Drive\zairmag-backup\db_20260410_2300.dump"
+```
+
+### Database устгаж шинээр үүсгэх
+
+```bat
+dropdb -U postgres icecream_erp
+createdb -U postgres icecream_erp
+cd backend
+npx prisma migrate deploy
+npx ts-node scripts/create-admin.ts
 ```
