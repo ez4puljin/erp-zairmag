@@ -1068,7 +1068,7 @@ function ProductGrid({
 
                     {/* Box/Piece toggle + qty input */}
                     <div className="mt-auto space-y-1.5">
-                      {upb > 1 && (
+                      {upb > 1 ? (
                         <div className="flex items-center gap-0 bg-[#F5F6FA] rounded-lg p-0.5 border border-[#E8ECF0]">
                           <button
                             type="button"
@@ -1093,6 +1093,8 @@ function ProductGrid({
                             Ширхэг
                           </button>
                         </div>
+                      ) : (
+                        <div className="text-center text-[9px] text-[#8C8FA3] font-semibold py-0.5">ширхэгээр</div>
                       )}
 
                       {(() => {
