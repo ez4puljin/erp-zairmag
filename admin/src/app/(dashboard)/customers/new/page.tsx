@@ -11,7 +11,7 @@ export default function NewCustomerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    storeName: '', contactPerson: '', phone: '', address: '',
+    storeName: '', contactName: '', phone: '', address: '',
     customerCategoryId: '', pricingTier: 'STANDARD',
     creditLimit: '', openingBalance: '',
   });
@@ -33,8 +33,7 @@ export default function NewCustomerPage() {
     try {
       await api.post('/api/customers', {
         storeName: form.storeName,
-        contactPerson: form.contactPerson,
-        contactName: form.contactPerson,
+        contactName: form.contactName,
         phone: form.phone,
         address: form.address,
         customerCategoryId: form.customerCategoryId || undefined,
@@ -70,7 +69,7 @@ export default function NewCustomerPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Холбоо барих *</label>
-              <input type="text" value={form.contactPerson} onChange={e => handleChange('contactPerson', e.target.value)} required placeholder="Нэр" className={inputClass} />
+              <input type="text" value={form.contactName} onChange={e => handleChange('contactName', e.target.value)} required placeholder="Нэр" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Утас</label>

@@ -56,7 +56,7 @@ export default function CustomerDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({
     storeName: '',
-    contactPerson: '',
+    contactName: '',
     phone: '',
     address: '',
     customerCategoryId: '',
@@ -143,7 +143,7 @@ export default function CustomerDetailPage() {
     if (!customer) return;
     setEditForm({
       storeName: customer.storeName ?? '',
-      contactPerson: customer.contactPerson ?? '',
+      contactName: customer.contactName ?? '',
       phone: customer.phone ?? '',
       address: customer.address ?? '',
       customerCategoryId: customer.customerCategoryId ?? '',
@@ -161,7 +161,7 @@ export default function CustomerDetailPage() {
     try {
       await api.patch(`/api/customers/${id}`, {
         storeName: editForm.storeName,
-        contactPerson: editForm.contactPerson,
+        contactName: editForm.contactName,
         phone: editForm.phone,
         address: editForm.address,
         customerCategoryId: editForm.customerCategoryId || undefined,
@@ -319,7 +319,7 @@ export default function CustomerDetailPage() {
             <div>
               <p className="text-[12px] text-[#8E8E93]">Холбоо барих</p>
               <p className="text-[14px] text-[#1C1C1E] font-medium">
-                {customer.contactPerson}
+                {customer.contactName}
               </p>
             </div>
           </div>
@@ -552,9 +552,9 @@ export default function CustomerDetailPage() {
                 </label>
                 <input
                   type="text"
-                  value={editForm.contactPerson}
+                  value={editForm.contactName}
                   onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, contactPerson: e.target.value }))
+                    setEditForm((prev) => ({ ...prev, contactName: e.target.value }))
                   }
                   required
                   placeholder="Нэр"

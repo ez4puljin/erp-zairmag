@@ -141,7 +141,7 @@ export default function CustomersPage() {
                       )}
                     </div>
                     <p className="text-[13px] text-[#8E8E93] truncate">
-                      {customer.contactPerson} · {customer.phone}
+                      {customer.contactName} · {customer.phone}
                     </p>
                   </div>
 

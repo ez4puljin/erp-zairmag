@@ -31,7 +31,7 @@ interface Product {
 interface Customer {
   id: string;
   storeName: string;
-  contactPerson: string;
+  contactName: string;
   phone?: string;
   pricingTier?: string;
 }
@@ -79,7 +79,7 @@ export default function NewOrderPage() {
     const q = customerSearch.toLowerCase();
     return customers.filter(c =>
       c.storeName.toLowerCase().includes(q) ||
-      c.contactPerson.toLowerCase().includes(q)
+      c.contactName.toLowerCase().includes(q)
     );
   }, [customers, customerSearch]);
 
@@ -209,7 +209,7 @@ export default function NewOrderPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-semibold text-[#1C1C1E]">{selectedCustomer.storeName}</p>
-                  <p className="text-[13px] text-[#8E8E93]">{selectedCustomer.contactPerson} {selectedCustomer.phone ? `· ${selectedCustomer.phone}` : ''}</p>
+                  <p className="text-[13px] text-[#8E8E93]">{selectedCustomer.contactName} {selectedCustomer.phone ? `· ${selectedCustomer.phone}` : ''}</p>
                 </div>
                 <button onClick={() => { setSelectedCustomer(null); setShowCustomerPicker(true); }}
                   className="p-2 rounded-lg hover:bg-[#007AFF]/10 transition-colors">
@@ -405,7 +405,7 @@ export default function NewOrderPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">{customer.storeName}</p>
                       <p className="text-[13px] text-[#8E8E93] truncate">
-                        {customer.contactPerson} {customer.phone ? `· ${customer.phone}` : ''}
+                        {customer.contactName} {customer.phone ? `· ${customer.phone}` : ''}
                         {customer.pricingTier ? ` · ${customer.pricingTier}` : ''}
                       </p>
                     </div>

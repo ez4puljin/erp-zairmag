@@ -53,7 +53,7 @@ interface TruckLoad {
 interface Customer {
   id: string;
   storeName: string;
-  contactPerson?: string;
+  contactName?: string;
   contactName?: string;
   phone?: string;
   address?: string;
@@ -182,7 +182,7 @@ export default function POSPage() {
     return customers.filter(
       (c) =>
         c.storeName?.toLowerCase().includes(q) ||
-        c.contactPerson?.toLowerCase().includes(q) ||
+        c.contactName?.toLowerCase().includes(q) ||
         c.contactName?.toLowerCase().includes(q) ||
         c.phone?.includes(q) ||
         c.address?.toLowerCase().includes(q)
