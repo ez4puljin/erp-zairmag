@@ -540,40 +540,57 @@ export default function TruckLoadsKanban() {
         </div>
       )}
 
-      {/* Add Items Sheet */}
+      {/* Add Items Full-Screen Modal */}
       {addItemsLoadId && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }} />
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto animate-ios-slide-right" style={{ animationDuration: '0.3s' }}>
-            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#E8ECF0] flex items-center justify-between">
-              <h2 className="text-[17px] font-bold text-[#1A1D26]">Нэмэлт ачилт</h2>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1200px] h-full max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#E8ECF0] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-[#F59E0B]" />
+                </div>
+                <div>
+                  <h2 className="text-[18px] font-bold text-[#1A1D26]">Нэмэлт бараа нэмэх</h2>
+                  <p className="text-[11px] text-[#8C8FA3]">Одоо байгаа ачилтад нэмэлт бараа. Агуулахаас шууд хасагдана.</p>
+                </div>
+              </div>
               <button onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="p-3 rounded-xl bg-[#FFF7ED] border border-[#FDE68A]">
-                <p className="text-[12px] text-[#92400E] font-medium">
-                  Одоо байгаа ачилтад нэмэлт бараа нэмэх. Агуулахаас бараа шууд хасагдана.
-                </p>
-              </div>
-
-              {/* Product Grid — All products with stock */}
+            {/* Body — Product Grid */}
+            <div className="flex-1 overflow-hidden min-h-0">
               <ProductGrid
                 products={products}
                 categories={categories}
                 selectedItems={addItemsFormItems}
                 onUpdate={(items) => setAddItemsFormItems(items)}
               />
+            </div>
 
-              <button
-                onClick={handleAddItemsSubmit}
-                disabled={submitting || addItemsFormItems.length === 0}
-                className="w-full py-3 rounded-xl bg-[#F59E0B] text-white text-[14px] font-semibold shadow-md shadow-[#F59E0B]/25 disabled:opacity-50 hover:bg-[#D97706] transition-colors"
-              >
-                {submitting ? 'Нэмж байна...' : 'Нэмэлт бараа нэмэх'}
-              </button>
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#E8ECF0] flex items-center justify-between gap-3 shrink-0 bg-white">
+              <div className="text-[12px] text-[#8C8FA3]">
+                {addItemsFormItems.length === 0 ? 'Бараа сонгоно уу' : `${addItemsFormItems.length} бараа · нийт ${addItemsFormItems.reduce((s, i) => s + i.loadedQty, 0)} ш`}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }}
+                  className="px-5 py-2.5 rounded-xl bg-[#F5F6FA] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
+                >
+                  Цуцлах
+                </button>
+                <button
+                  onClick={handleAddItemsSubmit}
+                  disabled={submitting || addItemsFormItems.length === 0}
+                  className="px-6 py-2.5 rounded-xl bg-[#F59E0B] text-white text-[13px] font-semibold shadow-md shadow-[#F59E0B]/25 disabled:opacity-50 hover:bg-[#D97706] transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {submitting ? 'Нэмж байна...' : 'Нэмэлт бараа нэмэх'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
