@@ -63,6 +63,24 @@ npx prisma migrate deploy
 cd ..
 ```
 
+## Алхам 4.5: Анхны админ хэрэглэгч үүсгэх
+
+```bat
+cd backend
+npx ts-node scripts/create-admin.ts
+cd ..
+```
+
+Үүссэн нэвтрэх мэдээлэл:
+
+| Талбар | Утга |
+|---|---|
+| Email | admin@icecream.mn |
+| Нууц үг | password123 |
+| Эрх | ADMIN |
+
+> Нэвтэрсний дараа нууц үгээ заавал солино уу!
+
 ## Алхам 5: Admin web суулгах + build
 
 ```bat
