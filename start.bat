@@ -35,22 +35,37 @@ echo   Done.
 echo.
 
 :: ----------------------------------------
-:: 2. Check PostgreSQL
+:: 2. Check PostgreSQL (auto-detect version)
 :: ----------------------------------------
 echo [2/5] Checking PostgreSQL...
 
-sc query postgresql-x64-17 | findstr "RUNNING" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   Starting PostgreSQL service...
-    net start postgresql-x64-17 >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo   ERROR: Could not start PostgreSQL. Run as Administrator.
-        pause
-        exit /b 1
+set PG_RUNNING=0
+for %%V in (17 16 15 14 13) do (
+    sc query postgresql-x64-%%V >nul 2>&1
+    if not errorlevel 1 (
+        sc query postgresql-x64-%%V | findstr "RUNNING" >nul 2>&1
+        if not errorlevel 1 (
+            echo   PostgreSQL %%V is running.
+            set PG_RUNNING=1
+            goto :pg_done
+        ) else (
+            echo   Starting PostgreSQL %%V service...
+            net start postgresql-x64-%%V >nul 2>&1
+            if not errorlevel 1 (
+                echo   PostgreSQL %%V started.
+                set PG_RUNNING=1
+                timeout /t 2 /nobreak >nul
+                goto :pg_done
+            )
+        )
     )
-    timeout /t 2 /nobreak >nul
 )
-echo   PostgreSQL is running.
+
+:pg_done
+if %PG_RUNNING%==0 (
+    echo   WARNING: PostgreSQL service not found. Make sure PostgreSQL is installed and running.
+    echo   Trying to continue anyway...
+)
 echo.
 
 :: ----------------------------------------
