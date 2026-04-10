@@ -40,13 +40,17 @@ export default function NewProductPage() {
     setSubmitting(true);
     try {
       const res = await api.post('/api/products', {
-        ...form,
+        name: form.name.trim(),
+        sku: form.sku.trim(),
+        description: form.description?.trim() || undefined,
+        categoryId: form.categoryId,
+        supplierId: form.supplierId || undefined,
+        unit: form.unit || 'PIECE',
+        unitsPerBox: Number(form.unitsPerBox) || 1,
         costPrice: Number(form.costPrice),
         sellingPrice: Number(form.sellingPrice),
         sellingPriceRural: Number(form.sellingPriceRural || form.sellingPrice),
-        unitsPerBox: Number(form.unitsPerBox) || 1,
-        reorderLevel: Number(form.reorderLevel),
-        supplierId: form.supplierId || undefined,
+        reorderLevel: Number(form.reorderLevel) || 0,
       });
 
       const productId = res.data?.id;

@@ -60,13 +60,17 @@ export default function EditProductPage() {
     setSubmitting(true);
     try {
       await api.patch(`/api/products/${id}`, {
-        ...form,
+        name: form.name.trim(),
+        sku: form.sku.trim(),
+        description: form.description?.trim() || undefined,
+        categoryId: form.categoryId,
+        supplierId: form.supplierId || null,
+        unit: form.unit || 'PIECE',
+        unitsPerBox: Number(form.unitsPerBox) || 1,
         costPrice: Number(form.costPrice),
         sellingPrice: Number(form.sellingPrice),
         sellingPriceRural: Number(form.sellingPriceRural || form.sellingPrice),
-        unitsPerBox: Number(form.unitsPerBox) || 1,
-        reorderLevel: Number(form.reorderLevel),
-        supplierId: form.supplierId || null,
+        reorderLevel: Number(form.reorderLevel) || 0,
       });
 
       if (imageFile) {
