@@ -281,7 +281,7 @@ export default function DriverReportPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#8E8E93' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#8E8E93' }} tickFormatter={(v) => `₮${(v / 1000).toFixed(0)}k`} />
                 <Tooltip
-                  formatter={(value: any, name: string) => [fmt(value), PAYMENT_LABELS[name]?.label || name]}
+                  formatter={(value: any, name: any) => [fmt(value), PAYMENT_LABELS[String(name)]?.label || String(name)]}
                   contentStyle={{ borderRadius: 12, border: '1px solid #E5E5EA' }}
                 />
                 <Legend formatter={(v) => PAYMENT_LABELS[v]?.label || v} />
