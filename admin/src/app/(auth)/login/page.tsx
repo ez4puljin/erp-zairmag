@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { Mail, Lock } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-[420px]">
+    <div className="w-full max-w-[420px] animate-ios-fade-in">
       {/* Mobile logo */}
       <div className="lg:hidden text-center mb-8">
         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center text-3xl shadow-lg bg-gradient-to-br from-[#007AFF] to-[#5AC8FA]">
@@ -24,42 +25,48 @@ export default function LoginPage() {
       </div>
 
       {/* Login card */}
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E8ECF0]">
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E8ECF0]/70">
         <div className="mb-6">
-          <h2 className="text-[22px] font-bold text-[#1A1D26]">Нэвтрэх</h2>
+          <h2 className="text-[24px] font-bold text-[#1A1D26] tracking-tight">Нэвтрэх</h2>
           <p className="text-[14px] text-[#8C8FA3] mt-1">Системд нэвтрэхийн тулд мэдээллээ оруулна уу</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[12px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
+            <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
               Имэйл
             </label>
-            <input
-              type="email"
-              placeholder="admin@icecream.mn"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 focus:bg-white"
-            />
+            <div className="relative">
+              <Mail className="w-4.5 h-4.5 text-[#A0A3B1] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="email"
+                placeholder="admin@icecream.mn"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-[12px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
+            <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
               Нууц үг
             </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 focus:bg-white"
-            />
+            <div className="relative">
+              <Lock className="w-4.5 h-4.5 text-[#A0A3B1] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+              />
+            </div>
           </div>
 
           {login.isError && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[#EF4444] text-[13px] font-medium">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-[#FF3B30]/8 border border-[#FF3B30]/20 text-[#FF3B30] text-[13px] font-medium">
               <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
               </svg>
@@ -70,7 +77,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={login.isPending}
-            className="w-full py-3.5 rounded-xl text-[15px] font-semibold text-white bg-[#007AFF] hover:bg-[#0066D6] transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#007AFF]/25"
+            className="w-full py-3.5 rounded-xl text-[15px] font-semibold text-white shadow-md shadow-[#007AFF]/25 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-105"
+            style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
           >
             {login.isPending ? (
               <span className="flex items-center justify-center gap-2">

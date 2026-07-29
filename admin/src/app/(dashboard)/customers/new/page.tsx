@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Users } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { ErrorBanner } from '@/components/shared/error-banner';
 
 export default function NewCustomerPage() {
   const router = useRouter();
@@ -47,39 +50,43 @@ export default function NewCustomerPage() {
     } finally { setSubmitting(false); }
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
-  const labelClass = "block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5";
+  const inputClass = "w-full h-11 px-4 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/12 focus:bg-white";
+  const labelClass = "block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5";
 
   return (
-    <div className="space-y-5 animate-ios-fade-in max-w-2xl">
-      <div>
-        <button onClick={() => router.back()}
-          className="inline-flex items-center gap-1 text-[15px] text-[#007AFF] font-medium hover:text-[#0066D6] transition-colors mb-3 active:scale-[0.97]">
-          <ChevronLeft className="w-5 h-5" /> Харилцагч
-        </button>
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Шинэ харилцагч</h1>
-      </div>
+    <div className="space-y-5 animate-ios-fade-in mx-auto w-full max-w-2xl">
+      <button onClick={() => router.back()}
+        className="inline-flex items-center gap-1 text-[13px] text-[#007AFF] font-semibold hover:text-[#0066D6] transition-colors active:scale-[0.97]">
+        <ChevronLeft className="w-4 h-4" /> Харилцагч
+      </button>
 
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5 space-y-4">
-          <div>
-            <label className={labelClass}>Дэлгүүрийн нэр *</label>
-            <input type="text" value={form.storeName} onChange={e => handleChange('storeName', e.target.value)} required placeholder="Дэлгүүрийн нэр" className={inputClass} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+      <PageHeader title="Шинэ харилцагч" subtitle="Харилцагчийн бүртгэл үүсгэх" icon={Users} />
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <SectionCard title="Үндсэн мэдээлэл">
+          <div className="space-y-4">
             <div>
-              <label className={labelClass}>Холбоо барих *</label>
-              <input type="text" value={form.contactName} onChange={e => handleChange('contactName', e.target.value)} required placeholder="Нэр" className={inputClass} />
+              <label className={labelClass}>Дэлгүүрийн нэр *</label>
+              <input type="text" value={form.storeName} onChange={e => handleChange('storeName', e.target.value)} required placeholder="Дэлгүүрийн нэр" className={inputClass} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Холбоо барих *</label>
+                <input type="text" value={form.contactName} onChange={e => handleChange('contactName', e.target.value)} required placeholder="Нэр" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>Утас</label>
+                <input type="text" value={form.phone} onChange={e => handleChange('phone', e.target.value)} placeholder="99112233" className={inputClass} />
+              </div>
             </div>
             <div>
-              <label className={labelClass}>Утас</label>
-              <input type="text" value={form.phone} onChange={e => handleChange('phone', e.target.value)} placeholder="99112233" className={inputClass} />
+              <label className={labelClass}>Хаяг</label>
+              <input type="text" value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="Хаяг" className={inputClass} />
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Хаяг</label>
-            <input type="text" value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="Хаяг" className={inputClass} />
-          </div>
+        </SectionCard>
+
+        <SectionCard title="Ангилал ба үнийн зэрэглэл">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Бүс нутаг</label>
@@ -101,6 +108,9 @@ export default function NewCustomerPage() {
               </select>
             </div>
           </div>
+        </SectionCard>
+
+        <SectionCard title="Санхүү">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Зээлийн хязгаар (₮)</label>
@@ -111,19 +121,17 @@ export default function NewCustomerPage() {
               <input type="number" min="0" value={form.openingBalance} onChange={e => handleChange('openingBalance', e.target.value)} placeholder="0" className={inputClass} />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {error && (
-          <div className="mt-3 p-3 rounded-xl bg-[#FF3B30]/10 text-[13px] font-medium text-[#FF3B30]">{error}</div>
-        )}
+        <ErrorBanner message={error || null} onDismiss={() => setError('')} />
 
-        <div className="flex items-center justify-end gap-3 mt-5">
+        <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={() => router.back()}
-            className="px-5 py-2.5 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 hover:bg-[#E5E5EA]/60 transition-all active:scale-[0.97]">
+            className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-[#4A4D5C] bg-white border border-[#E8ECF0] hover:bg-[#F2F4F7] transition-all active:scale-[0.97]">
             Цуцлах
           </button>
           <button type="submit" disabled={submitting}
-            className="px-6 py-2.5 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-[14px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
             style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}>
             {submitting ? 'Хадгалж байна...' : 'Бүртгэх'}
           </button>

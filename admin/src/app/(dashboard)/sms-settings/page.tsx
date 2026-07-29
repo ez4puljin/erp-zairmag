@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { MessageSquare, Send, CheckCircle, XCircle } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
 
 const inputClass =
-  'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-3.5 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+const labelClass = 'block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5';
 
 export default function SmsSettingsPage() {
   const [apiUrl, setApiUrl] = useState('http://192.168.1.X:8080/message');
@@ -53,19 +56,18 @@ export default function SmsSettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-ios-fade-in max-w-2xl">
-      <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">SMS тохиргоо</h1>
+    <div className="mx-auto w-full max-w-2xl space-y-5 animate-ios-fade-in">
+      <PageHeader
+        title="SMS тохиргоо"
+        subtitle="Мессеж илгээх серверийн холболт, тест"
+        icon={MessageSquare}
+      />
 
       {/* Settings Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-6 space-y-5">
-        <div className="flex items-center gap-2 text-[16px] font-semibold text-[#1C1C1E]">
-          <MessageSquare className="w-5 h-5 text-[#007AFF]" />
-          Холболтын тохиргоо
-        </div>
-
+      <SectionCard title="Холболтын тохиргоо">
         <div className="space-y-4">
           <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">API URL</label>
+            <label className={labelClass}>API URL</label>
             <input
               type="text"
               value={apiUrl}
@@ -75,7 +77,7 @@ export default function SmsSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Хэрэглэгчийн нэр</label>
+            <label className={labelClass}>Хэрэглэгчийн нэр</label>
             <input
               type="text"
               value={username}
@@ -85,7 +87,7 @@ export default function SmsSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Нууц үг</label>
+            <label className={labelClass}>Нууц үг</label>
             <input
               type="password"
               value={password}
@@ -94,35 +96,30 @@ export default function SmsSettingsPage() {
               className={inputClass}
             />
           </div>
+
+          {saveMsg && (
+            <div className={`flex items-center gap-2 text-[13px] font-medium px-4 py-3 rounded-xl ${saveMsg.type === 'success' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
+              {saveMsg.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
+              {saveMsg.text}
+            </div>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[14px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] hover:brightness-105 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #007AFF, #5856D6)' }}
+          >
+            {saving ? 'Хадгалж байна...' : 'Хадгалах'}
+          </button>
         </div>
-
-        {saveMsg && (
-          <div className={`flex items-center gap-2 text-[14px] px-4 py-3 rounded-xl ${saveMsg.type === 'success' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
-            {saveMsg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-            {saveMsg.text}
-          </div>
-        )}
-
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #007AFF, #5856D6)' }}
-        >
-          {saving ? 'Хадгалж байна...' : 'Хадгалах'}
-        </button>
-      </div>
+      </SectionCard>
 
       {/* Test SMS Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-6 space-y-5">
-        <div className="flex items-center gap-2 text-[16px] font-semibold text-[#1C1C1E]">
-          <Send className="w-5 h-5 text-[#5856D6]" />
-          Тест SMS илгээх
-        </div>
-
+      <SectionCard title="Тест SMS илгээх">
         <div className="space-y-4">
           <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Утасны дугаар</label>
+            <label className={labelClass}>Утасны дугаар</label>
             <input
               type="text"
               value={testPhone}
@@ -132,7 +129,7 @@ export default function SmsSettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Мессеж</label>
+            <label className={labelClass}>Мессеж</label>
             <textarea
               value={testMessage}
               onChange={e => setTestMessage(e.target.value)}
@@ -141,25 +138,25 @@ export default function SmsSettingsPage() {
               className={inputClass + ' resize-none'}
             />
           </div>
+
+          {testMsg && (
+            <div className={`flex items-center gap-2 text-[13px] font-medium px-4 py-3 rounded-xl ${testMsg.type === 'success' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
+              {testMsg.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
+              {testMsg.text}
+            </div>
+          )}
+
+          <button
+            onClick={handleTest}
+            disabled={testing || !testPhone || !testMessage}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[14px] font-semibold text-white shadow-sm shadow-[#5856D6]/25 transition-all active:scale-[0.97] hover:brightness-105 disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #5856D6, #AF52DE)' }}
+          >
+            <Send className="w-4 h-4" />
+            {testing ? 'Илгээж байна...' : 'Тест илгээх'}
+          </button>
         </div>
-
-        {testMsg && (
-          <div className={`flex items-center gap-2 text-[14px] px-4 py-3 rounded-xl ${testMsg.type === 'success' ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
-            {testMsg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-            {testMsg.text}
-          </div>
-        )}
-
-        <button
-          onClick={handleTest}
-          disabled={testing || !testPhone || !testMessage}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #5856D6, #AF52DE)' }}
-        >
-          <Send className="w-4 h-4" />
-          {testing ? 'Илгээж байна...' : 'Тест илгээх'}
-        </button>
-      </div>
+      </SectionCard>
     </div>
   );
 }

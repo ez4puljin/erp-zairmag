@@ -8,21 +8,23 @@ import {
   RefreshCw, CheckCircle, Truck, Printer, Search,
   DollarSign, CreditCard, Banknote, Building2, Clock,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { formatMnt } from '@/components/shared/money';
 
 const COLUMNS = [
   { id: 'pending', label: 'Захиалга', status: 'PENDING', color: '#FF9500', bg: '#FFF7ED', border: '#FED7AA' },
   { id: 'approved', label: 'Бэлдэж буй', status: 'APPROVED', color: '#007AFF', bg: '#EFF6FF', border: '#BFDBFE' },
   { id: 'shipping', label: 'Хүргэлт', status: 'SHIPPING', color: '#AF52DE', bg: '#F5F3FF', border: '#DDD6FE' },
-  { id: 'delivered', label: 'Баримт хэвлэх', status: 'DELIVERED', color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
-  { id: 'archive', label: 'Архив', status: 'ARCHIVE', color: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB' },
+  { id: 'delivered', label: 'Баримт хэвлэх', status: 'DELIVERED', color: '#34C759', bg: '#ECFDF5', border: '#A7F3D0' },
+  { id: 'archive', label: 'Архив', status: 'ARCHIVE', color: '#8C8FA3', bg: '#F3F4F6', border: '#D1D5DB' },
 ];
 
 const PAYMENT_LABELS: Record<string, { label: string; color: string }> = {
-  CASH: { label: 'Бэлэн', color: '#10B981' },
+  CASH: { label: 'Бэлэн', color: '#34C759' },
   BANK_TRANSFER: { label: 'Шилжүүлэг', color: '#007AFF' },
   CARD: { label: 'Карт', color: '#5856D6' },
-  CREDIT: { label: 'Зээл', color: '#F59E0B' },
-  COMBINED: { label: 'Хосолсон', color: '#EF4444' },
+  CREDIT: { label: 'Зээл', color: '#FF9500' },
+  COMBINED: { label: 'Хосолсон', color: '#FF3B30' },
 };
 
 const inputClass = 'w-full px-3 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15';
@@ -130,22 +132,31 @@ export default function OrdersKanban() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 animate-ios-fade-in">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <h1 className="text-[22px] font-bold text-[#1A1D26]">Захиалга</h1>
-        <div className="flex items-center gap-2">
-          <button onClick={fetchOrders} className="p-2.5 rounded-xl bg-white border border-[#E8ECF0] hover:bg-[#F5F6FA]">
-            <RefreshCw className={`w-4 h-4 text-[#8C8FA3] ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button onClick={() => setShowNewOrder(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FF9500] text-white text-[13px] font-semibold shadow-md shadow-[#FF9500]/25">
-            <Plus className="w-4 h-4" /> Захиалга
-          </button>
-        </div>
+      <div className="flex-shrink-0">
+        <PageHeader
+          title="Захиалга"
+          subtitle="Захиалгын урсгал · Kanban самбар"
+          icon={ShoppingCart}
+          iconColor="#FF9500"
+          actions={
+            <>
+              <button onClick={fetchOrders}
+                className="w-9 h-9 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center hover:bg-[#F2F4F7] transition-all active:scale-95">
+                <RefreshCw className={`w-4 h-4 text-[#8C8FA3] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button onClick={() => setShowNewOrder(true)}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#FF9500] text-white text-[13px] font-semibold shadow-sm shadow-[#FF9500]/25 transition-all active:scale-[0.97] hover:brightness-105">
+                <Plus className="w-4 h-4" /> Захиалга
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* Mobile Tabs */}
-      <div className="flex lg:hidden gap-1 bg-white rounded-xl p-1 border border-[#E8ECF0] flex-shrink-0 overflow-x-auto">
+      <div className="flex lg:hidden gap-1 bg-white rounded-xl p-1 border border-[#E8ECF0]/70 shadow-sm flex-shrink-0 overflow-x-auto">
         {columnData.map((col, i) => (
-          <button key={col.id} onClick={() => setActiveTab(i)} className={`flex-shrink-0 py-2 px-3 rounded-lg text-[10px] font-semibold ${activeTab === i ? 'bg-[#007AFF] text-white' : 'text-[#8C8FA3]'}`}>
+          <button key={col.id} onClick={() => setActiveTab(i)} className={`flex-shrink-0 py-2 px-3 rounded-lg text-[10px] font-semibold transition-all ${activeTab === i ? 'bg-[#007AFF] text-white' : 'text-[#8C8FA3]'}`}>
             {col.label.split(' ')[0]} ({col.items.length})
           </button>
         ))}
@@ -187,19 +198,19 @@ export default function OrdersKanban() {
       {/* Driver Modal */}
       {driverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDriverModal(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDriverModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-[#E8ECF0]/70 w-full max-w-sm mx-4 p-5 animate-ios-scale-in">
             <h3 className="text-[16px] font-bold text-[#1A1D26] mb-3">Жолооч сонгох</h3>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {drivers.map((d: any) => (
                 <button key={d.id} onClick={() => handleShip(driverModal, d.id)} disabled={actionLoading === driverModal}
-                  className="w-full text-left p-3 rounded-xl border border-[#E8ECF0] hover:bg-[#F5F6FA] disabled:opacity-50">
-                  <p className="text-[13px] font-semibold">{d.firstName} {d.lastName}</p>
+                  className="w-full text-left p-3 rounded-xl border border-[#E8ECF0]/70 hover:bg-[#F5F6FA] transition-colors disabled:opacity-50">
+                  <p className="text-[13px] font-semibold text-[#1A1D26]">{d.firstName} {d.lastName}</p>
                   <p className="text-[11px] text-[#8C8FA3]">{d.phone}</p>
                 </button>
               ))}
             </div>
-            <button onClick={() => setDriverModal(null)} className="mt-3 w-full py-2 rounded-xl bg-[#F5F6FA] text-[13px] text-[#8C8FA3] font-semibold">Болих</button>
+            <button onClick={() => setDriverModal(null)} className="mt-3 w-full py-2 rounded-xl bg-[#F5F6FA] text-[13px] text-[#8C8FA3] font-semibold hover:bg-[#EEF0F4] transition-colors">Болих</button>
           </div>
         </div>
       )}
@@ -207,21 +218,21 @@ export default function OrdersKanban() {
       {/* Payment Modal */}
       {paymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setPaymentModal(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPaymentModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-[#E8ECF0]/70 w-full max-w-sm mx-4 p-5 animate-ios-scale-in">
             <h3 className="text-[16px] font-bold text-[#1A1D26] mb-3">Төлбөрийн хэлбэр</h3>
             <div className="space-y-2">
               {Object.entries(PAYMENT_LABELS).map(([key, pm]) => (
                 <button key={key} onClick={() => handleDeliver(paymentModal, key)} disabled={actionLoading === paymentModal}
-                  className="w-full text-left p-3 rounded-xl border border-[#E8ECF0] hover:bg-[#F5F6FA] disabled:opacity-50 flex items-center gap-3">
+                  className="w-full text-left p-3 rounded-xl border border-[#E8ECF0]/70 hover:bg-[#F5F6FA] transition-colors disabled:opacity-50 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${pm.color}15` }}>
                     <DollarSign className="w-4 h-4" style={{ color: pm.color }} />
                   </div>
-                  <span className="text-[13px] font-semibold">{pm.label}</span>
+                  <span className="text-[13px] font-semibold text-[#1A1D26]">{pm.label}</span>
                 </button>
               ))}
             </div>
-            <button onClick={() => setPaymentModal(null)} className="mt-3 w-full py-2 rounded-xl bg-[#F5F6FA] text-[13px] text-[#8C8FA3] font-semibold">Болих</button>
+            <button onClick={() => setPaymentModal(null)} className="mt-3 w-full py-2 rounded-xl bg-[#F5F6FA] text-[13px] text-[#8C8FA3] font-semibold hover:bg-[#EEF0F4] transition-colors">Болих</button>
           </div>
         </div>
       )}
@@ -229,39 +240,39 @@ export default function OrdersKanban() {
       {/* New Order Sheet */}
       {showNewOrder && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowNewOrder(false); setSelectedCustomer(null); setCart([]); }} />
-          <div className="relative w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto">
-            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#E8ECF0] flex items-center justify-between">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowNewOrder(false); setSelectedCustomer(null); setCart([]); }} />
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl overflow-y-auto animate-ios-slide-right">
+            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#F0F2F5] flex items-center justify-between">
               <h2 className="text-[17px] font-bold text-[#1A1D26]">Шинэ захиалга</h2>
-              <button onClick={() => { setShowNewOrder(false); setSelectedCustomer(null); setCart([]); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]"><X className="w-5 h-5 text-[#8C8FA3]" /></button>
+              <button onClick={() => { setShowNewOrder(false); setSelectedCustomer(null); setCart([]); }} className="p-2 rounded-lg hover:bg-[#F5F6FA] transition-colors"><X className="w-5 h-5 text-[#8C8FA3]" /></button>
             </div>
             <div className="p-5 space-y-4">
               {/* Customer */}
               {!selectedCustomer ? (
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Харилцагч *</label>
+                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5 block">Харилцагч *</label>
                   <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Нэр, утас хайх..." className={inputClass + ' mb-2'} />
                   <div className="space-y-1 max-h-[200px] overflow-y-auto">
                     {filteredCustomers.map((c: any) => (
-                      <button key={c.id} onClick={() => setSelectedCustomer(c)} className="w-full text-left p-3 rounded-xl hover:bg-[#F5F6FA] border border-[#E8ECF0]">
-                        <p className="text-[13px] font-semibold">{c.storeName}</p><p className="text-[11px] text-[#8C8FA3]">{c.phone}</p>
+                      <button key={c.id} onClick={() => setSelectedCustomer(c)} className="w-full text-left p-3 rounded-xl hover:bg-[#F5F6FA] border border-[#E8ECF0]/70 transition-colors">
+                        <p className="text-[13px] font-semibold text-[#1A1D26]">{c.storeName}</p><p className="text-[11px] text-[#8C8FA3]">{c.phone}</p>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0]">
-                  <CheckCircle className="w-5 h-5 text-[#10B981]" /><div className="flex-1"><p className="text-[13px] font-semibold">{selectedCustomer.storeName}</p></div>
+                  <CheckCircle className="w-5 h-5 text-[#34C759]" /><div className="flex-1"><p className="text-[13px] font-semibold text-[#1A1D26]">{selectedCustomer.storeName}</p></div>
                   <button onClick={() => setSelectedCustomer(null)} className="p-1 rounded"><X className="w-4 h-4 text-[#8C8FA3]" /></button>
                 </div>
               )}
               {/* Payment */}
               <div>
-                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Төлбөрийн хэлбэр</label>
+                <label className="text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5 block">Төлбөрийн хэлбэр</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {Object.entries(PAYMENT_LABELS).map(([key, pm]) => (
                     <button key={key} type="button" onClick={() => setOrderPaymentMethod(key)}
-                      className={`py-2 px-2 rounded-xl text-[11px] font-semibold border ${orderPaymentMethod === key ? 'text-white border-transparent' : 'text-[#4A4D5C] border-[#E8ECF0]'}`}
+                      className={`py-2 px-2 rounded-xl text-[11px] font-semibold border transition-all ${orderPaymentMethod === key ? 'text-white border-transparent' : 'text-[#4A4D5C] border-[#E8ECF0]/70'}`}
                       style={orderPaymentMethod === key ? { background: pm.color } : {}}>
                       {pm.label}
                     </button>
@@ -271,26 +282,26 @@ export default function OrdersKanban() {
               {/* Products */}
               {selectedCustomer && (
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Бараа {cart.length > 0 && <span className="text-[#007AFF]">· ₮{cartTotal.toLocaleString()}</span>}</label>
+                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5 block">Бараа {cart.length > 0 && <span className="text-[#007AFF]">· {formatMnt(cartTotal)}</span>}</label>
                   <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
                     {products.map((p: any) => {
                       const inCart = cart.find(c => c.productId === p.id);
                       const qty = inCart?.qty ?? 0;
                       const stock = p.stockAvailable ?? 0;
                       return (
-                        <div key={p.id} className={`rounded-xl border p-3 ${qty > 0 ? 'bg-[#EFF6FF] border-[#007AFF]/30' : 'bg-white border-[#E8ECF0]'}`}>
+                        <div key={p.id} className={`rounded-xl border p-3 ${qty > 0 ? 'bg-[#EFF6FF] border-[#007AFF]/30' : 'bg-white border-[#E8ECF0]/70'}`}>
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-[12px] font-semibold truncate flex-1 mr-2">{p.name}</p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stock > 0 ? 'bg-[#ECFDF5] text-[#10B981]' : 'bg-[#FEF2F2] text-[#EF4444]'}`}>{stock}</span>
+                            <p className="text-[12px] font-semibold text-[#1A1D26] truncate flex-1 mr-2">{p.name}</p>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${stock > 0 ? 'bg-[#ECFDF5] text-[#34C759]' : 'bg-[#FEF2F2] text-[#FF3B30]'}`}>{stock}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-[#8C8FA3]">₮{Number(p.sellingPrice ?? 0).toLocaleString()}</span>
+                            <span className="text-[11px] text-[#8C8FA3]">{formatMnt(p.sellingPrice)}</span>
                             <div className="flex items-center gap-1">
                               <button onClick={() => { if (qty <= 1) setCart(prev => prev.filter(c => c.productId !== p.id)); else setCart(prev => prev.map(c => c.productId === p.id ? { ...c, qty: c.qty - 1 } : c)); }}
-                                disabled={qty <= 0} className="w-8 h-8 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center font-bold disabled:opacity-30">−</button>
-                              <span className="w-8 text-center text-[13px] font-bold">{qty}</span>
+                                disabled={qty <= 0} className="w-8 h-8 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0]/70 flex items-center justify-center font-bold text-[#4A4D5C] disabled:opacity-30">−</button>
+                              <span className="w-8 text-center text-[13px] font-bold text-[#1A1D26]">{qty}</span>
                               <button onClick={() => { if (qty >= stock) return; const ex = cart.find(c => c.productId === p.id); if (ex) setCart(prev => prev.map(c => c.productId === p.id ? { ...c, qty: c.qty + 1 } : c)); else setCart(prev => [...prev, { productId: p.id, name: p.name, qty: 1, unitPrice: Number(p.sellingPrice ?? 0) }]); }}
-                                disabled={stock <= 0 || qty >= stock} className="w-8 h-8 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center font-bold disabled:opacity-30">+</button>
+                                disabled={stock <= 0 || qty >= stock} className="w-8 h-8 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0]/70 flex items-center justify-center font-bold text-[#4A4D5C] disabled:opacity-30">+</button>
                             </div>
                           </div>
                         </div>
@@ -300,8 +311,8 @@ export default function OrdersKanban() {
                 </div>
               )}
               <button onClick={handleCreateOrder} disabled={submitting || !selectedCustomer || cart.length === 0}
-                className="w-full py-3 rounded-xl bg-[#FF9500] text-white text-[14px] font-semibold disabled:opacity-50">
-                {submitting ? 'Илгээж байна...' : `Захиалга · ₮${cartTotal.toLocaleString()}`}
+                className="w-full py-3 rounded-xl bg-[#FF9500] text-white text-[14px] font-semibold shadow-sm shadow-[#FF9500]/25 transition-all active:scale-[0.99] hover:brightness-105 disabled:opacity-50 disabled:active:scale-100">
+                {submitting ? 'Илгээж байна...' : `Захиалга · ${formatMnt(cartTotal)}`}
               </button>
             </div>
           </div>
@@ -319,7 +330,7 @@ function OCard({ order, isArchive, al, onApprove, onShip, onDeliver, onCancel, o
   const busy = al === order.id;
 
   return (
-    <div onClick={onClick} className={`bg-white rounded-xl border border-[#E8ECF0] p-2.5 cursor-pointer hover:shadow-md transition-all ${isArchive ? 'opacity-60' : ''} ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div onClick={onClick} className={`bg-white rounded-xl border border-[#E8ECF0]/70 p-2.5 cursor-pointer hover:shadow-md transition-all ${isArchive ? 'opacity-60' : ''} ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-bold text-[#007AFF]">#{order.orderNumber}</span>
         <span className="text-[9px] text-[#8C8FA3]">{order.createdAt ? new Date(order.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
@@ -332,7 +343,7 @@ function OCard({ order, isArchive, al, onApprove, onShip, onDeliver, onCancel, o
         {items.slice(0, 5).map((item: any, idx: number) => (
           <div key={idx} className="flex items-center justify-between">
             <span className="text-[10px] text-[#4A4D5C] truncate flex-1 mr-2">{item.product?.name ?? 'Бараа'}</span>
-            <span className="text-[10px] font-semibold text-[#1A1D26] shrink-0">{item.quantity}ш · ₮{Number(item.lineTotal ?? 0).toLocaleString()}</span>
+            <span className="text-[10px] font-semibold text-[#1A1D26] shrink-0">{item.quantity}ш · {formatMnt(item.lineTotal)}</span>
           </div>
         ))}
         {items.length > 5 && <p className="text-[9px] text-[#8C8FA3]">+{items.length - 5} бараа...</p>}
@@ -340,15 +351,15 @@ function OCard({ order, isArchive, al, onApprove, onShip, onDeliver, onCancel, o
 
       <div className="flex items-center justify-between mb-1">
         <span className="text-[10px] text-[#8C8FA3]">{items.length} бараа · {totalQty} ш</span>
-        <span className="text-[14px] font-bold text-[#1A1D26]">₮{Number(order.totalAmount ?? 0).toLocaleString()}</span>
+        <span className="text-[14px] font-bold text-[#1A1D26]">{formatMnt(order.totalAmount)}</span>
       </div>
       {pm && <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full mb-1" style={{ background: `${pm.color}15`, color: pm.color }}>{pm.label}</span>}
       {!isArchive && (
         <div className="flex gap-1 pt-1.5 border-t border-[#F2F4F7]" onClick={e => e.stopPropagation()}>
-          {order.status === 'PENDING' && <><button onClick={() => onApprove(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#007AFF] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3" />Батлах</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0] text-[#EF4444]"><X className="w-3 h-3" /></button></>}
-          {order.status === 'APPROVED' && <><button onClick={() => onShip(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#AF52DE] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><Truck className="w-3 h-3" />Хүргэлт</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0] text-[#EF4444]"><X className="w-3 h-3" /></button></>}
-          {order.status === 'SHIPPING' && <><button onClick={() => onDeliver(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#10B981] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3" />Хүргэсэн</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0] text-[#EF4444]"><X className="w-3 h-3" /></button></>}
-          {order.status === 'DELIVERED' && !order.receiptPrintedAt && <button onClick={() => onPrint(order)} className="flex-1 py-1.5 rounded-lg bg-[#10B981] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><Printer className="w-3 h-3" />Хэвлэх</button>}
+          {order.status === 'PENDING' && <><button onClick={() => onApprove(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#007AFF] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3" />Батлах</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0]/70 text-[#FF3B30]"><X className="w-3 h-3" /></button></>}
+          {order.status === 'APPROVED' && <><button onClick={() => onShip(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#AF52DE] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><Truck className="w-3 h-3" />Хүргэлт</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0]/70 text-[#FF3B30]"><X className="w-3 h-3" /></button></>}
+          {order.status === 'SHIPPING' && <><button onClick={() => onDeliver(order.id)} className="flex-1 py-1.5 rounded-lg bg-[#34C759] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3" />Хүргэсэн</button><button onClick={() => onCancel(order.id)} className="p-1.5 rounded-lg border border-[#E8ECF0]/70 text-[#FF3B30]"><X className="w-3 h-3" /></button></>}
+          {order.status === 'DELIVERED' && !order.receiptPrintedAt && <button onClick={() => onPrint(order)} className="flex-1 py-1.5 rounded-lg bg-[#34C759] text-white text-[10px] font-semibold flex items-center justify-center gap-1"><Printer className="w-3 h-3" />Хэвлэх</button>}
         </div>
       )}
     </div>

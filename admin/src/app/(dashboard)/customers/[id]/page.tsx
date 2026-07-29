@@ -19,9 +19,16 @@ import {
   Power,
   Eye,
   EyeOff,
+  CreditCard,
+  Wallet,
 } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const tierConfig: Record<string, { label: string; bg: string; text: string }> = {
   STANDARD: { label: 'Standard', bg: '#007AFF15', text: '#007AFF' },
@@ -40,7 +47,9 @@ const orderStatusConfig: Record<string, { label: string; bg: string; text: strin
 };
 
 const inputClass =
-  'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+
+const labelClass = 'block text-[13px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5';
 
 export default function CustomerDetailPage() {
   const params = useParams();
@@ -231,9 +240,10 @@ export default function CustomerDetailPage() {
 
   if (!customer) {
     return (
-      <div className="text-center py-20">
-        <Users className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-        <p className="text-[17px] font-semibold text-[#1C1C1E]">Харилцагч олдсонгүй</p>
+      <div className="max-w-3xl">
+        <SectionCard>
+          <EmptyState icon={Users} title="Харилцагч олдсонгүй" hint="Энэ харилцагч устгагдсан эсвэл байхгүй байна" />
+        </SectionCard>
       </div>
     );
   }
@@ -242,33 +252,59 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-5 animate-ios-fade-in max-w-3xl">
-      {/* Back + Title */}
-      <div>
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-1 text-[15px] text-[#007AFF] font-medium hover:text-[#0066D6] transition-colors mb-3 active:scale-[0.97]"
-        >
-          <ChevronLeft className="w-5 h-5" /> Харилцагч
-        </button>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">
-            {customer.storeName}
-          </h1>
-          <span
-            className="inline-flex px-2.5 py-0.5 rounded-full text-[12px] font-bold"
-            style={{ backgroundColor: tier.bg, color: tier.text }}
-          >
-            {tier.label}
+      {/* Back */}
+      <button
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-1 text-[13px] text-[#007AFF] font-semibold hover:text-[#0066D6] transition-colors active:scale-[0.97]"
+      >
+        <ChevronLeft className="w-4 h-4" /> Харилцагч
+      </button>
+
+      {/* Header */}
+      <PageHeader
+        title={customer.storeName}
+        subtitle={customer.contactName || undefined}
+        icon={Users}
+        iconColor="#AF52DE"
+        actions={
+          <>
+            <button
+              onClick={() => isActive ? setShowDeactivateConfirm(true) : handleToggleActive()}
+              disabled={toggling}
+              className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97] disabled:opacity-60 ${
+                isActive
+                  ? 'bg-[#FF3B30]/10 text-[#FF3B30] hover:bg-[#FF3B30]/15'
+                  : 'bg-[#34C759]/10 text-[#34C759] hover:bg-[#34C759]/15'
+              }`}
+            >
+              <Power className="w-3.5 h-3.5" />
+              {toggling ? '...' : isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}
+            </button>
+            <button
+              onClick={openEditModal}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] hover:brightness-105"
+              style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
+            >
+              <Pencil className="w-3.5 h-3.5" /> Засах
+            </button>
+          </>
+        }
+      />
+
+      {/* Status + tier chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold bg-[#F2F4F7]">
+          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-[#34C759]' : 'bg-[#8C8FA3]'}`} />
+          <span className={isActive ? 'text-[#34C759]' : 'text-[#8C8FA3]'}>
+            {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
           </span>
-          <div className="flex items-center gap-1.5">
-            <div
-              className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-[#34C759]' : 'bg-[#8E8E93]'}`}
-            />
-            <span className="text-[13px] font-medium text-[#8E8E93]">
-              {isActive ? 'Идэвхтэй' : 'Идэвхгүй'}
-            </span>
-          </div>
-        </div>
+        </span>
+        <span
+          className="inline-flex px-2.5 py-1 rounded-full text-[12px] font-bold"
+          style={{ backgroundColor: tier.bg, color: tier.text }}
+        >
+          {tier.label}
+        </span>
       </div>
 
       <ErrorBanner message={fetchError} onDismiss={() => setFetchError(null)} />
@@ -284,66 +320,46 @@ export default function CustomerDetailPage() {
         onCancel={() => setShowDeactivateConfirm(false)}
       />
 
-      {/* Section 1: Customer Info Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide">
-            Мэдээлэл
-          </h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => isActive ? setShowDeactivateConfirm(true) : handleToggleActive()}
-              disabled={toggling}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all active:scale-[0.97] disabled:opacity-60 ${
-                isActive
-                  ? 'bg-[#FF3B30]/10 text-[#FF3B30] hover:bg-[#FF3B30]/20'
-                  : 'bg-[#34C759]/10 text-[#34C759] hover:bg-[#34C759]/20'
-              }`}
-            >
-              <Power className="w-3.5 h-3.5" />
-              {toggling ? '...' : isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}
-            </button>
-            <button
-              onClick={openEditModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/20 transition-all active:scale-[0.97]"
-            >
-              <Pencil className="w-3.5 h-3.5" /> Засах
-            </button>
-          </div>
-        </div>
+      {/* KPI stats */}
+      <StatGrid cols={3}>
+        <StatCard label="Захиалгын тоо" value={`${orders.length} ш`} icon={ShoppingCart} gradient="indigo" index={0} />
+        <StatCard label="Зээлийн хязгаар" value={formatMnt(customer.creditLimit ?? 0)} icon={CreditCard} gradient="purple" index={1} />
+        <StatCard label="Одоогийн өр" value={formatMnt(customer.outstandingDebt ?? 0)} icon={Wallet} gradient="red" index={2} />
+      </StatGrid>
+
+      {/* Section 1: Customer Info */}
+      <SectionCard title="Мэдээлэл">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#AF52DE]/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#AF52DE]/10 flex items-center justify-center shrink-0">
               <Users className="w-4 h-4 text-[#AF52DE]" />
             </div>
-            <div>
-              <p className="text-[12px] text-[#8E8E93]">Холбоо барих</p>
-              <p className="text-[14px] text-[#1C1C1E] font-medium">
-                {customer.contactName}
-              </p>
+            <div className="min-w-0">
+              <p className="text-[12px] text-[#8C8FA3]">Холбоо барих</p>
+              <p className="text-[14px] text-[#1A1D26] font-medium truncate">{customer.contactName}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center shrink-0">
               <Phone className="w-4 h-4 text-[#34C759]" />
             </div>
-            <div>
-              <p className="text-[12px] text-[#8E8E93]">Утас</p>
-              <p className="text-[14px] text-[#1C1C1E] font-medium">{customer.phone}</p>
+            <div className="min-w-0">
+              <p className="text-[12px] text-[#8C8FA3]">Утас</p>
+              <p className="text-[14px] text-[#1A1D26] font-medium">{customer.phone}</p>
             </div>
           </div>
           {customer.address && (
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#FF9500]/10 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#FF9500]/10 flex items-center justify-center shrink-0">
                 <MapPin className="w-4 h-4 text-[#FF9500]" />
               </div>
-              <div>
-                <p className="text-[12px] text-[#8E8E93]">Хаяг</p>
-                <p className="text-[14px] text-[#1C1C1E] font-medium">{customer.address}</p>
+              <div className="min-w-0">
+                <p className="text-[12px] text-[#8C8FA3]">Хаяг</p>
+                <p className="text-[14px] text-[#1A1D26] font-medium">{customer.address}</p>
               </div>
             </div>
           )}
-          <div className="flex items-center gap-3 flex-wrap pt-1">
+          <div className="flex items-center gap-2 flex-wrap pt-1">
             {customer.customerCategory?.name && (
               <span className="inline-flex px-2.5 py-1 rounded-lg text-[12px] font-semibold bg-[#FF9500]/10 text-[#FF9500]">
                 {customer.customerCategory.name}
@@ -362,32 +378,29 @@ export default function CustomerDetailPage() {
             </span>
             {Number(customer.creditLimit ?? 0) > 0 && (
               <span className="inline-flex px-2.5 py-1 rounded-lg text-[12px] font-semibold bg-[#5856D6]/10 text-[#5856D6]">
-                Зээлийн хязгаар: ₮{Number(customer.creditLimit).toLocaleString()}
+                Зээлийн хязгаар: {formatMnt(customer.creditLimit)}
               </span>
             )}
             {Number(customer.outstandingDebt ?? 0) > 0 && (
               <span className="inline-flex px-2.5 py-1 rounded-lg text-[12px] font-semibold bg-[#FF3B30]/10 text-[#FF3B30]">
-                Өр: ₮{Number(customer.outstandingDebt).toLocaleString()}
+                Өр: {formatMnt(customer.outstandingDebt)}
               </span>
             )}
           </div>
         </div>
-      </div>
+      </SectionCard>
 
-      {/* Section 2: App Account Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5">
-        <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide mb-4">
-          Апп бүртгэл
-        </h3>
+      {/* Section 2: App Account */}
+      <SectionCard title="Апп бүртгэл">
         {customer.user?.email ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center shrink-0">
                 <Mail className="w-4 h-4 text-[#007AFF]" />
               </div>
-              <div className="flex-1">
-                <p className="text-[12px] text-[#8E8E93]">Имэйл</p>
-                <p className="text-[14px] text-[#1C1C1E] font-medium">{customer.user.email}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] text-[#8C8FA3]">Имэйл</p>
+                <p className="text-[14px] text-[#1A1D26] font-medium truncate">{customer.user.email}</p>
               </div>
               <button
                 onClick={() => {
@@ -396,7 +409,7 @@ export default function CustomerDetailPage() {
                   setResetSuccess('');
                   setShowResetModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-[#FF9500]/10 text-[#FF9500] hover:bg-[#FF9500]/20 transition-all active:scale-[0.97]"
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-[13px] font-semibold bg-[#FF9500]/10 text-[#FF9500] hover:bg-[#FF9500]/15 transition-all active:scale-[0.97] shrink-0"
               >
                 <Key className="w-3.5 h-3.5" /> Нууц үг шинэчлэх
               </button>
@@ -404,13 +417,11 @@ export default function CustomerDetailPage() {
           </div>
         ) : (
           <form onSubmit={handleCreateCredentials} className="space-y-4">
-            <p className="text-[14px] text-[#8E8E93] mb-2">
+            <p className="text-[14px] text-[#8C8FA3]">
               Энэ харилцагч апп бүртгэлгүй байна. Доорх маягтыг бөглөн бүртгэл үүсгэнэ үү.
             </p>
             <div>
-              <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                Имэйл
-              </label>
+              <label className={labelClass}>Имэйл</label>
               <input
                 type="email"
                 value={credForm.email}
@@ -421,9 +432,7 @@ export default function CustomerDetailPage() {
               />
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                Нууц үг
-              </label>
+              <label className={labelClass}>Нууц үг</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -438,7 +447,7 @@ export default function CustomerDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#8E8E93] hover:text-[#1C1C1E]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#8C8FA3] hover:text-[#1A1D26]"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -457,7 +466,7 @@ export default function CustomerDetailPage() {
             <button
               type="submit"
               disabled={credSubmitting}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-xl text-[14px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
               style={{ background: 'linear-gradient(135deg, #007AFF, #5856D6)' }}
             >
               <Shield className="w-4 h-4" />
@@ -465,15 +474,12 @@ export default function CustomerDetailPage() {
             </button>
           </form>
         )}
-      </div>
+      </SectionCard>
 
       {/* Section 4: Recent Orders */}
       {orders.length > 0 && (
-        <div>
-          <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide mb-3 px-1">
-            Сүүлийн захиалгууд
-          </h3>
-          <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden divide-y divide-[#E5E5EA]/50">
+        <SectionCard title="Сүүлийн захиалгууд" noPadding>
+          <div className="divide-y divide-[#F2F4F7]">
             {orders.map((order: any) => {
               const status =
                 orderStatusConfig[order.status] ?? orderStatusConfig.PENDING;
@@ -481,16 +487,16 @@ export default function CustomerDetailPage() {
                 <Link
                   key={order.id}
                   href={`/orders/${order.id}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-[#F2F2F7]/50 transition-colors"
+                  className="flex items-center gap-3 px-4 lg:px-5 py-3 hover:bg-[#F7F9FC] transition-colors"
                 >
                   <div className="w-9 h-9 rounded-xl bg-[#FF9500]/10 flex items-center justify-center shrink-0">
                     <ShoppingCart className="w-4 h-4 text-[#FF9500]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-[#1C1C1E]">
+                    <p className="text-[14px] font-semibold text-[#1A1D26]">
                       #{order.orderNumber}
                     </p>
-                    <p className="text-[12px] text-[#8E8E93]">
+                    <p className="text-[12px] text-[#8C8FA3]">
                       {order.createdAt
                         ? new Date(order.createdAt).toLocaleDateString('mn-MN')
                         : ''}
@@ -502,39 +508,37 @@ export default function CustomerDetailPage() {
                   >
                     {status.label}
                   </span>
-                  <span className="text-[14px] font-semibold text-[#1C1C1E] shrink-0">
-                    ₮{Number(order.totalAmount ?? 0).toLocaleString()}
+                  <span className="text-[14px] font-semibold text-[#1A1D26] shrink-0 tabular-nums">
+                    {formatMnt(order.totalAmount ?? 0)}
                   </span>
                   <ChevronRight className="w-4 h-4 text-[#C7C7CC] shrink-0" />
                 </Link>
               );
             })}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Section 3: Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowEditModal(false)}
           />
           <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl animate-ios-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[20px] font-bold text-[#1C1C1E]">Харилцагч засах</h3>
+              <h3 className="text-[20px] font-bold text-[#1A1D26]">Харилцагч засах</h3>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-1 rounded-lg hover:bg-[#F2F2F7]"
+                className="p-1.5 rounded-lg hover:bg-[#F2F4F7] transition-colors"
               >
-                <X className="w-5 h-5 text-[#8E8E93]" />
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
             <form onSubmit={handleEditSave} className="space-y-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Дэлгүүрийн нэр
-                </label>
+                <label className={labelClass}>Дэлгүүрийн нэр</label>
                 <input
                   type="text"
                   value={editForm.storeName}
@@ -547,9 +551,7 @@ export default function CustomerDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Холбоо барих хүн
-                </label>
+                <label className={labelClass}>Холбоо барих хүн</label>
                 <input
                   type="text"
                   value={editForm.contactName}
@@ -562,9 +564,7 @@ export default function CustomerDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Утас
-                </label>
+                <label className={labelClass}>Утас</label>
                 <input
                   type="text"
                   value={editForm.phone}
@@ -577,9 +577,7 @@ export default function CustomerDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Хаяг
-                </label>
+                <label className={labelClass}>Хаяг</label>
                 <textarea
                   value={editForm.address}
                   onChange={(e) =>
@@ -591,9 +589,7 @@ export default function CustomerDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Харилцагчийн ангилал
-                </label>
+                <label className={labelClass}>Харилцагчийн ангилал</label>
                 <select
                   value={editForm.customerCategoryId}
                   onChange={(e) =>
@@ -613,9 +609,7 @@ export default function CustomerDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Үнийн зэрэглэл
-                </label>
+                <label className={labelClass}>Үнийн зэрэглэл</label>
                 <select
                   value={editForm.pricingTier}
                   onChange={(e) =>
@@ -631,9 +625,7 @@ export default function CustomerDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Зээлийн хязгаар (₮)
-                </label>
+                <label className={labelClass}>Зээлийн хязгаар (₮)</label>
                 <input
                   type="number"
                   min="0"
@@ -652,14 +644,14 @@ export default function CustomerDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]"
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] hover:bg-[#E5E5EA] transition-all active:scale-[0.97]"
                 >
                   Цуцлах
                 </button>
                 <button
                   type="submit"
                   disabled={editSubmitting}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
                   style={{ background: 'linear-gradient(135deg, #007AFF, #5856D6)' }}
                 >
                   {editSubmitting ? 'Хадгалж байна...' : 'Хадгалах'}
@@ -674,24 +666,22 @@ export default function CustomerDetailPage() {
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setShowResetModal(false)}
           />
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-ios-scale-in">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[20px] font-bold text-[#1C1C1E]">Нууц үг шинэчлэх</h3>
+              <h3 className="text-[20px] font-bold text-[#1A1D26]">Нууц үг шинэчлэх</h3>
               <button
                 onClick={() => setShowResetModal(false)}
-                className="p-1 rounded-lg hover:bg-[#F2F2F7]"
+                className="p-1.5 rounded-lg hover:bg-[#F2F4F7] transition-colors"
               >
-                <X className="w-5 h-5 text-[#8E8E93]" />
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
-                  Шинэ нууц үг
-                </label>
+                <label className={labelClass}>Шинэ нууц үг</label>
                 <div className="relative">
                   <input
                     type={showResetPw ? 'text' : 'password'}
@@ -704,7 +694,7 @@ export default function CustomerDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowResetPw(!showResetPw)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#8E8E93] hover:text-[#1C1C1E]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#8C8FA3] hover:text-[#1A1D26]"
                   >
                     {showResetPw ? (
                       <EyeOff className="w-4 h-4" />
@@ -724,14 +714,14 @@ export default function CustomerDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowResetModal(false)}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]"
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] hover:bg-[#E5E5EA] transition-all active:scale-[0.97]"
                 >
                   Цуцлах
                 </button>
                 <button
                   type="submit"
                   disabled={resetSubmitting}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
                   style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}
                 >
                   {resetSubmitting ? 'Шинэчилж байна...' : 'Шинэчлэх'}
