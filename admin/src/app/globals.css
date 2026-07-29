@@ -528,3 +528,23 @@
 .dark .ios-divider {
   background: rgba(84, 84, 88, 0.65);
 }
+
+/* ============================================
+   Тайлан хэвлэх (Print)
+   ============================================ */
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  /* Sidebar / topbar / layout chrome hidden */
+  aside, header { display: none !important; }
+  main { padding: 0 !important; }
+  .print-area {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #000 !important;
+  }
+  .print-area table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .print-area th, .print-area td { border: 1px solid #d4d4d8; padding: 4px 6px; }
+  @page { margin: 14mm; size: A4; }
+}
