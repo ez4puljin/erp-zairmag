@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { Wallet, Plus, Pencil, Trash2, X, CheckCircle, XCircle, Building2, User, Hash, Coins } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const inputClass =
-  'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[15px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 
 interface BankAccount {
   id: string;
@@ -122,34 +126,60 @@ export default function BankAccountsPage() {
     }
   }
 
+  const activeCount = accounts.filter((a) => a.isActive).length;
+  const totalBalance = accounts.reduce((s, a) => s + Number(a.currentBalance || 0), 0);
+
   return (
-    <div className="space-y-6 animate-ios-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Данс</h1>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#007AFF] text-white rounded-xl text-[14px] font-semibold hover:bg-[#0051D5] transition-all"
-        >
-          <Plus className="w-4 h-4" /> Шинэ данс
-        </button>
-      </div>
+    <div className="space-y-5 animate-ios-fade-in">
+      <PageHeader
+        title="Данс"
+        subtitle="Банкны данс, үлдэгдлийн бүртгэл"
+        icon={Wallet}
+        actions={
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Шинэ данс
+          </button>
+        }
+      />
 
       {msg && (
         <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[14px] ${
-          msg.type === 'success' ? 'bg-[#34C75915] text-[#34C759]' : 'bg-[#FF3B3015] text-[#FF3B30]'
+          msg.type === 'success' ? 'bg-[#34C759]/12 text-[#34C759]' : 'bg-[#FF3B30]/12 text-[#FF3B30]'
         }`}>
           {msg.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
           {msg.text}
         </div>
       )}
 
+      {!loading && accounts.length > 0 && (
+        <StatGrid cols={3}>
+          <StatCard label="Нийт данс" value={accounts.length} icon={Wallet} gradient="blue" index={0} />
+          <StatCard label="Идэвхтэй данс" value={activeCount} icon={CheckCircle} gradient="green" index={1} />
+          <StatCard label="Нийт үлдэгдэл" value={formatMnt(totalBalance)} icon={Coins} gradient="purple" index={2} />
+        </StatGrid>
+      )}
+
       {/* Grid of cards */}
       {loading ? (
-        <div className="text-center py-12 text-[#8E8E93]">Уншиж байна...</div>
+        <div className="text-center py-12 text-[#8C8FA3]">Уншиж байна...</div>
       ) : accounts.length === 0 ? (
-        <div className="text-center py-16 bg-[#F2F2F7] rounded-2xl">
-          <Wallet className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-          <p className="text-[#8E8E93]">Данс бүртгэгдээгүй байна. "Шинэ данс" товч дарна уу.</p>
+        <div className="bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm">
+          <EmptyState
+            icon={Wallet}
+            title="Данс бүртгэгдээгүй байна"
+            hint="'Шинэ данс' товч дарж банкны данс нэмнэ үү"
+            action={
+              <button
+                onClick={openCreate}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Шинэ данс
+              </button>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -157,17 +187,17 @@ export default function BankAccountsPage() {
             <div
               key={acc.id}
               className={`bg-white rounded-2xl shadow-sm border p-5 transition-all hover:shadow-md ${
-                acc.isActive ? 'border-[#E5E5EA]' : 'border-[#FF3B30]/20 opacity-60'
+                acc.isActive ? 'border-[#E8ECF0]/70' : 'border-[#FF3B30]/20 opacity-60'
               }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-[#007AFF15] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-[#007AFF]/12 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-[#007AFF]" />
                   </div>
                   <div>
-                    <h3 className="text-[16px] font-bold text-[#1C1C1E]">{acc.bankName}</h3>
-                    <p className="text-[11px] text-[#8E8E93]">{acc.currency}</p>
+                    <h3 className="text-[16px] font-bold text-[#1A1D26]">{acc.bankName}</h3>
+                    <p className="text-[11px] text-[#8C8FA3]">{acc.currency}</p>
                   </div>
                 </div>
                 {!acc.isActive && (
@@ -179,20 +209,20 @@ export default function BankAccountsPage() {
 
               <div className="space-y-1.5 mb-4">
                 <div className="flex items-center gap-2 text-[13px]">
-                  <Hash className="w-3.5 h-3.5 text-[#8E8E93]" />
+                  <Hash className="w-3.5 h-3.5 text-[#8C8FA3]" />
                   <span className="text-[#4A4D5C] font-mono">{acc.accountNumber}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[13px]">
-                  <User className="w-3.5 h-3.5 text-[#8E8E93]" />
+                  <User className="w-3.5 h-3.5 text-[#8C8FA3]" />
                   <span className="text-[#4A4D5C]">{acc.holderName}</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#E5E5EA]/50">
+              <div className="pt-3 border-t border-[#F0F2F5]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#8E8E93] uppercase font-semibold">Үлдэгдэл</span>
-                  <span className="text-[18px] font-bold text-[#34C759]">
-                    ₮{Number(acc.currentBalance).toLocaleString('mn-MN')}
+                  <span className="text-[11px] text-[#8C8FA3] uppercase font-semibold tracking-wide">Үлдэгдэл</span>
+                  <span className="text-[18px] font-bold text-[#34C759] tabular-nums">
+                    {formatMnt(acc.currentBalance)}
                   </span>
                 </div>
               </div>
@@ -200,13 +230,13 @@ export default function BankAccountsPage() {
               <div className="flex gap-2 mt-3">
                 <button
                   onClick={() => openEdit(acc)}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[12px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[12px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
                 >
                   <Pencil className="w-3.5 h-3.5" /> Засах
                 </button>
                 <button
                   onClick={() => handleDelete(acc.id)}
-                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-[12px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20"
+                  className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-[12px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -219,25 +249,25 @@ export default function BankAccountsPage() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex items-center gap-3 p-5 border-b border-[#E5E5EA] shrink-0">
-              <div className="w-11 h-11 rounded-2xl bg-[#007AFF15] flex items-center justify-center shrink-0">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-ios-scale-in">
+            <div className="flex items-center gap-3 p-5 border-b border-[#F0F2F5] shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-[#007AFF]/12 flex items-center justify-center shrink-0">
                 <Wallet className="w-5 h-5 text-[#007AFF]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-[18px] font-bold text-[#1C1C1E] truncate">
+                <h2 className="text-[18px] font-bold text-[#1A1D26] truncate">
                   {editingId ? 'Данс засах' : 'Шинэ данс'}
                 </h2>
-                <p className="text-[11px] text-[#8E8E93]">Банкны данс үүсгэх/засах</p>
+                <p className="text-[11px] text-[#8C8FA3]">Банкны данс үүсгэх/засах</p>
               </div>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-[#F2F2F7] shrink-0">
-                <X className="w-5 h-5 text-[#8E8E93]" />
+              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-[#F2F4F7] shrink-0 transition-colors">
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0">
               <div>
-                <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Банкны нэр *</label>
+                <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Банкны нэр *</label>
                 <input
                   type="text"
                   value={form.bankName}
@@ -249,7 +279,7 @@ export default function BankAccountsPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Дансны дугаар *</label>
+                  <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Дансны дугаар *</label>
                   <input
                     type="text"
                     value={form.accountNumber}
@@ -259,7 +289,7 @@ export default function BankAccountsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Валют</label>
+                  <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Валют</label>
                   <select
                     value={form.currency}
                     onChange={e => update('currency', e.target.value)}
@@ -274,7 +304,7 @@ export default function BankAccountsPage() {
               </div>
 
               <div>
-                <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Эзэмшигчийн нэр *</label>
+                <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Эзэмшигчийн нэр *</label>
                 <input
                   type="text"
                   value={form.holderName}
@@ -285,7 +315,7 @@ export default function BankAccountsPage() {
               </div>
 
               <div>
-                <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Эхний үлдэгдэл</label>
+                <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Эхний үлдэгдэл</label>
                 <input
                   type="number"
                   step="0.01"
@@ -294,11 +324,11 @@ export default function BankAccountsPage() {
                   placeholder="0"
                   className={inputClass}
                 />
-                <p className="text-[11px] text-[#8E8E93] mt-1">Одоогийн үлдэгдэл автоматаар тооцоологдоно</p>
+                <p className="text-[11px] text-[#8C8FA3] mt-1">Одоогийн үлдэгдэл автоматаар тооцоологдоно</p>
               </div>
 
               <div>
-                <label className="block text-[12px] font-semibold text-[#8E8E93] uppercase mb-1.5">Тэмдэглэл</label>
+                <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Тэмдэглэл</label>
                 <textarea
                   value={form.notes}
                   onChange={e => update('notes', e.target.value)}
@@ -315,21 +345,21 @@ export default function BankAccountsPage() {
                   onChange={e => update('isActive', e.target.checked)}
                   className="w-5 h-5 rounded accent-[#007AFF]"
                 />
-                <span className="text-[14px] font-medium text-[#1C1C1E]">Идэвхтэй</span>
+                <span className="text-[14px] font-medium text-[#1A1D26]">Идэвхтэй</span>
               </label>
             </div>
 
-            <div className="flex gap-3 p-5 border-t border-[#E5E5EA] shrink-0">
+            <div className="flex gap-3 p-5 border-t border-[#F0F2F5] shrink-0">
               <button
                 onClick={() => setShowForm(false)}
-                className="flex-1 px-5 py-3 rounded-xl bg-[#F2F2F7] text-[#8E8E93] font-semibold text-[14px] hover:bg-[#E5E5EA]"
+                className="flex-1 px-5 py-3 rounded-xl bg-[#F2F4F7] text-[#4A4D5C] font-semibold text-[14px] hover:bg-[#E8ECF0] transition-colors"
               >
                 Болих
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#007AFF] text-white font-semibold text-[14px] hover:bg-[#0051D5] disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#007AFF] text-white font-semibold text-[14px] shadow-sm shadow-[#007AFF]/25 hover:brightness-105 disabled:opacity-50 transition-all"
               >
                 <CheckCircle className="w-4 h-4" />
                 {saving ? 'Хадгалж байна...' : editingId ? 'Шинэчлэх' : 'Үүсгэх'}

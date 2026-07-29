@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { MapPin, Plus, Pencil, Trash2, X, RefreshCw } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
 
 const typeConfig: Record<string, { label: string; bg: string; text: string }> = {
   KHOROO: { label: 'Хороо', bg: '#007AFF15', text: '#007AFF' },
@@ -10,7 +13,7 @@ const typeConfig: Record<string, { label: string; bg: string; text: string }> = 
 };
 
 const inputClass =
-  'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-3.5 py-2.5 rounded-xl bg-[#F5F6FA] border border-transparent text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 
 export default function CustomerCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -97,49 +100,51 @@ export default function CustomerCategoriesPage() {
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">
-          Харилцагчийн ангилал
-        </h1>
-        <button
-          onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
-          style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}
-        >
-          <Plus className="w-4 h-4" /> Нэмэх
-        </button>
-      </div>
+      <PageHeader
+        title="Харилцагчийн ангилал"
+        subtitle={`${categories.length} ангилал · хороо / сум`}
+        icon={MapPin}
+        actions={
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-semibold text-white bg-[#007AFF] shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all active:scale-[0.97]"
+          >
+            <Plus className="w-4 h-4" /> Нэмэх
+          </button>
+        }
+      />
 
       {/* Category List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard noPadding>
         {loading ? (
-          <div className="py-12 text-center">
-            <RefreshCw className="w-6 h-6 text-[#8E8E93] mx-auto animate-spin" />
+          <div className="py-16 text-center">
+            <RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" />
           </div>
         ) : categories.length === 0 ? (
-          <div className="py-16 text-center">
-            <MapPin className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-            <p className="text-[17px] font-semibold text-[#1C1C1E]">Ангилал байхгүй</p>
-            <p className="text-[14px] text-[#8E8E93] mt-1">
-              Шинэ харилцагчийн ангилал нэмнэ үү
-            </p>
-          </div>
+          <EmptyState
+            icon={MapPin}
+            title="Ангилал байхгүй"
+            hint="Шинэ харилцагчийн ангилал нэмнэ үү"
+          />
         ) : (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {categories.map((cat: any) => {
               const typeInfo = typeConfig[cat.type] ?? typeConfig.KHOROO;
               const customerCount = cat._count?.customers ?? cat.customerCount ?? 0;
               return (
                 <div
                   key={cat.id}
-                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F2F2F7]/50 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F7F9FC] transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-[#FF9500]/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5 text-[#FF9500]" />
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: typeInfo.bg }}
+                  >
+                    <MapPin className="w-5 h-5" style={{ color: typeInfo.text }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">
+                      <p className="text-[15px] font-semibold text-[#1A1D26] truncate">
                         {cat.name}
                       </p>
                       <span
@@ -150,12 +155,12 @@ export default function CustomerCategoriesPage() {
                       </span>
                     </div>
                     {cat.description && (
-                      <p className="text-[13px] text-[#8E8E93] truncate mt-0.5">
+                      <p className="text-[13px] text-[#8C8FA3] truncate mt-0.5">
                         {cat.description}
                       </p>
                     )}
                   </div>
-                  <span className="text-[12px] font-medium text-[#8E8E93] bg-[#F2F2F7] px-2.5 py-0.5 rounded-full shrink-0">
+                  <span className="text-[12px] font-medium text-[#8C8FA3] bg-[#F2F4F7] px-2.5 py-0.5 rounded-full shrink-0">
                     {customerCount} харилцагч
                   </span>
                   <div className="flex items-center gap-1 shrink-0">
@@ -180,7 +185,7 @@ export default function CustomerCategoriesPage() {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -188,19 +193,19 @@ export default function CustomerCategoriesPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-ios-scale-in">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[20px] font-bold text-[#1C1C1E]">
+              <h3 className="text-[20px] font-bold text-[#1A1D26]">
                 {editItem ? 'Ангилал засах' : 'Шинэ ангилал'}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded-lg hover:bg-[#F2F2F7]"
+                className="p-1.5 rounded-lg hover:bg-[#F2F4F7] transition-colors"
               >
-                <X className="w-5 h-5 text-[#8E8E93]" />
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
+                <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
                   Нэр
                 </label>
                 <input
@@ -213,7 +218,7 @@ export default function CustomerCategoriesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
+                <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
                   Төрөл
                 </label>
                 <select
@@ -226,7 +231,7 @@ export default function CustomerCategoriesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">
+                <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
                   Тайлбар
                 </label>
                 <textarea
@@ -242,15 +247,14 @@ export default function CustomerCategoriesPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]"
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#4A4D5C] bg-[#F2F4F7] hover:bg-[#E8ECF0] transition-all active:scale-[0.97]"
                 >
                   Цуцлах
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white bg-[#007AFF] shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all active:scale-[0.97] disabled:opacity-60"
                 >
                   {submitting ? 'Хадгалж байна...' : 'Хадгалах'}
                 </button>
@@ -268,24 +272,24 @@ export default function CustomerCategoriesPage() {
             <div className="w-14 h-14 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-[#FF3B30]" />
             </div>
-            <h3 className="text-[18px] font-bold text-[#1C1C1E] mb-1">
+            <h3 className="text-[18px] font-bold text-[#1A1D26] mb-1">
               &ldquo;{deleteItem.name}&rdquo; устгах уу?
             </h3>
-            <p className="text-[14px] text-[#8E8E93] mb-2">
+            <p className="text-[14px] text-[#8C8FA3] mb-2">
               Харилцагчтай ангилал устгах боломжгүй.
             </p>
             {error && <p className="text-[13px] text-[#FF3B30] font-medium mb-3">{error}</p>}
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteItem(null)}
-                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]"
+                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#4A4D5C] bg-[#F2F4F7] hover:bg-[#E8ECF0] transition-all active:scale-[0.97]"
               >
                 Цуцлах
               </button>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white bg-[#FF3B30] transition-all active:scale-[0.97] disabled:opacity-60"
+                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-white bg-[#FF3B30] hover:brightness-105 transition-all active:scale-[0.97] disabled:opacity-60"
               >
                 {deleting ? 'Устгаж байна...' : 'Устгах'}
               </button>

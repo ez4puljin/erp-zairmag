@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import {
   Truck, Phone, User, RefreshCw, Plus, X,
-  Edit3, Key, Power, Search, Mail, Shield,
+  Edit3, Key, Power, Mail, Shield,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { FilterBar, SearchField } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
 
 const inputClass =
-  'w-full px-3 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-3.5 py-2.5 rounded-xl bg-[#F5F6FA] border border-transparent text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -156,59 +159,58 @@ export default function DriversPage() {
   };
 
   return (
-    <div className="space-y-5 animate-ios-fade-in max-w-[1000px]">
+    <div className="space-y-5 animate-ios-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[22px] font-bold text-[#1A1D26]">Жолооч</h1>
-          <p className="text-[12px] text-[#8C8FA3]">{drivers.length} жолооч бүртгэлтэй</p>
-        </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-md shadow-[#007AFF]/25 hover:bg-[#0066D6] transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Жолооч нэмэх
-        </button>
-      </div>
+      <PageHeader
+        title="Жолооч"
+        subtitle={`${drivers.length} жолооч бүртгэлтэй`}
+        icon={Truck}
+        actions={
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-[13px] font-semibold text-white bg-[#007AFF] shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all active:scale-[0.97]"
+          >
+            <Plus className="w-4 h-4" /> Жолооч нэмэх
+          </button>
+        }
+      />
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A0A3B1]" />
-        <input
-          type="text"
+      <FilterBar>
+        <SearchField
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={setSearch}
           placeholder="Жолооч хайх (нэр, утас, имэйл)..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
+          className="flex-1 min-w-[220px]"
         />
-      </div>
+      </FilterBar>
 
       {/* Driver List */}
       {loading ? (
-        <div className="py-12 text-center">
+        <div className="py-16 text-center bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm">
           <RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E8ECF0] py-16 text-center">
-          <Truck className="w-12 h-12 text-[#D0D2DA] mx-auto mb-3" />
-          <p className="text-[15px] font-semibold text-[#8C8FA3]">
-            {search ? 'Хайлтад тохирох жолооч олдсонгүй' : 'Жолооч бүртгэлгүй байна'}
-          </p>
+        <div className="bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm">
+          <EmptyState
+            icon={Truck}
+            title={search ? 'Хайлтад тохирох жолооч олдсонгүй' : 'Жолооч бүртгэлгүй байна'}
+            hint={search ? 'Өөр түлхүүр үгээр хайж үзнэ үү' : 'Шинэ жолооч бүртгэж эхлүүлнэ үү'}
+          />
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {filtered.map((driver: any) => (
             <div
               key={driver.id}
-              className={`bg-white rounded-2xl border border-[#E8ECF0] p-4 transition-all hover:shadow-md ${
-                driver.isActive === false ? 'opacity-50' : ''
+              className={`bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm p-4 transition-all hover:shadow-md ${
+                driver.isActive === false ? 'opacity-60' : ''
               }`}
             >
               <div className="flex items-center gap-4">
                 {/* Avatar */}
                 <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-[16px] font-bold text-white flex-shrink-0"
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-[16px] font-bold text-white flex-shrink-0"
                   style={{ background: driver.isActive !== false ? 'linear-gradient(135deg, #FF9500, #FFCC00)' : '#D0D2DA' }}
                 >
                   {driver.firstName?.charAt(0)?.toUpperCase() ?? 'Ж'}
@@ -217,16 +219,16 @@ export default function DriversPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[15px] font-bold text-[#1A1D26]">
+                    <p className="text-[15px] font-bold text-[#1A1D26] truncate">
                       {driver.firstName} {driver.lastName}
                     </p>
                     {driver.isActive === false && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FEF2F2] text-[#EF4444]">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] shrink-0">
                         Идэвхгүй
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 mt-1">
+                  <div className="flex items-center gap-4 mt-1 flex-wrap">
                     {driver.phone && (
                       <span className="flex items-center gap-1 text-[12px] text-[#8C8FA3]">
                         <Phone className="w-3 h-3" /> {driver.phone}
@@ -244,22 +246,22 @@ export default function DriversPage() {
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => openEdit(driver)}
-                    className="p-2 rounded-lg hover:bg-[#F5F6FA] text-[#8C8FA3] hover:text-[#007AFF] transition-colors"
+                    className="p-2 rounded-lg hover:bg-[#F2F4F7] text-[#8C8FA3] hover:text-[#007AFF] transition-colors"
                     title="Засах"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => openPasswordReset(driver)}
-                    className="p-2 rounded-lg hover:bg-[#F5F6FA] text-[#8C8FA3] hover:text-[#F59E0B] transition-colors"
+                    className="p-2 rounded-lg hover:bg-[#F2F4F7] text-[#8C8FA3] hover:text-[#FF9500] transition-colors"
                     title="Нууц үг солих"
                   >
                     <Key className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleToggleActive(driver)}
-                    className={`p-2 rounded-lg hover:bg-[#F5F6FA] transition-colors ${
-                      driver.isActive !== false ? 'text-[#8C8FA3] hover:text-[#EF4444]' : 'text-[#8C8FA3] hover:text-[#10B981]'
+                    className={`p-2 rounded-lg hover:bg-[#F2F4F7] transition-colors ${
+                      driver.isActive !== false ? 'text-[#8C8FA3] hover:text-[#FF3B30]' : 'text-[#8C8FA3] hover:text-[#34C759]'
                     }`}
                     title={driver.isActive !== false ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}
                   >
@@ -274,9 +276,9 @@ export default function DriversPage() {
 
       {/* ====================== MODALS ====================== */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 animate-ios-scale-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-ios-scale-in">
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-[17px] font-bold text-[#1A1D26]">
@@ -284,7 +286,7 @@ export default function DriversPage() {
                 {showModal === 'edit' && 'Жолооч засах'}
                 {showModal === 'password' && 'Нууц үг солих'}
               </h2>
-              <button onClick={closeModal} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
+              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-[#F2F4F7] transition-colors">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
@@ -294,32 +296,32 @@ export default function DriversPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Овог</label>
+                    <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Овог</label>
                     <input type="text" value={formLastName} onChange={(e) => setFormLastName(e.target.value)} placeholder="Овог" className={inputClass} />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Нэр *</label>
+                    <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Нэр *</label>
                     <input type="text" value={formFirstName} onChange={(e) => setFormFirstName(e.target.value)} placeholder="Нэр" className={inputClass} />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Утас</label>
+                  <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Утас</label>
                   <input type="text" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} placeholder="99001122" className={inputClass} />
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Имэйл *</label>
+                  <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Имэйл *</label>
                   <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="driver@icecream.mn" className={inputClass} />
                 </div>
                 {showModal === 'create' && (
                   <div>
-                    <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Нууц үг *</label>
+                    <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Нууц үг *</label>
                     <input type="text" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Нууц үг" className={inputClass} />
                   </div>
                 )}
                 <button
                   onClick={showModal === 'create' ? handleCreate : handleEdit}
                   disabled={submitting}
-                  className="w-full mt-2 py-3 rounded-xl bg-[#007AFF] text-white text-[14px] font-semibold shadow-md shadow-[#007AFF]/25 disabled:opacity-50 hover:bg-[#0066D6] transition-colors"
+                  className="w-full mt-2 py-3 rounded-xl bg-[#007AFF] text-white text-[14px] font-semibold shadow-sm shadow-[#007AFF]/25 disabled:opacity-50 hover:brightness-105 transition-all active:scale-[0.99]"
                 >
                   {submitting ? 'Хадгалж байна...' : showModal === 'create' ? 'Бүртгэх' : 'Хадгалах'}
                 </button>
@@ -329,19 +331,20 @@ export default function DriversPage() {
             {/* Password Reset Form */}
             {showModal === 'password' && (
               <div className="space-y-3">
-                <div className="p-3 rounded-xl bg-[#FFF7ED] border border-[#FDE68A]">
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#FFF7ED] border border-[#FDE68A]">
+                  <Shield className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
                   <p className="text-[12px] text-[#92400E] font-medium">
                     {selectedDriver?.firstName} {selectedDriver?.lastName} жолоочийн нууц үг солих
                   </p>
                 </div>
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1 block">Шинэ нууц үг *</label>
+                  <label className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1 block">Шинэ нууц үг *</label>
                   <input type="text" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Шинэ нууц үг" className={inputClass} />
                 </div>
                 <button
                   onClick={handlePasswordReset}
                   disabled={submitting || !formPassword}
-                  className="w-full mt-2 py-3 rounded-xl bg-[#F59E0B] text-white text-[14px] font-semibold shadow-md shadow-[#F59E0B]/25 disabled:opacity-50 hover:bg-[#D97706] transition-colors"
+                  className="w-full mt-2 py-3 rounded-xl bg-[#FF9500] text-white text-[14px] font-semibold shadow-sm shadow-[#FF9500]/25 disabled:opacity-50 hover:brightness-105 transition-all active:scale-[0.99]"
                 >
                   {submitting ? 'Солиж байна...' : 'Нууц үг солих'}
                 </button>

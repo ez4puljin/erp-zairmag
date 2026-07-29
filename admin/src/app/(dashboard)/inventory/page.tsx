@@ -3,9 +3,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/api';
 import {
-  Package, AlertTriangle, TrendingUp, RefreshCw, Search,
+  Package, AlertTriangle, TrendingUp, RefreshCw,
   Boxes, XCircle, CheckCircle2,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, SearchField, ActionButton } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -52,79 +58,62 @@ export default function InventoryPage() {
     });
   }, [products, search, statusFilter, categoryFilter]);
 
-  const stats: Array<{ label: string; value: number | string; icon: any; color: string; filterKey: 'all' | 'low' | 'out' | null }> = [
-    { label: 'Нийт бараа', value: totalProducts, icon: Boxes, color: '#007AFF', filterKey: 'all' },
-    { label: 'Бага үлдэгдэл', value: lowStockCount, icon: AlertTriangle, color: '#FF9500', filterKey: 'low' },
-    { label: 'Дууссан', value: outOfStockCount, icon: XCircle, color: '#FF3B30', filterKey: 'out' },
-    { label: 'Нийт өртөг', value: `₮${totalValue.toLocaleString()}`, icon: TrendingUp, color: '#34C759', filterKey: null },
+  const stats: Array<{ label: string; value: number | string; icon: any; color: string; gradient: 'blue' | 'orange' | 'red' | 'green'; filterKey: 'all' | 'low' | 'out' | null }> = [
+    { label: 'Нийт бараа', value: totalProducts, icon: Boxes, color: '#007AFF', gradient: 'blue', filterKey: 'all' },
+    { label: 'Бага үлдэгдэл', value: lowStockCount, icon: AlertTriangle, color: '#FF9500', gradient: 'orange', filterKey: 'low' },
+    { label: 'Дууссан', value: outOfStockCount, icon: XCircle, color: '#FF3B30', gradient: 'red', filterKey: 'out' },
+    { label: 'Нийт өртөг', value: formatMnt(totalValue), icon: TrendingUp, color: '#34C759', gradient: 'green', filterKey: null },
   ];
 
   return (
-    <div className="space-y-5 animate-ios-fade-in max-w-[1400px]">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-[24px] font-bold text-[#1C1C1E] tracking-tight">Агуулахын удирдлага</h1>
-          <p className="text-[13px] text-[#8E8E93] mt-0.5">Барааны үлдэгдэл, нөөцийн хяналт</p>
-        </div>
-        <button
-          onClick={fetchData}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#4A4D5C] bg-white border border-[#E5E5EA]/60 hover:bg-[#F2F4F7] transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Сэргээх
-        </button>
-      </div>
+    <div className="space-y-5 animate-ios-fade-in">
+      <PageHeader
+        title="Агуулахын удирдлага"
+        subtitle="Барааны үлдэгдэл, нөөцийн хяналт"
+        icon={Package}
+        actions={
+          <ActionButton variant="ghost" onClick={fetchData}>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Сэргээх
+          </ActionButton>
+        }
+      />
 
-      {/* Stats - clickable cards with left accent border */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((s) => {
-          const Icon = s.icon;
+      {/* Stats - clickable gradient cards (filter by status) */}
+      <StatGrid cols={4}>
+        {stats.map((s, i) => {
           const active = s.filterKey !== null && s.filterKey === statusFilter;
           const clickable = s.filterKey !== null;
-          return (
+          const card = <StatCard label={s.label} value={s.value} icon={s.icon} gradient={s.gradient} index={i} />;
+          return clickable ? (
             <button
               key={s.label}
-              onClick={() => { if (clickable && s.filterKey) setStatusFilter(s.filterKey); }}
-              disabled={!clickable}
-              className={`bg-white rounded-2xl p-4 border-l-4 border border-[#E5E5EA]/50 text-left transition-all ${
-                clickable ? 'hover:shadow-md cursor-pointer' : 'cursor-default'
-              }`}
-              style={{
-                borderLeftColor: s.color,
-                ...(active ? { boxShadow: `0 0 0 2px ${s.color}40` } : {}),
-              }}
+              onClick={() => { if (s.filterKey) setStatusFilter(s.filterKey); }}
+              className="block w-full text-left rounded-2xl transition-all"
+              style={active ? { boxShadow: `0 0 0 2px #F5F6FA, 0 0 0 4px ${s.color}` } : undefined}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold text-[#8E8E93] uppercase tracking-wide">{s.label}</span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
-                  <Icon className="w-4 h-4" style={{ color: s.color }} />
-                </div>
-              </div>
-              <div className="text-[22px] font-bold text-[#1C1C1E]">{s.value}</div>
+              {card}
             </button>
+          ) : (
+            <div key={s.label}>{card}</div>
           );
         })}
-      </div>
+      </StatGrid>
 
       {/* Search + Category filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E8E93]" />
-          <input
-            type="text"
-            placeholder="Бараа хайх (нэр, баркод)..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E5E5EA]/60 text-[14px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
-          />
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Бараа хайх (нэр, баркод)..."
+          className="flex-1 min-w-[220px]"
+        />
+        <div className="flex gap-1.5 flex-wrap items-end">
           <button
             onClick={() => setCategoryFilter('')}
-            className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
+            className={`h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all ${
               !categoryFilter
-                ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/25'
-                : 'bg-white text-[#4A4D5C] border border-[#E5E5EA]/60 hover:bg-[#F2F4F7]'
+                ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25'
+                : 'bg-white text-[#4A4D5C] border border-[#E8ECF0]/70 hover:bg-[#F2F4F7]'
             }`}
           >
             Бүх ангилал
@@ -133,22 +122,22 @@ export default function InventoryPage() {
             <button
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
-              className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
+              className={`h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all ${
                 categoryFilter === cat.id
-                  ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/25'
-                  : 'bg-white text-[#4A4D5C] border border-[#E5E5EA]/60 hover:bg-[#F2F4F7]'
+                  ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25'
+                  : 'bg-white text-[#4A4D5C] border border-[#E8ECF0]/70 hover:bg-[#F2F4F7]'
               }`}
             >
               {cat.name}
             </button>
           ))}
         </div>
-      </div>
+      </FilterBar>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard title="Барааны жагсаалт" noPadding>
         {/* Table header */}
-        <div className="hidden md:grid grid-cols-[auto_1fr_140px_120px_120px_140px] gap-4 px-5 py-3 bg-[#F9FAFB] border-b border-[#E5E5EA]/50 text-[11px] font-bold text-[#8E8E93] uppercase tracking-wider">
+        <div className="hidden md:grid grid-cols-[auto_1fr_140px_120px_120px_140px] gap-4 px-5 py-3 bg-[#F9FAFB] border-b border-[#F0F2F5] text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wider">
           <div className="w-10" />
           <div>Бараа</div>
           <div className="text-center">Ангилал</div>
@@ -159,16 +148,14 @@ export default function InventoryPage() {
 
         {loading ? (
           <div className="p-12 text-center">
-            <RefreshCw className="w-6 h-6 text-[#8E8E93] mx-auto animate-spin" />
+            <RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F2F2F7] flex items-center justify-center mx-auto mb-4">
-              <Package className="w-8 h-8 text-[#AEAEB2]" />
-            </div>
-            <p className="text-[17px] font-bold text-[#1C1C1E] mb-1">Бараа олдсонгүй</p>
-            <p className="text-[13px] text-[#8E8E93]">Хайлт эсвэл шүүлтүүрийн үр дүн хоосон байна</p>
-          </div>
+          <EmptyState
+            icon={Package}
+            title="Бараа олдсонгүй"
+            hint="Хайлт эсвэл шүүлтүүрийн үр дүн хоосон байна"
+          />
         ) : (
           <div className="divide-y divide-[#F2F4F7]">
             {filtered.map((p: any) => {
@@ -180,7 +167,7 @@ export default function InventoryPage() {
               return (
                 <div
                   key={p.id}
-                  className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[auto_1fr_140px_120px_120px_140px] gap-4 px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors items-center"
+                  className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[auto_1fr_140px_120px_120px_140px] gap-4 px-5 py-3.5 hover:bg-[#F7F9FC] transition-colors items-center"
                 >
                   {/* Status icon */}
                   <div
@@ -196,7 +183,7 @@ export default function InventoryPage() {
                   {/* Name + SKU */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-semibold text-[#1C1C1E] truncate">{p.name}</p>
+                      <p className="text-[14px] font-semibold text-[#1A1D26] truncate">{p.name}</p>
                       {isOut && (
                         <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#FF3B30]/10 text-[#FF3B30] uppercase">Дууссан</span>
                       )}
@@ -204,7 +191,7 @@ export default function InventoryPage() {
                         <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#FF9500]/10 text-[#FF9500] uppercase">Бага</span>
                       )}
                     </div>
-                    <p className="text-[12px] text-[#8E8E93] truncate mt-0.5">
+                    <p className="text-[12px] text-[#8C8FA3] truncate mt-0.5">
                       <span className="font-mono text-[#AEAEB2]">{p.sku}</span>
                       <span className="md:hidden"> · {p.category?.name ?? '—'}</span>
                     </p>
@@ -221,7 +208,7 @@ export default function InventoryPage() {
 
                   {/* Stock */}
                   <div className="text-right">
-                    <p className={`text-[16px] font-bold ${isOut ? 'text-[#FF3B30]' : isLow ? 'text-[#FF9500]' : 'text-[#1C1C1E]'}`}>
+                    <p className={`text-[16px] font-bold tabular-nums ${isOut ? 'text-[#FF3B30]' : isLow ? 'text-[#FF9500]' : 'text-[#1A1D26]'}`}>
                       {stock}
                     </p>
                     <p className="text-[10px] text-[#AEAEB2] md:hidden">/ {reorder}</p>
@@ -229,19 +216,19 @@ export default function InventoryPage() {
 
                   {/* Reorder (desktop only) */}
                   <div className="hidden md:block text-right">
-                    <p className="text-[13px] text-[#8E8E93]">{reorder}</p>
+                    <p className="text-[13px] text-[#8C8FA3] tabular-nums">{reorder}</p>
                   </div>
 
                   {/* Line value (desktop only) */}
                   <div className="hidden md:block text-right">
-                    <p className="text-[13px] font-semibold text-[#1C1C1E]">₮{lineValue.toLocaleString()}</p>
+                    <p className="text-[13px] font-semibold text-[#1A1D26] tabular-nums">{formatMnt(lineValue)}</p>
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }
