@@ -1,0 +1,67 @@
+# Render Blueprint — backend (NestJS API) + PostgreSQL
+#
+# Ашиглах: Render dashboard → New → Blueprint → энэ репог сонгох.
+# Render энэ файлыг уншиж service болон database-ыг автоматаар үүсгэнэ.
+#
+# ⚠ plan / region нэрсийг Render үе үе өөрчилдөг. Blueprint татахад алдаа
+#   гарвал dashboard дээрх одоогийн нэрстэй тааруулж засна уу.
+#
+# ⚠ Байнгын диск (disk) нь төлбөртэй багцад л боломжтой. Free багц дээр
+#   ажиллуулбал барааны зураг deploy бүрд устана — DEPLOY.md-г үзнэ үү.
+
+services:
+  - type: web
+    name: zairmag-erp-api
+    runtime: node
+    plan: starter
+    region: singapore
+    rootDir: backend
+    # --include=dev: Render нь NODE_ENV=production тавьдаг тул үүнгүйгээр npm
+    # devDependency-г алгасаж, `nest build` олдохгүй болно.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    # Анхаар: build гаралт нь dist/src/main.js (dist/main.js БИШ) — төсөл нь
+    # src-ээс гадна prisma.config.ts, scripts/ агуулдаг тул tsc гаралтын үүрийг
+    # нэг шат гүнзгийрүүлдэг.
+    startCommand: npx prisma migrate deploy && node dist/src/main
+    healthCheckPath: /health
+    autoDeploy: true
+
+    # Барааны зургийг хадгалах байнгын диск.
+    disk:
+      name: uploads
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Зураг байнгын диск рүү бичигдэнэ (config/uploads.ts үүнийг уншина).
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
+
+      # Доорх database-аас холболтын мөрийг автоматаар авна.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: zairmag-erp-db
+          property: connectionString
+
+      # Санамсаргүй нууц түлхүүрийг Render үүсгэнэ (хүнд харагдахгүй).
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 15m
+      - key: JWT_REFRESH_EXPIRATION
+        value: 7d
+
+      # Vercel дээрх admin-ы домэйн. Blueprint татсаны дараа dashboard-аас
+      # гараар бөглөнө. Ж: https://zairmag-erp.vercel.app,*.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+
+databases:
+  - name: zairmag-erp-db
+    plan: basic-256mb
+    region: singapore

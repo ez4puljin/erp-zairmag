@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...гэхдээ жишээ файлыг git-д хадгална (нууц утга агуулаагүй)
+!.env.example
 
 # vercel
 .vercel
