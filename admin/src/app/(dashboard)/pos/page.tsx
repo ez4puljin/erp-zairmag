@@ -11,22 +11,22 @@ import {
   Printer,
   RefreshCw,
   Package,
-  User,
   MapPin,
   Phone,
-  ChevronDown,
   Check,
   X,
   Loader2,
   Search,
-  CreditCard,
-  Banknote,
-  Building2,
-  Clock,
-  Blend,
+  ScanLine,
 } from 'lucide-react';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { BarcodeScanner, type BarcodeScanFeedback } from '@/components/shared/barcode-scanner';
+import { useAuth } from '@/hooks/use-auth';
+import { PAYMENT_METHODS, COMBINED_METHODS } from './_lib/payment-methods';
+import { CustomerSheet } from './_components/customer-sheet';
+import { CartSheet } from './_components/cart-sheet';
+import { MobilePos, type PosProductEntry } from './_components/mobile-pos';
 
 interface TruckLoadItem {
   id: string;
@@ -89,22 +89,14 @@ interface CombinedPayment {
   amount: number;
 }
 
-const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Бэлэн', icon: Banknote, color: '#34C759' },
-  { value: 'BANK_TRANSFER', label: 'Шилжүүлэг', icon: Building2, color: '#007AFF' },
-  { value: 'CARD', label: 'Карт', icon: CreditCard, color: '#AF52DE' },
-  { value: 'CREDIT', label: 'Дараа тооцоо', icon: Clock, color: '#FF9500' },
-  { value: 'COMBINED', label: 'Хосолсон', icon: Blend, color: '#FF3B30' },
-];
-
-const COMBINED_METHODS = [
-  { value: 'CASH', label: 'Бэлэн' },
-  { value: 'BANK_TRANSFER', label: 'Шилжүүлэг' },
-  { value: 'CARD', label: 'Карт' },
-  { value: 'CREDIT', label: 'Дараа тооцоо' },
-];
+/** Жолоочийн доод таб цэсний өндөр — гар утсан дээр сагсны мөр үүнээс дээш сууна. */
+const DRIVER_TABBAR_HEIGHT = 80;
 
 export default function POSPage() {
+  // Жолоочийн бүрхүүлд доод таб цэс байдаг тул түүнд зай үлдээнэ.
+  const { user } = useAuth();
+  const bottomInset = user?.role === 'DRIVER' ? DRIVER_TABBAR_HEIGHT : 0;
+
   // Data state
   const [truckLoad, setTruckLoad] = useState<TruckLoad | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -120,6 +112,14 @@ export default function POSPage() {
 
   // Product search state
   const [productSearch, setProductSearch] = useState('');
+
+  // Barcode scanner state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<BarcodeScanFeedback>(null);
+
+  // Гар утасны хуудсууд (bottom sheet)
+  const [cartSheetOpen, setCartSheetOpen] = useState(false);
+  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
 
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState('CASH');
@@ -227,36 +227,32 @@ export default function POSPage() {
   // Cart helpers
   const getCartItem = (productId: string) => cart.find((c) => c.productId === productId);
 
-  const addToCart = (item: TruckLoadItem, qty = 1) => {
+  // Сагсны мөрийг тухайн барааны нийт тоогоор шинэчилнэ (0 бол мөрийг устгана).
+  // Нэг productId дээр үргэлж ганц мөр байхаар upsert хийнэ.
+  const setCartQty = (item: TruckLoadItem, qty: number) => {
     const remaining = item.loadedQty - item.soldQty;
     const upb = item.product.unitsPerBox || 1;
-    const existing = getCartItem(item.productId);
-    if (existing) {
-      const newQty = Math.min(existing.quantity + qty, remaining);
-      setCart((prev) =>
-        prev.map((c) =>
-          c.productId === item.productId ? { ...c, quantity: newQty, maxQty: remaining } : c
-        )
-      );
-    } else {
-      setCart((prev) => [
+    const next = Math.min(Math.max(0, qty), remaining);
+    setCart((prev) => {
+      if (next <= 0) return prev.filter((c) => c.productId !== item.productId);
+      if (prev.some((c) => c.productId === item.productId)) {
+        return prev.map((c) =>
+          c.productId === item.productId ? { ...c, quantity: next, maxQty: remaining } : c
+        );
+      }
+      return [
         ...prev,
         {
           productId: item.productId,
           name: item.product.name,
           sku: item.product.sku,
-          quantity: Math.min(qty, remaining),
+          quantity: next,
           unitPrice: item.unitPrice || item.product.sellingPrice,
           maxQty: remaining,
           unitsPerBox: upb,
         },
-      ]);
-    }
-  };
-
-  const addBoxToCart = (item: TruckLoadItem) => {
-    const upb = item.product.unitsPerBox || 1;
-    addToCart(item, upb);
+      ];
+    });
   };
 
   const updateCartQty = (productId: string, delta: number) => {
@@ -277,13 +273,89 @@ export default function POSPage() {
     setCart((prev) => prev.filter((c) => c.productId !== productId));
   };
 
+  const clearCart = () => setCart([]);
+
+  /** Гар утасны жагсаалтад зориулж бэлдсэн барааны мөрүүд. */
+  const mobileProducts = useMemo<PosProductEntry[]>(
+    () =>
+      filteredProducts.map((item) => ({
+        key: item.id,
+        productId: item.productId,
+        name: item.product.name,
+        sku: item.product.sku,
+        unitPrice: item.unitPrice || item.product.sellingPrice,
+        remaining: item.loadedQty - item.soldQty,
+        unitsPerBox: item.product.unitsPerBox || 1,
+        quantity: cart.find((c) => c.productId === item.productId)?.quantity ?? 0,
+      })),
+    [filteredProducts, cart]
+  );
+
+  /** Барааны id-гаар сагсны тоог тохируулна (гар утасны stepper-үүд ашиглана). */
+  const setQtyByProductId = (productId: string, nextQty: number) => {
+    const item = availableProducts.find((i) => i.productId === productId);
+    if (item) setCartQty(item, nextQty);
+  };
+
+  /** Сагсанд аль хэдийн байгаа мөрийн тоог шууд өөрчилнө (сагсны хуудсанд ашиглана). */
+  const setCartLineQty = (productId: string, nextQty: number) => {
+    setCart((prev) =>
+      prev.flatMap((c) => {
+        if (c.productId !== productId) return [c];
+        const clamped = Math.min(Math.max(0, nextQty), c.maxQty);
+        return clamped <= 0 ? [] : [{ ...c, quantity: clamped }];
+      })
+    );
+  };
+
+  // --- Зураасан код (barcode) ---
+  // Барааны SKU нь өөрөө EAN-13 зураасан код тул шууд тааруулна.
+  // Уншигч 12 оронтой UPC-A буцаах тохиолдол байдаг тул зөвхөн цифрийг үлдээж,
+  // эхний тэгүүдийг хасаад харьцуулна.
+  const normalizeCode = (code: string) => code.replace(/\D/g, '').replace(/^0+/, '');
+
+  const handleBarcode = (code: string) => {
+    const scanned = normalizeCode(code);
+    const item = scanned
+      ? availableProducts.find((i) => normalizeCode(i.product.sku ?? '') === scanned)
+      : undefined;
+
+    if (!item) {
+      // Ачилтад байхгүй бол кодыг хайлтын талбарт тавина — modal хаагдмагц харагдана.
+      setProductSearch(code.trim());
+      setScanFeedback({ type: 'error', text: `Ачилтад олдсонгүй: ${code.trim()}` });
+      return;
+    }
+
+    const remaining = item.loadedQty - item.soldQty;
+    const current = cart.find((c) => c.productId === item.productId)?.quantity ?? 0;
+    if (current >= remaining) {
+      setScanFeedback({
+        type: 'error',
+        text: `${item.product.name} — үлдэгдэл хүрэлцэхгүй (${remaining}ш)`,
+      });
+      return;
+    }
+
+    setCartQty(item, current + 1);
+    setScanFeedback({ type: 'success', text: `${item.product.name} +1ш → ${current + 1}ш` });
+  };
+
+  // Скан мэдэгдлийг богино хугацааны дараа арилгана.
+  useEffect(() => {
+    if (!scanFeedback) return;
+    const t = setTimeout(() => setScanFeedback(null), 2500);
+    return () => clearTimeout(t);
+  }, [scanFeedback]);
+
   const cartTotal = cart.reduce((s, c) => s + c.quantity * c.unitPrice, 0);
+  const cartUnitCount = cart.reduce((s, c) => s + c.quantity, 0);
 
   // Combined payment helpers
   const combinedTotal = combinedPayments.reduce((s, p) => s + p.amount, 0);
   const combinedRemaining = cartTotal - combinedTotal;
 
-  const updateCombinedPayment = (index: number, field: 'method' | 'amount', value: any) => {
+  const updateCombinedPayment = (index: number, field: 'method' | 'amount', value: string) => {
     setCombinedPayments((prev) =>
       prev.map((p, i) => (i === index ? { ...p, [field]: field === 'amount' ? Number(value) || 0 : value } : p))
     );
@@ -345,6 +417,8 @@ export default function POSPage() {
       if (paymentMethod === 'COMBINED') {
         result._combinedPayments = combinedPayments.filter((p) => p.amount > 0);
       }
+      setCartSheetOpen(false);
+      setCustomerSheetOpen(false);
       setSaleResult(result);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Алдаа гарлаа';
@@ -363,6 +437,9 @@ export default function POSPage() {
   const handleNewSale = () => {
     setSaleResult(null);
     setCart([]);
+    setCartSheetOpen(false);
+    setCustomerSheetOpen(false);
+    setProductSearch('');
     setSelectedCustomerId('');
     setSelectedCustomer(null);
     setCustomerSearch('');
@@ -495,7 +572,7 @@ export default function POSPage() {
   // --- LOADING ---
   if (loading) {
     return (
-      <div className="h-[calc(100vh-56px)] bg-[#F5F6FA] flex items-center justify-center animate-ios-fade-in">
+      <div className="min-h-[60vh] lg:h-[calc(100vh-56px)] bg-[#F5F6FA] flex items-center justify-center animate-ios-fade-in">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-[#007AFF] animate-spin" />
           <p className="text-[15px] text-[#8C8FA3]">Ачааллаж байна...</p>
@@ -507,7 +584,7 @@ export default function POSPage() {
   // --- NO ACTIVE LOAD ---
   if (noActiveLoad || !truckLoad) {
     return (
-      <div className="h-[calc(100vh-56px)] bg-[#F5F6FA] flex items-center justify-center px-4 animate-ios-fade-in">
+      <div className="min-h-[60vh] lg:h-[calc(100vh-56px)] bg-[#F5F6FA] flex items-center justify-center px-4 animate-ios-fade-in">
         <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 p-8 text-center max-w-sm w-full">
           <div className="w-16 h-16 rounded-2xl bg-[#F2F4F7] flex items-center justify-center mx-auto mb-4">
             <Truck className="w-8 h-8 text-[#8C8FA3]" />
@@ -536,9 +613,13 @@ export default function POSPage() {
     );
   }
 
-  // --- MAIN POS INTERFACE (Split Layout) ---
+  // --- MAIN POS INTERFACE ---
+  // Гар утас (< lg) болон дэлгэц (lg+) хоёр өөр зохиомжтой: утсанд нэг баганаар
+  // урсгаж, сагсыг доод хуудсаар нээдэг; дэлгэцэд хажуу тийш хуваасан хэвээр.
   return (
-    <div className="h-[calc(100vh-56px)] bg-[#F5F6FA] flex flex-col lg:flex-row overflow-hidden animate-ios-fade-in">
+    <>
+      {/* ==================== ДЭЛГЭЦ: хажуу тийш хуваасан ==================== */}
+      <div className="hidden lg:flex h-[calc(100vh-56px)] bg-[#F5F6FA] flex-row overflow-hidden animate-ios-fade-in">
       {/* ========== LEFT SIDE: Products ========== */}
       <div className="flex-1 flex flex-col min-h-0 lg:min-w-0">
         {/* Top bar: Load info + stats + refresh */}
@@ -561,7 +642,7 @@ export default function POSPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="hidden sm:flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <div className="bg-[#F2F4F7] rounded-xl px-2.5 py-1.5 text-center">
                   <p className="text-[10px] text-[#8C8FA3] uppercase font-semibold leading-tight">Ачсан</p>
                   <p className="text-[14px] font-bold text-[#1A1D26] leading-tight tabular-nums">{totalLoaded}</p>
@@ -583,42 +664,41 @@ export default function POSPage() {
               </button>
             </div>
           </div>
-          {/* Mobile-only stats row */}
-          <div className="flex sm:hidden items-center gap-1.5 px-4 pb-3">
-            <div className="flex-1 bg-[#F2F4F7] rounded-xl px-2 py-1.5 text-center">
-              <p className="text-[10px] text-[#8C8FA3] uppercase font-semibold leading-tight">Ачсан</p>
-              <p className="text-[14px] font-bold text-[#1A1D26] leading-tight tabular-nums">{totalLoaded}</p>
-            </div>
-            <div className="flex-1 bg-[#34C759]/10 rounded-xl px-2 py-1.5 text-center">
-              <p className="text-[10px] text-[#34C759] uppercase font-semibold leading-tight">Зарсан</p>
-              <p className="text-[14px] font-bold text-[#34C759] leading-tight tabular-nums">{totalSold}</p>
-            </div>
-            <div className="flex-1 bg-[#007AFF]/10 rounded-xl px-2 py-1.5 text-center">
-              <p className="text-[10px] text-[#007AFF] uppercase font-semibold leading-tight">Үлдэгдэл</p>
-              <p className="text-[14px] font-bold text-[#007AFF] leading-tight tabular-nums">{totalRemaining}</p>
-            </div>
-          </div>
         </div>
 
         {/* Product search bar */}
         <div className="flex-shrink-0 px-4 py-3 bg-[#F5F6FA]">
-          <div className="relative">
-            <Search className="w-4 h-4 text-[#8C8FA3] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              placeholder="Бараа хайх (нэр, SKU)..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E8ECF0] text-[14px] text-[#1A1D26] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15"
-            />
-            {productSearch && (
-              <button
-                onClick={() => setProductSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#AEAEB2]/20 flex items-center justify-center"
-              >
-                <X className="w-3 h-3 text-[#8C8FA3]" />
-              </button>
-            )}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-4 h-4 text-[#8C8FA3] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Бараа хайх (нэр, SKU)..."
+                className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-white border border-[#E8ECF0] text-[14px] text-[#1A1D26] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15"
+              />
+              {productSearch && (
+                <button
+                  onClick={() => setProductSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[#AEAEB2]/20 flex items-center justify-center"
+                >
+                  <X className="w-3 h-3 text-[#8C8FA3]" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setScanFeedback(null);
+                setScannerOpen(true);
+              }}
+              title="Камераар зураасан код унших"
+              className="flex-shrink-0 h-[42px] px-3.5 rounded-xl text-[13px] font-semibold text-white flex items-center gap-1.5 transition-all active:scale-[0.95] shadow-sm shadow-[#007AFF]/25"
+              style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
+            >
+              <ScanLine className="w-4 h-4" />
+              Скан
+            </button>
           </div>
           <p className="text-[11px] text-[#AEAEB2] mt-1.5 px-1">
             {filteredProducts.length} бараа {productSearch && `(${availableProducts.length} нийт)`}
@@ -633,7 +713,7 @@ export default function POSPage() {
               title={productSearch ? 'Хайлтад тохирох бараа олдсонгүй' : 'Үлдэгдэл бараа байхгүй'}
             />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
               {filteredProducts.map((item) => {
                 const remaining = item.loadedQty - item.soldQty;
                 const inCart = getCartItem(item.productId);
@@ -692,9 +772,7 @@ export default function POSPage() {
                               onChange={(e) => {
                                 const boxes = Math.max(0, parseInt(e.target.value) || 0);
                                 const currentPieces = inCart ? inCart.quantity % upb : 0;
-                                const total = Math.min(boxes * upb + currentPieces, remaining);
-                                if (total <= 0) { removeFromCart(item.productId); }
-                                else { addToCart(item, total - (inCart?.quantity ?? 0)); if (!inCart) addToCart(item, total); else { setCart(prev => prev.map(c => c.productId === item.productId ? { ...c, quantity: total, maxQty: remaining } : c)); } }
+                                setCartQty(item, boxes * upb + currentPieces);
                               }}
                               onFocus={(e) => e.target.select()}
                               className="w-full mt-0.5 px-2 py-1.5 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] font-bold text-center text-[#1A1D26] outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF]/20"
@@ -711,9 +789,7 @@ export default function POSPage() {
                               onChange={(e) => {
                                 const pieces = Math.max(0, Math.min(parseInt(e.target.value) || 0, upb - 1));
                                 const currentBoxes = inCart ? Math.floor(inCart.quantity / upb) : 0;
-                                const total = Math.min(currentBoxes * upb + pieces, remaining);
-                                if (total <= 0) { removeFromCart(item.productId); }
-                                else { setCart(prev => { const exists = prev.find(c => c.productId === item.productId); if (exists) return prev.map(c => c.productId === item.productId ? { ...c, quantity: total, maxQty: remaining } : c); return [...prev, { productId: item.productId, name: item.product.name, sku: item.product.sku, quantity: total, unitPrice: item.unitPrice || item.product.sellingPrice, maxQty: remaining, unitsPerBox: upb }]; }); }
+                                setCartQty(item, currentBoxes * upb + pieces);
                               }}
                               onFocus={(e) => e.target.select()}
                               className="w-full mt-0.5 px-2 py-1.5 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] font-bold text-center text-[#1A1D26] outline-none focus:border-[#FF9500] focus:ring-1 focus:ring-[#FF9500]/20"
@@ -736,9 +812,7 @@ export default function POSPage() {
                               value={inCart?.quantity ?? ''}
                               placeholder="0"
                               onChange={(e) => {
-                                const qty = Math.max(0, Math.min(parseInt(e.target.value) || 0, remaining));
-                                if (qty <= 0) { removeFromCart(item.productId); }
-                                else { setCart(prev => { const exists = prev.find(c => c.productId === item.productId); if (exists) return prev.map(c => c.productId === item.productId ? { ...c, quantity: qty, maxQty: remaining } : c); return [...prev, { productId: item.productId, name: item.product.name, sku: item.product.sku, quantity: qty, unitPrice: item.unitPrice || item.product.sellingPrice, maxQty: remaining, unitsPerBox: 1 }]; }); }
+                                setCartQty(item, parseInt(e.target.value) || 0);
                               }}
                               onFocus={(e) => e.target.select()}
                               className="w-full mt-0.5 px-2 py-1.5 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] font-bold text-center text-[#1A1D26] outline-none focus:border-[#34C759] focus:ring-1 focus:ring-[#34C759]/20"
@@ -761,7 +835,7 @@ export default function POSPage() {
       </div>
 
       {/* ========== RIGHT SIDE: Cart & Checkout ========== */}
-      <div className="w-full lg:w-[380px] flex-shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-[#E8ECF0] flex flex-col min-h-0 max-h-[50vh] lg:max-h-none">
+      <div className="w-[380px] flex-shrink-0 bg-white border-l border-[#E8ECF0] flex flex-col min-h-0">
         {/* Customer search - compact */}
         <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-[#F2F4F7]">
           <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
@@ -1022,7 +1096,87 @@ export default function POSPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {/* ==================== ГАР УТАС: нэг баганат зохиомж ==================== */}
+      <MobilePos
+        loadNumber={truckLoad.loadNumber}
+        driverName={driverName}
+        totalLoaded={totalLoaded}
+        totalSold={totalSold}
+        totalRemaining={totalRemaining}
+        onRefresh={fetchData}
+        customerName={selectedCustomer?.storeName ?? null}
+        customerDetail={
+          [selectedCustomer?.phone, selectedCustomer?.address].filter(Boolean).join(' · ') || null
+        }
+        onPickCustomer={() => setCustomerSheetOpen(true)}
+        productSearch={productSearch}
+        onProductSearchChange={setProductSearch}
+        onScan={() => {
+          setScanFeedback(null);
+          setScannerOpen(true);
+        }}
+        products={mobileProducts}
+        totalProductCount={availableProducts.length}
+        onQtyChange={setQtyByProductId}
+        cartItemCount={cart.length}
+        cartUnitCount={cartUnitCount}
+        cartTotal={cartTotal}
+        onOpenCart={() => setCartSheetOpen(true)}
+        bottomInset={bottomInset}
+      />
+
+      {/* Гар утасны сагс / төлбөрийн хуудас */}
+      <CartSheet
+        open={cartSheetOpen}
+        onClose={() => setCartSheetOpen(false)}
+        cart={cart}
+        onQtyChange={setCartLineQty}
+        onRemove={removeFromCart}
+        onClearAll={clearCart}
+        total={cartTotal}
+        customerName={selectedCustomer?.storeName ?? null}
+        onPickCustomer={() => setCustomerSheetOpen(true)}
+        paymentMethod={paymentMethod}
+        onPaymentMethodChange={setPaymentMethod}
+        combinedPayments={combinedPayments}
+        onCombinedChange={updateCombinedPayment}
+        onAddCombinedRow={addCombinedRow}
+        onRemoveCombinedRow={removeCombinedRow}
+        onAutoFillLastCombined={autoFillLastCombined}
+        combinedTotal={combinedTotal}
+        combinedRemaining={combinedRemaining}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+      />
+
+      {/* Гар утасны харилцагч сонгох хуудас */}
+      {customerSheetOpen && (
+      <CustomerSheet
+        customers={customers}
+        selectedId={selectedCustomerId}
+        onSelect={(c) => {
+          selectCustomer(c);
+          setCustomerSheetOpen(false);
+        }}
+        onClose={() => setCustomerSheetOpen(false)}
+      />
+      )}
+
+      {/* Камерын зураасан код уншигч */}
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => {
+          setScannerOpen(false);
+          setScanFeedback(null);
+        }}
+        onDetected={handleBarcode}
+        feedback={scanFeedback}
+        title="Бараа скан хийх"
+        hint="Барааны зураасан кодыг хүрээн дотор барина уу"
+      />
+    </>
   );
 }
 

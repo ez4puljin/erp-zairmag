@@ -530,6 +530,26 @@
 }
 
 /* ============================================
+   Bottom sheet (гар утасны доод хуудас)
+   ============================================ */
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* fill-mode санаатайгаар тавиагүй — анимац дуусмагц transform арилж,
+   доторх position:fixed элементүүд эвдрэхгүй (дээрх тэмдэглэлийг үзнэ үү). */
+.animate-sheet-up {
+  animation: sheet-slide-up 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Гүйлгэх үед хуруунд “наалдсан” мэдрэмж өгөх momentum */
+.sheet-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ============================================
    Тайлан хэвлэх (Print)
    ============================================ */
 @media print {
