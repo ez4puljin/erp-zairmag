@@ -1,6 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
+
+export interface SalesRegisterParams {
+  from: string;
+  to: string;
+  customerId?: string;
+  productId?: string;
+  paymentMethod?: string;
+  channel?: 'ALL' | 'ORDER' | 'TRUCK';
+  driverId?: string;
+}
 
 @Injectable()
 export class ReportsService {
@@ -547,6 +557,228 @@ export class ReportsService {
         paymentBreakdown: overallBreakdown,
       },
       drivers,
+    };
+  }
+
+  /**
+   * Sales register — unified per-transaction list of DELIVERED Orders + TruckSales
+   * over a date range, filterable by customer/product/payment method/channel/driver.
+   * Returns each sale with its line breakdown plus totals and by-method/product/customer
+   * aggregates (computed over the FULL matched set, not the capped items list).
+   */
+  async getSalesRegister(params: SalesRegisterParams) {
+    const { from, to, customerId, productId, paymentMethod, channel = 'ALL', driverId } = params;
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+
+    const includeOrders = channel === 'ALL' || channel === 'ORDER';
+    const includeTruck = channel === 'ALL' || channel === 'TRUCK';
+    // driverId filters truck sales (orders have no driver); when set, suppress orders.
+    const ordersEnabled = includeOrders && !driverId;
+
+    const orderWhere: Prisma.OrderWhereInput = {
+      status: OrderStatus.DELIVERED,
+      deliveredAt: { gte: fromDate, lte: toDate },
+      ...(customerId ? { customerId } : {}),
+      ...(paymentMethod ? { paymentMethod: paymentMethod as any } : {}),
+      ...(productId ? { items: { some: { productId } } } : {}),
+    };
+    const truckWhere: Prisma.TruckSaleWhereInput = {
+      createdAt: { gte: fromDate, lte: toDate },
+      ...(customerId ? { customerId } : {}),
+      ...(paymentMethod ? { paymentMethod: paymentMethod as any } : {}),
+      ...(productId ? { items: { some: { productId } } } : {}),
+      ...(driverId ? { truckLoad: { driverId } } : {}),
+    };
+
+    const [orders, truckSales] = await Promise.all([
+      ordersEnabled
+        ? this.prisma.order.findMany({
+            where: orderWhere,
+            include: {
+              customer: { select: { id: true, storeName: true } },
+              createdBy: { select: { firstName: true, lastName: true } },
+              items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+            },
+            orderBy: { deliveredAt: 'asc' },
+          })
+        : Promise.resolve([]),
+      includeTruck
+        ? this.prisma.truckSale.findMany({
+            where: truckWhere,
+            include: {
+              customer: { select: { id: true, storeName: true } },
+              truckLoad: { select: { driver: { select: { firstName: true, lastName: true } } } },
+              items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+            },
+            orderBy: { createdAt: 'asc' },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    type Row = {
+      id: string;
+      channel: 'ORDER' | 'TRUCK';
+      number: string;
+      date: Date;
+      customerId: string | null;
+      customerName: string;
+      sellerName: string;
+      paymentMethod: string | null;
+      itemCount: number;
+      subtotal: number;
+      total: number;
+      lines: Array<{ productId: string; productName: string; sku: string | null; quantity: number; unitPrice: number; lineTotal: number }>;
+    };
+
+    const rows: Row[] = [];
+
+    for (const o of orders) {
+      const lines = o.items.map((i) => ({
+        productId: i.productId,
+        productName: i.product?.name ?? '-',
+        sku: i.product?.sku ?? null,
+        quantity: i.deliveredQty ?? i.quantity,
+        unitPrice: Number(i.unitPrice),
+        lineTotal: Number(i.unitPrice) * (i.deliveredQty ?? i.quantity),
+      }));
+      rows.push({
+        id: o.id,
+        channel: 'ORDER',
+        number: `#${o.orderNumber}`,
+        date: o.deliveredAt ?? o.createdAt,
+        customerId: o.customerId,
+        customerName: o.customer?.storeName ?? '-',
+        sellerName: `${o.createdBy?.lastName ?? ''} ${o.createdBy?.firstName ?? ''}`.trim() || '-',
+        paymentMethod: o.paymentMethod ?? null,
+        itemCount: lines.reduce((s, l) => s + l.quantity, 0),
+        subtotal: Number(o.subtotal),
+        total: Number(o.totalAmount),
+        lines,
+      });
+    }
+
+    for (const s of truckSales) {
+      const lines = s.items.map((i) => ({
+        productId: i.productId,
+        productName: i.product?.name ?? '-',
+        sku: i.product?.sku ?? null,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        lineTotal: Number(i.lineTotal),
+      }));
+      const drv = s.truckLoad?.driver;
+      rows.push({
+        id: s.id,
+        channel: 'TRUCK',
+        number: `T#${s.saleNumber}`,
+        date: s.createdAt,
+        customerId: s.customerId,
+        customerName: s.customer?.storeName ?? '-',
+        sellerName: drv ? `${drv.lastName ?? ''} ${drv.firstName ?? ''}`.trim() || '-' : '-',
+        paymentMethod: s.paymentMethod,
+        itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
+        subtotal: Number(s.subtotal),
+        total: Number(s.totalAmount),
+        lines,
+      });
+    }
+
+    rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Aggregates over the FULL matched set
+    let revenue = 0;
+    let itemCount = 0;
+    const byMethod: Record<string, { count: number; amount: number }> = {};
+    const byProduct = new Map<string, { name: string; sku: string | null; qty: number; revenue: number }>();
+    const byCustomer = new Map<string, { storeName: string; count: number; amount: number }>();
+
+    for (const r of rows) {
+      revenue += r.total;
+      itemCount += r.itemCount;
+      const m = r.paymentMethod ?? 'UNKNOWN';
+      if (!byMethod[m]) byMethod[m] = { count: 0, amount: 0 };
+      byMethod[m].count += 1;
+      byMethod[m].amount += r.total;
+      if (r.customerId) {
+        const c = byCustomer.get(r.customerId) ?? { storeName: r.customerName, count: 0, amount: 0 };
+        c.count += 1;
+        c.amount += r.total;
+        byCustomer.set(r.customerId, c);
+      }
+      for (const l of r.lines) {
+        const p = byProduct.get(l.productId) ?? { name: l.productName, sku: l.sku, qty: 0, revenue: 0 };
+        p.qty += l.quantity;
+        p.revenue += l.lineTotal;
+        byProduct.set(l.productId, p);
+      }
+    }
+
+    const CAP = 2000;
+    return {
+      from,
+      to,
+      filters: { customerId: customerId ?? null, productId: productId ?? null, paymentMethod: paymentMethod ?? null, channel, driverId: driverId ?? null },
+      truncated: rows.length > CAP,
+      totals: { count: rows.length, revenue, itemCount, byMethod },
+      byProduct: Array.from(byProduct.entries())
+        .map(([productId, v]) => ({ productId, ...v }))
+        .sort((a, b) => b.revenue - a.revenue),
+      byCustomer: Array.from(byCustomer.entries())
+        .map(([id, v]) => ({ customerId: id, ...v }))
+        .sort((a, b) => b.amount - a.amount),
+      items: rows.slice(0, CAP),
+    };
+  }
+
+  /**
+   * VAT (НӨАТ) report — output VAT over a date range. Prices are treated as
+   * VAT-inclusive at the configured rate (ReceiptSettings.vatRate, default 10%):
+   * outputVat = total * rate / (100 + rate). Order.taxAmount (when recorded) is
+   * reported separately for reference.
+   */
+  async getVatReport(from: string, to: string) {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+
+    const settings = await this.prisma.receiptSettings.findFirst({ select: { vatRate: true } });
+    const rate = Number(settings?.vatRate ?? 10);
+
+    const [orderAgg, truckAgg] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { status: OrderStatus.DELIVERED, deliveredAt: { gte: fromDate, lte: toDate } },
+        _sum: { totalAmount: true, taxAmount: true },
+        _count: true,
+      }),
+      this.prisma.truckSale.aggregate({
+        where: { createdAt: { gte: fromDate, lte: toDate } },
+        _sum: { totalAmount: true },
+        _count: true,
+      }),
+    ]);
+
+    const orderSales = Number(orderAgg._sum.totalAmount ?? 0);
+    const truckSalesTotal = Number(truckAgg._sum.totalAmount ?? 0);
+    const recordedOrderTax = Number(orderAgg._sum.taxAmount ?? 0);
+    const totalSales = orderSales + truckSalesTotal;
+
+    const outputVat = rate > 0 ? Math.round((totalSales * rate) / (100 + rate)) : 0;
+    const taxableBase = totalSales - outputVat;
+
+    return {
+      from,
+      to,
+      vatRate: rate,
+      vatInclusiveAssumed: true,
+      salesCount: orderAgg._count + truckAgg._count,
+      orderSales,
+      truckSales: truckSalesTotal,
+      totalSales,
+      taxableBase,
+      outputVat,
+      recordedOrderTax,
     };
   }
 }

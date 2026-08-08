@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { FolderOpen, Plus, Pencil, Trash2, X, ChevronRight, RefreshCw } from 'lucide-react';
+import { FolderOpen, Plus, Pencil, Trash2, X, RefreshCw } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -89,45 +92,47 @@ export default function CategoriesPage() {
   categories.filter((c: any) => c.parentId && !categories.find((p: any) => p.id === c.parentId))
     .forEach((c: any) => flatList.push({ cat: c, indent: 0 }));
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
+  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Ангилал</h1>
-        <button onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
-          style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}>
-          <Plus className="w-4 h-4" /> Нэмэх
-        </button>
-      </div>
+      <PageHeader
+        title="Ангилал"
+        subtitle="Барааны ангилал, дэд ангилал"
+        icon={FolderOpen}
+        iconColor="#FF9500"
+        actions={
+          <button onClick={openAdd}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-[13px] font-semibold text-white shadow-sm shadow-[#FF9500]/25 transition-all active:scale-[0.97] hover:brightness-105"
+            style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}>
+            <Plus className="w-4 h-4" /> Нэмэх
+          </button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard noPadding>
         {loading ? (
-          <div className="py-12 text-center"><RefreshCw className="w-6 h-6 text-[#8E8E93] mx-auto animate-spin" /></div>
+          <div className="py-12 text-center"><RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" /></div>
         ) : flatList.length === 0 ? (
-          <div className="py-16 text-center">
-            <FolderOpen className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-            <p className="text-[17px] font-semibold text-[#1C1C1E]">Ангилал байхгүй</p>
-          </div>
+          <EmptyState icon={FolderOpen} title="Ангилал байхгүй" />
         ) : (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {flatList.map(({ cat, indent }) => (
-              <div key={cat.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F2F2F7]/50 transition-colors"
+              <div key={cat.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F9FAFB] transition-colors"
                    style={{ paddingLeft: `${16 + indent * 28}px` }}>
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${indent ? 'bg-[#5AC8FA]/10' : 'bg-[#FF9500]/10'}`}>
                   <FolderOpen className={`w-4 h-4 ${indent ? 'text-[#5AC8FA]' : 'text-[#FF9500]'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-semibold text-[#1C1C1E]">{cat.name}</p>
+                  <p className="text-[15px] font-semibold text-[#1A1D26]">{cat.name}</p>
                   {indent > 0 && (
-                    <p className="text-[12px] text-[#8E8E93]">
+                    <p className="text-[12px] text-[#8C8FA3]">
                       {categories.find((p: any) => p.id === cat.parentId)?.name ?? ''}
                     </p>
                   )}
                 </div>
                 {cat._count?.products != null && (
-                  <span className="text-[12px] font-medium text-[#8E8E93] bg-[#F2F2F7] px-2 py-0.5 rounded-full">
+                  <span className="text-[12px] font-medium text-[#8C8FA3] bg-[#F2F4F7] px-2 py-0.5 rounded-full">
                     {cat._count.products} бараа
                   </span>
                 )}
@@ -143,7 +148,7 @@ export default function CategoriesPage() {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -151,18 +156,18 @@ export default function CategoriesPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
           <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl animate-ios-scale-in">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[20px] font-bold text-[#1C1C1E]">{editItem ? 'Ангилал засах' : 'Шинэ ангилал'}</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-[#F2F2F7]">
-                <X className="w-5 h-5 text-[#8E8E93]" />
+              <h3 className="text-[20px] font-bold text-[#1A1D26]">{editItem ? 'Ангилал засах' : 'Шинэ ангилал'}</h3>
+              <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-[#F2F4F7]">
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Нэр</label>
+                <label className="block text-[13px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Нэр</label>
                 <input type="text" value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} required placeholder="Ангилалын нэр" className={inputClass} />
               </div>
               <div>
-                <label className="block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5">Эцэг ангилал</label>
+                <label className="block text-[13px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Эцэг ангилал</label>
                 <select value={form.parentId} onChange={e => setForm(prev => ({ ...prev, parentId: e.target.value }))} className={inputClass}>
                   <option value="">Байхгүй (Үндсэн)</option>
                   {categories.filter((c: any) => c.id !== editItem?.id).map((c: any) => (
@@ -173,7 +178,7 @@ export default function CategoriesPage() {
               {error && <p className="text-[13px] text-[#FF3B30] font-medium">{error}</p>}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]">
+                  className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] transition-all active:scale-[0.97]">
                   Цуцлах
                 </button>
                 <button type="submit" disabled={submitting}
@@ -195,12 +200,12 @@ export default function CategoriesPage() {
             <div className="w-14 h-14 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-[#FF3B30]" />
             </div>
-            <h3 className="text-[18px] font-bold text-[#1C1C1E] mb-1">&ldquo;{deleteItem.name}&rdquo; устгах уу?</h3>
-            <p className="text-[14px] text-[#8E8E93] mb-2">Дэд ангилал эсвэл бараатай бол устгах боломжгүй.</p>
+            <h3 className="text-[18px] font-bold text-[#1A1D26] mb-1">&ldquo;{deleteItem.name}&rdquo; устгах уу?</h3>
+            <p className="text-[14px] text-[#8C8FA3] mb-2">Дэд ангилал эсвэл бараатай бол устгах боломжгүй.</p>
             {error && <p className="text-[13px] text-[#FF3B30] font-medium mb-3">{error}</p>}
             <div className="flex gap-3">
               <button onClick={() => setDeleteItem(null)}
-                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]">
+                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] transition-all active:scale-[0.97]">
                 Цуцлах
               </button>
               <button onClick={handleDelete} disabled={deleting}

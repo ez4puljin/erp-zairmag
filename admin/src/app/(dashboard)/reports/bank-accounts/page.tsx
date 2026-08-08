@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
-import { Wallet, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, DollarSign, ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 interface ReportItem {
   account: {
@@ -64,125 +70,111 @@ export default function BankAccountReportPage() {
     }
   }
 
-  const inputClass = 'px-4 py-2.5 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[14px] text-[#1C1C1E] outline-none focus:border-[#007AFF] focus:ring-[2px] focus:ring-[#007AFF]/15';
-
   return (
-    <div className="space-y-6 animate-ios-fade-in">
-      <div>
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Дансны орлого/зарлага тайлан</h1>
-        <p className="text-[13px] text-[#8E8E93] mt-1">Данс тус бүрийн орлого, зарлага, цэвэр үлдэгдэл</p>
-      </div>
+    <div className="space-y-5 animate-ios-fade-in">
+      <PageHeader
+        title="Дансны орлого/зарлага тайлан"
+        subtitle="Данс тус бүрийн орлого, зарлага, цэвэр үлдэгдэл"
+        icon={Wallet}
+      />
 
       {/* Date range */}
-      <div className="bg-white rounded-2xl border border-[#E5E5EA]/50 p-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase mb-1">Эхлэх огноо</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
-        </div>
-        <div>
-          <label className="block text-[11px] font-semibold text-[#8E8E93] uppercase mb-1">Төгсөх огноо</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputClass} />
-        </div>
-        <button
-          onClick={fetchReport}
-          disabled={loading}
-          className="px-5 py-2.5 rounded-xl bg-[#007AFF] text-white text-[14px] font-semibold hover:bg-[#0051D5] disabled:opacity-50"
-        >
+      <FilterBar>
+        <DateField label="Эхлэх огноо" value={from} onChange={setFrom} />
+        <DateField label="Төгсөх огноо" value={to} onChange={setTo} />
+        <ActionButton onClick={fetchReport} disabled={loading}>
           {loading ? 'Уншиж байна...' : 'Тайлан авах'}
-        </button>
-      </div>
+        </ActionButton>
+      </FilterBar>
 
       {/* Grand totals */}
       {report && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-br from-[#34C759]/10 to-[#34C759]/5 border border-[#34C759]/20 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowDownRight className="w-5 h-5 text-[#34C759]" />
-              <span className="text-[12px] font-semibold text-[#34C759] uppercase">Нийт орлого</span>
-            </div>
-            <p className="text-[28px] font-bold text-[#34C759]">₮{report.grandTotal.inflow.toLocaleString('mn-MN')}</p>
-          </div>
-          <div className="bg-gradient-to-br from-[#FF3B30]/10 to-[#FF3B30]/5 border border-[#FF3B30]/20 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowUpRight className="w-5 h-5 text-[#FF3B30]" />
-              <span className="text-[12px] font-semibold text-[#FF3B30] uppercase">Нийт зарлага</span>
-            </div>
-            <p className="text-[28px] font-bold text-[#FF3B30]">₮{report.grandTotal.outflow.toLocaleString('mn-MN')}</p>
-          </div>
-          <div className={`bg-gradient-to-br ${report.grandTotal.net >= 0 ? 'from-[#007AFF]/10 to-[#007AFF]/5 border-[#007AFF]/20' : 'from-[#FF9500]/10 to-[#FF9500]/5 border-[#FF9500]/20'} border rounded-2xl p-5`}>
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className={`w-5 h-5 ${report.grandTotal.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`} />
-              <span className={`text-[12px] font-semibold uppercase ${report.grandTotal.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>Цэвэр үлдэгдэл</span>
-            </div>
-            <p className={`text-[28px] font-bold ${report.grandTotal.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>
-              {report.grandTotal.net >= 0 ? '+' : ''}₮{report.grandTotal.net.toLocaleString('mn-MN')}
-            </p>
-          </div>
-        </div>
+        <StatGrid cols={3}>
+          <StatCard
+            label="Нийт орлого"
+            value={formatMnt(report.grandTotal.inflow)}
+            icon={ArrowDownRight}
+            gradient="green"
+            index={0}
+          />
+          <StatCard
+            label="Нийт зарлага"
+            value={formatMnt(report.grandTotal.outflow)}
+            icon={ArrowUpRight}
+            gradient="red"
+            index={1}
+          />
+          <StatCard
+            label="Цэвэр үлдэгдэл"
+            value={`${report.grandTotal.net >= 0 ? '+' : ''}${formatMnt(report.grandTotal.net)}`}
+            icon={DollarSign}
+            gradient={report.grandTotal.net >= 0 ? 'blue' : 'orange'}
+            index={2}
+          />
+        </StatGrid>
       )}
 
       {/* Per-account breakdown */}
       {report && report.accounts.length === 0 && (
-        <div className="text-center py-16 bg-[#F2F2F7] rounded-2xl">
-          <Wallet className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-          <p className="text-[#8E8E93]">Данс бүртгэгдээгүй байна</p>
-        </div>
+        <SectionCard noPadding>
+          <EmptyState icon={Wallet} title="Данс бүртгэгдээгүй байна" hint="Сонгосон хугацаанд данс олдсонгүй" />
+        </SectionCard>
       )}
 
       {report && report.accounts.map((item) => (
-        <div key={item.account.id} className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+        <div key={item.account.id} className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
           <button
             onClick={() => toggleExpand(item.account.id)}
-            className="w-full p-5 flex items-center gap-4 hover:bg-[#F2F2F7]/50 transition-all"
+            className="w-full p-4 lg:p-5 flex items-center gap-4 hover:bg-[#F9FAFB] transition-all"
           >
-            <div className="w-12 h-12 rounded-xl bg-[#007AFF15] flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#007AFF]/12 flex items-center justify-center shrink-0">
               <Wallet className="w-6 h-6 text-[#007AFF]" />
             </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-[16px] font-bold text-[#1C1C1E]">{item.account.bankName}</h3>
-              <p className="text-[12px] text-[#8E8E93] font-mono">{item.account.accountNumber} · {item.account.holderName}</p>
+            <div className="flex-1 text-left min-w-0">
+              <h3 className="text-[16px] font-bold text-[#1A1D26] truncate">{item.account.bankName}</h3>
+              <p className="text-[12px] text-[#8C8FA3] font-mono truncate">{item.account.accountNumber} · {item.account.holderName}</p>
             </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] text-[#8E8E93] uppercase font-semibold">Одоогийн үлдэгдэл</p>
-              <p className="text-[16px] font-bold text-[#1C1C1E]">₮{Number(item.account.currentBalance).toLocaleString('mn-MN')}</p>
+            <div className="text-right hidden sm:block shrink-0">
+              <p className="text-[10px] text-[#8C8FA3] uppercase font-semibold tracking-wide">Одоогийн үлдэгдэл</p>
+              <p className="text-[16px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(item.account.currentBalance)}</p>
             </div>
-            {expanded === item.account.id ? <ChevronUp className="w-5 h-5 text-[#8E8E93]" /> : <ChevronDown className="w-5 h-5 text-[#8E8E93]" />}
+            {expanded === item.account.id ? <ChevronUp className="w-5 h-5 text-[#8C8FA3] shrink-0" /> : <ChevronDown className="w-5 h-5 text-[#8C8FA3] shrink-0" />}
           </button>
 
-          <div className="px-5 pb-5 grid grid-cols-3 gap-3">
-            <div className="bg-[#34C759]/5 rounded-xl p-3 border border-[#34C759]/10">
-              <p className="text-[10px] text-[#34C759] uppercase font-semibold">Орлого ({item.inflow.count})</p>
-              <p className="text-[16px] font-bold text-[#34C759]">₮{item.inflow.amount.toLocaleString('mn-MN')}</p>
+          <div className="px-4 lg:px-5 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-[#34C759]/6 rounded-xl p-3 border border-[#34C759]/12">
+              <p className="text-[10px] text-[#34C759] uppercase font-semibold tracking-wide">Орлого ({item.inflow.count})</p>
+              <p className="text-[16px] font-bold text-[#34C759] mt-0.5 tabular-nums">{formatMnt(item.inflow.amount)}</p>
             </div>
-            <div className="bg-[#FF3B30]/5 rounded-xl p-3 border border-[#FF3B30]/10">
-              <p className="text-[10px] text-[#FF3B30] uppercase font-semibold">Зарлага ({item.outflow.count})</p>
-              <p className="text-[16px] font-bold text-[#FF3B30]">₮{item.outflow.amount.toLocaleString('mn-MN')}</p>
+            <div className="bg-[#FF3B30]/6 rounded-xl p-3 border border-[#FF3B30]/12">
+              <p className="text-[10px] text-[#FF3B30] uppercase font-semibold tracking-wide">Зарлага ({item.outflow.count})</p>
+              <p className="text-[16px] font-bold text-[#FF3B30] mt-0.5 tabular-nums">{formatMnt(item.outflow.amount)}</p>
             </div>
-            <div className={`rounded-xl p-3 border ${item.net >= 0 ? 'bg-[#007AFF]/5 border-[#007AFF]/10' : 'bg-[#FF9500]/5 border-[#FF9500]/10'}`}>
-              <p className={`text-[10px] uppercase font-semibold ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>Цэвэр</p>
-              <p className={`text-[16px] font-bold ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>
-                {item.net >= 0 ? '+' : ''}₮{item.net.toLocaleString('mn-MN')}
+            <div className={`rounded-xl p-3 border ${item.net >= 0 ? 'bg-[#007AFF]/6 border-[#007AFF]/12' : 'bg-[#FF9500]/6 border-[#FF9500]/12'}`}>
+              <p className={`text-[10px] uppercase font-semibold tracking-wide ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>Цэвэр</p>
+              <p className={`text-[16px] font-bold mt-0.5 tabular-nums ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>
+                {item.net >= 0 ? '+' : ''}{formatMnt(item.net)}
               </p>
             </div>
           </div>
 
           {/* Expanded transactions */}
           {expanded === item.account.id && detailData[item.account.id] && (
-            <div className="border-t border-[#E5E5EA] bg-[#F9FAFB] p-5 space-y-4">
+            <div className="border-t border-[#F0F2F5] bg-[#F9FAFB] p-4 lg:p-5 space-y-4">
               {/* Incoming payments */}
               {detailData[item.account.id].payments?.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-[#34C759] uppercase mb-2 flex items-center gap-1">
+                  <h4 className="text-[11px] font-bold text-[#34C759] uppercase tracking-wide mb-2 flex items-center gap-1">
                     <TrendingDown className="w-3.5 h-3.5" /> Харилцагчаас ирсэн төлбөр
                   </h4>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {detailData[item.account.id].payments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-[12px]">
-                        <div>
-                          <p className="font-semibold text-[#1C1C1E]">{p.customer?.storeName || '-'}</p>
-                          <p className="text-[10px] text-[#8E8E93]">{new Date(p.createdAt).toLocaleString('mn-MN')}</p>
+                      <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[#1A1D26] truncate">{p.customer?.storeName || '-'}</p>
+                          <p className="text-[10px] text-[#8C8FA3]">{new Date(p.createdAt).toLocaleString('mn-MN')}</p>
                         </div>
-                        <span className="font-bold text-[#34C759]">+₮{Number(p.amount).toLocaleString('mn-MN')}</span>
+                        <span className="font-bold text-[#34C759] tabular-nums shrink-0">+{formatMnt(p.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -192,17 +184,17 @@ export default function BankAccountReportPage() {
               {/* Outgoing supplier payments */}
               {detailData[item.account.id].supplierPayments?.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-[#FF3B30] uppercase mb-2 flex items-center gap-1">
+                  <h4 className="text-[11px] font-bold text-[#FF3B30] uppercase tracking-wide mb-2 flex items-center gap-1">
                     <TrendingUp className="w-3.5 h-3.5" /> Нийлүүлэгчрүү төлсөн
                   </h4>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {detailData[item.account.id].supplierPayments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-[12px]">
-                        <div>
-                          <p className="font-semibold text-[#1C1C1E]">{p.supplier?.name || '-'}</p>
-                          <p className="text-[10px] text-[#8E8E93]">{new Date(p.date).toLocaleDateString('mn-MN')} · {p.description || ''}</p>
+                      <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[#1A1D26] truncate">{p.supplier?.name || '-'}</p>
+                          <p className="text-[10px] text-[#8C8FA3]">{new Date(p.date).toLocaleDateString('mn-MN')} · {p.description || ''}</p>
                         </div>
-                        <span className="font-bold text-[#FF3B30]">-₮{Number(p.amount).toLocaleString('mn-MN')}</span>
+                        <span className="font-bold text-[#FF3B30] tabular-nums shrink-0">-{formatMnt(p.amount)}</span>
                       </div>
                     ))}
                   </div>
@@ -210,7 +202,7 @@ export default function BankAccountReportPage() {
               )}
 
               {detailData[item.account.id].payments?.length === 0 && detailData[item.account.id].supplierPayments?.length === 0 && (
-                <p className="text-center text-[12px] text-[#8E8E93] py-4">Энэ хугацаанд гүйлгээ байхгүй</p>
+                <p className="text-center text-[12px] text-[#8C8FA3] py-4">Энэ хугацаанд гүйлгээ байхгүй</p>
               )}
             </div>
           )}

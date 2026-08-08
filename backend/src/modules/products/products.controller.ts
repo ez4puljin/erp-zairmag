@@ -18,6 +18,7 @@ import type { Response } from 'express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Role } from '@prisma/client';
+import { PRODUCTS_UPLOAD_DIR } from '../../config/uploads';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -91,7 +92,7 @@ export class ProductsController {
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
-        destination: './uploads/products',
+        destination: PRODUCTS_UPLOAD_DIR,
         filename: (req, file, cb) => {
           const uniqueSuffix =
             Date.now() + '-' + Math.round(Math.random() * 1e9);

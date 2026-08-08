@@ -7,6 +7,11 @@ import {
   Banknote, Building2, Clock, ChevronDown, ChevronUp,
   Package, User,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const PAYMENT_LABELS: Record<string, { label: string; color: string; bg: string; icon: any }> = {
   CASH: { label: 'Бэлэн', color: '#10B981', bg: '#ECFDF5', icon: Banknote },
@@ -65,67 +70,77 @@ export default function DriverSalesHistoryPage() {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-5 animate-ios-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-[18px] font-bold text-[#1A1D26]">Борлуулалтын түүх</h2>
-          <p className="text-[12px] text-[#8C8FA3]">{sales.length} борлуулалт · ₮{totalSales.toLocaleString()}</p>
-        </div>
-        <button onClick={fetchData} className="p-2 rounded-xl bg-white border border-[#E8ECF0]">
-          <RefreshCw className="w-4 h-4 text-[#8C8FA3]" />
-        </button>
-      </div>
+      <PageHeader
+        title="Борлуулалтын түүх"
+        subtitle={`${sales.length} борлуулалт · ${formatMnt(totalSales)}`}
+        icon={ScrollText}
+        iconColor="#5856D6"
+        actions={
+          <button onClick={fetchData} className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-[#E8ECF0]/70 shadow-sm hover:bg-[#F2F4F7] active:scale-95 transition-all">
+            <RefreshCw className="w-4 h-4 text-[#8C8FA3]" />
+          </button>
+        }
+      />
 
-      {/* Total card */}
-      <div className="bg-gradient-to-br from-[#5856D6] to-[#007AFF] rounded-2xl p-5 text-white">
-        <p className="text-[12px] text-white/70 font-medium">Нийт борлуулалт</p>
-        <p className="text-[28px] font-bold mt-1">₮{totalSales.toLocaleString()}</p>
-        <p className="text-[11px] text-white/60 mt-1">{sales.length} борлуулалт · Ачилт #{load?.loadNumber ?? '-'}</p>
-      </div>
+      {/* KPIs */}
+      <StatGrid cols={2}>
+        <StatCard
+          label="Нийт борлуулалт"
+          value={formatMnt(totalSales)}
+          hint={`Ачилт #${load?.loadNumber ?? '-'}`}
+          icon={DollarSign}
+          gradient="indigo"
+          index={0}
+        />
+        <StatCard
+          label="Борлуулалтын тоо"
+          value={sales.length}
+          hint="Гүйлгээ"
+          icon={ScrollText}
+          gradient="blue"
+          index={1}
+        />
+      </StatGrid>
 
       {/* Payment method breakdown */}
       {Object.keys(paymentBreakdown).length > 0 && (
-        <div>
-          <h3 className="text-[13px] font-bold text-[#1A1D26] mb-2">Төлбөрийн задаргаа</h3>
-          <div className="grid grid-cols-2 gap-2">
+        <SectionCard title="Төлбөрийн задаргаа">
+          <div className="grid grid-cols-2 gap-2.5">
             {Object.entries(paymentBreakdown).map(([method, amount]) => {
               const pm = PAYMENT_LABELS[method] ?? PAYMENT_LABELS.CASH;
               const Icon = pm.icon;
               return (
-                <div key={method} className="bg-white rounded-xl border border-[#E8ECF0] p-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: pm.bg }}>
+                <div key={method} className="bg-white rounded-xl border border-[#E8ECF0]/70 p-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: pm.bg }}>
                     <Icon className="w-4 h-4" style={{ color: pm.color }} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[11px] text-[#8C8FA3]">{pm.label}</p>
-                    <p className="text-[14px] font-bold text-[#1A1D26]">₮{amount.toLocaleString()}</p>
+                    <p className="text-[14px] font-bold text-[#1A1D26] tabular-nums truncate">{formatMnt(amount)}</p>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </SectionCard>
       )}
 
       {/* Sales list */}
-      <div>
-        <h3 className="text-[13px] font-bold text-[#1A1D26] mb-2">Борлуулалтууд</h3>
+      <SectionCard title="Борлуулалтууд" noPadding>
         {sales.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#E8ECF0] py-12 text-center">
-            <ScrollText className="w-10 h-10 text-[#D0D2DA] mx-auto mb-3" />
-            <p className="text-[14px] text-[#8C8FA3]">Борлуулалт байхгүй</p>
-          </div>
+          <EmptyState icon={ScrollText} title="Борлуулалт байхгүй" hint="Энэ ачилтад одоогоор борлуулалт бүртгэгдээгүй" />
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-[#F2F4F7]">
             {sales.map((sale: any) => {
               const pm = PAYMENT_LABELS[sale.paymentMethod] ?? PAYMENT_LABELS.CASH;
               const isExpanded = expandedSaleId === sale.id;
               return (
-                <div key={sale.id} className="bg-white rounded-xl border border-[#E8ECF0] overflow-hidden">
+                <div key={sale.id} className="overflow-hidden">
                   <button
                     onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
-                    className="w-full text-left p-4"
+                    className="w-full text-left px-4 lg:px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
@@ -135,13 +150,13 @@ export default function DriverSalesHistoryPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[15px] font-bold text-[#1A1D26]">₮{Number(sale.totalAmount ?? 0).toLocaleString()}</span>
+                        <span className="text-[15px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(sale.totalAmount)}</span>
                         {isExpanded ? <ChevronUp className="w-4 h-4 text-[#8C8FA3]" /> : <ChevronDown className="w-4 h-4 text-[#8C8FA3]" />}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 text-[11px] text-[#8C8FA3]">
-                      <span className="flex items-center gap-1"><User className="w-3 h-3" /> {sale.customer?.storeName ?? 'Харилцагч'}</span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 min-w-0"><User className="w-3 h-3 shrink-0" /> <span className="truncate">{sale.customer?.storeName ?? 'Харилцагч'}</span></span>
+                      <span className="flex items-center gap-1 shrink-0">
                         <Clock className="w-3 h-3" />
                         {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
@@ -150,7 +165,7 @@ export default function DriverSalesHistoryPage() {
 
                   {/* Expanded items */}
                   {isExpanded && (
-                    <div className="border-t border-[#F2F4F7] px-4 py-3 bg-[#F9FAFB]">
+                    <div className="border-t border-[#F2F4F7] px-4 lg:px-5 py-3 bg-[#F9FAFB]">
                       {(sale.items ?? []).map((item: any, i: number) => (
                         <div key={i} className="flex items-center justify-between py-1.5">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -158,8 +173,8 @@ export default function DriverSalesHistoryPage() {
                             <span className="text-[12px] text-[#4A4D5C] truncate">{item.product?.name ?? 'Бараа'}</span>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <span className="text-[11px] text-[#8C8FA3]">{item.quantity} × ₮{Number(item.unitPrice ?? 0).toLocaleString()}</span>
-                            <span className="text-[12px] font-semibold text-[#1A1D26] ml-2">₮{Number(item.lineTotal ?? 0).toLocaleString()}</span>
+                            <span className="text-[11px] text-[#8C8FA3] tabular-nums">{item.quantity} × {formatMnt(item.unitPrice)}</span>
+                            <span className="text-[12px] font-semibold text-[#1A1D26] ml-2 tabular-nums">{formatMnt(item.lineTotal)}</span>
                           </div>
                         </div>
                       ))}
@@ -170,7 +185,7 @@ export default function DriverSalesHistoryPage() {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

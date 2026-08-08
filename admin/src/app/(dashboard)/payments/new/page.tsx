@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Wallet, AlertTriangle } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { formatMnt } from '@/components/shared/money';
 
 export default function NewPaymentPage() {
   const router = useRouter();
@@ -52,90 +55,92 @@ export default function NewPaymentPage() {
     }
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
-  const labelClass = "block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5";
+  const inputClass = "w-full px-3.5 py-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:bg-white focus:ring-[3px] focus:ring-[#007AFF]/10";
+  const labelClass = "block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5";
 
   return (
-    <div className="space-y-5 animate-ios-fade-in max-w-2xl">
-      <div>
-        <button onClick={() => router.back()}
-          className="inline-flex items-center gap-1 text-[15px] text-[#007AFF] font-medium hover:text-[#0066D6] transition-colors mb-3 active:scale-[0.97]">
-          <ChevronLeft className="w-5 h-5" /> Төлбөр
-        </button>
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Төлбөр бүртгэх</h1>
-      </div>
+    <div className="space-y-5 animate-ios-fade-in mx-auto w-full max-w-2xl">
+      <button onClick={() => router.back()}
+        className="inline-flex items-center gap-1 text-[13px] text-[#007AFF] font-semibold hover:text-[#0066D6] transition-colors active:scale-[0.97]">
+        <ChevronLeft className="w-4 h-4" /> Төлбөр
+      </button>
 
-      <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5 space-y-4">
-          <div>
-            <label className={labelClass}>Харилцагч</label>
-            {customers.length === 0 ? (
-              <a href="/customers" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
-                ⚠️ Харилцагч бүртгээгүй байна. Эхлээд харилцагч бүртгэнэ үү. <span className="underline font-bold">Харилцагч бүртгэх</span>
-              </a>
-            ) : (
-              <select value={form.customerId} onChange={e => setForm(prev => ({ ...prev, customerId: e.target.value }))} required className={inputClass}>
-                <option value="">Сонгох...</option>
-                {customers.map((c: any) => (<option key={c.id} value={c.id}>{c.storeName}</option>))}
-              </select>
-            )}
-          </div>
+      <PageHeader title="Төлбөр бүртгэх" subtitle="Харилцагчийн төлбөр хүлээн авах" icon={Wallet} />
 
-          {selectedCustomer && (
-            <div className="rounded-xl bg-[#FF3B30]/5 border border-[#FF3B30]/10 p-3">
-              <p className="text-[13px] text-[#8E8E93]">Одоогийн өр</p>
-              <p className="text-[20px] font-bold text-[#FF3B30]">₮{Number(selectedCustomer.outstandingDebt ?? 0).toLocaleString()}</p>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <SectionCard>
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Харилцагч</label>
+              {customers.length === 0 ? (
+                <a href="/customers" className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-[#FF3B30]/[0.06] border border-[#FF3B30]/15 text-[13px] text-[#B91C1C] font-medium hover:bg-[#FF3B30]/[0.1] transition-all">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#FF3B30]" />
+                  <span>Харилцагч бүртгээгүй байна. Эхлээд харилцагч бүртгэнэ үү. <span className="underline font-bold">Харилцагч бүртгэх</span></span>
+                </a>
+              ) : (
+                <select value={form.customerId} onChange={e => setForm(prev => ({ ...prev, customerId: e.target.value }))} required className={inputClass}>
+                  <option value="">Сонгох...</option>
+                  {customers.map((c: any) => (<option key={c.id} value={c.id}>{c.storeName}</option>))}
+                </select>
+              )}
             </div>
-          )}
 
-          <div>
-            <label className={labelClass}>Дүн (₮)</label>
-            <input type="number" min="1" value={form.amount} onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))} required placeholder="0" className={inputClass} />
-          </div>
-
-          <div>
-            <label className={labelClass}>Төлбөрийн хэлбэр</label>
-            <select value={form.method} onChange={e => setForm(prev => ({ ...prev, method: e.target.value }))} className={inputClass}>
-              <option value="CASH">Бэлэн мөнгө</option>
-              <option value="BANK_TRANSFER">Банкны шилжүүлэг</option>
-              <option value="MOBILE_MONEY">Мобайл төлбөр</option>
-              <option value="CHECK">Чек</option>
-            </select>
-          </div>
-
-          <div>
-            <label className={labelClass}>Хүлээн авсан данс *</label>
-            <select value={form.bankAccountId} onChange={e => setForm(prev => ({ ...prev, bankAccountId: e.target.value }))} required className={inputClass}>
-              <option value="">Данс сонгох...</option>
-              {bankAccounts.map((acc: any) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.bankName} — {acc.accountNumber} ({acc.holderName})
-                </option>
-              ))}
-            </select>
-            {bankAccounts.length === 0 && (
-              <p className="text-[11px] text-[#FF3B30] mt-1">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
+            {selectedCustomer && (
+              <div className="rounded-xl bg-[#FF3B30]/[0.06] border border-[#FF3B30]/15 p-3.5">
+                <p className="text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide">Одоогийн өр</p>
+                <p className="text-[22px] font-bold text-[#FF3B30] tabular-nums mt-0.5">{formatMnt(selectedCustomer.outstandingDebt ?? 0)}</p>
+              </div>
             )}
-          </div>
 
-          <div>
-            <label className={labelClass}>Лавлагааны дугаар</label>
-            <input type="text" value={form.externalRef} onChange={e => setForm(prev => ({ ...prev, externalRef: e.target.value }))} placeholder="Заавал биш" className={inputClass} />
-          </div>
+            <div>
+              <label className={labelClass}>Дүн (₮)</label>
+              <input type="number" min="1" value={form.amount} onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))} required placeholder="0" className={inputClass} />
+            </div>
 
-          <div>
-            <label className={labelClass}>Тэмдэглэл</label>
-            <textarea value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Нэмэлт мэдээлэл..." rows={2} className={`${inputClass} resize-none`} />
-          </div>
-        </div>
+            <div>
+              <label className={labelClass}>Төлбөрийн хэлбэр</label>
+              <select value={form.method} onChange={e => setForm(prev => ({ ...prev, method: e.target.value }))} className={inputClass}>
+                <option value="CASH">Бэлэн мөнгө</option>
+                <option value="BANK_TRANSFER">Банкны шилжүүлэг</option>
+                <option value="MOBILE_MONEY">Мобайл төлбөр</option>
+                <option value="CHECK">Чек</option>
+              </select>
+            </div>
 
-        <div className="flex items-center justify-end gap-3 mt-5">
+            <div>
+              <label className={labelClass}>Хүлээн авсан данс *</label>
+              <select value={form.bankAccountId} onChange={e => setForm(prev => ({ ...prev, bankAccountId: e.target.value }))} required className={inputClass}>
+                <option value="">Данс сонгох...</option>
+                {bankAccounts.map((acc: any) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.bankName} — {acc.accountNumber} ({acc.holderName})
+                  </option>
+                ))}
+              </select>
+              {bankAccounts.length === 0 && (
+                <p className="text-[11px] text-[#FF3B30] mt-1.5">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
+              )}
+            </div>
+
+            <div>
+              <label className={labelClass}>Лавлагааны дугаар</label>
+              <input type="text" value={form.externalRef} onChange={e => setForm(prev => ({ ...prev, externalRef: e.target.value }))} placeholder="Заавал биш" className={inputClass} />
+            </div>
+
+            <div>
+              <label className={labelClass}>Тэмдэглэл</label>
+              <textarea value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Нэмэлт мэдээлэл..." rows={2} className={`${inputClass} resize-none`} />
+            </div>
+          </div>
+        </SectionCard>
+
+        <div className="flex items-center justify-end gap-3">
           <button type="button" onClick={() => router.back()}
-            className="px-5 py-2.5 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 hover:bg-[#E5E5EA]/60 transition-all active:scale-[0.97]">
+            className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-[#4A4D5C] bg-white border border-[#E8ECF0]/70 hover:bg-[#F2F4F7] transition-all active:scale-[0.97]">
             Цуцлах
           </button>
           <button type="submit" disabled={submitting}
-            className="px-6 py-2.5 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+            className="px-6 py-2.5 rounded-xl text-[14px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
             style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}>
             {submitting ? 'Хадгалж байна...' : 'Төлбөр бүртгэх'}
           </button>

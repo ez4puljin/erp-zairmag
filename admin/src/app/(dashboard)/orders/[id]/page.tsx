@@ -3,7 +3,25 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useOrder, useUpdateOrderStatus, useCancelOrder } from '@/hooks/use-orders';
 import { format } from 'date-fns';
-import { ChevronLeft, MapPin, Phone, User, Package, Clock, CheckCircle, Truck, XCircle } from 'lucide-react';
+import {
+  ChevronLeft,
+  MapPin,
+  Phone,
+  User,
+  Package,
+  CheckCircle,
+  Truck,
+  XCircle,
+  Layers,
+  Boxes,
+  Wallet,
+} from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { DataTable } from '@/components/shared/data-table';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const statusConfig: Record<string, { label: string; color: string; gradient: string }> = {
   PENDING: { label: 'Хүлээгдэж буй', color: '#FF9500', gradient: 'linear-gradient(135deg, #FF9500, #FFCC00)' },
@@ -24,7 +42,7 @@ export default function OrderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div className="space-y-4 animate-pulse max-w-3xl">
         <div className="h-8 w-48 bg-[#E5E5EA] rounded-xl" />
         <div className="h-40 bg-white rounded-2xl" />
         <div className="h-60 bg-white rounded-2xl" />
@@ -34,9 +52,10 @@ export default function OrderDetailPage() {
 
   if (!order) {
     return (
-      <div className="text-center py-20">
-        <Package className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-        <p className="text-[17px] font-semibold text-[#1C1C1E]">Захиалга олдсонгүй</p>
+      <div className="max-w-3xl">
+        <SectionCard>
+          <EmptyState icon={Package} title="Захиалга олдсонгүй" hint="Энэ захиалга устгагдсан эсвэл байхгүй байна" />
+        </SectionCard>
       </div>
     );
   }
@@ -55,64 +74,73 @@ export default function OrderDetailPage() {
     updateStatus.mutate({ id, status: newStatus });
   };
 
+  const items: any[] = order.items ?? [];
+  const totalQty = items.reduce((s: number, i: any) => s + Number(i.quantity ?? 0), 0);
+
   return (
     <div className="space-y-5 animate-ios-fade-in max-w-3xl">
-      {/* Back + Title */}
-      <div>
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-1 text-[15px] text-[#007AFF] font-medium hover:text-[#0066D6] transition-colors mb-3 active:scale-[0.97]"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          Захиалга
-        </button>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">
-            #{order.orderNumber}
-          </h1>
+      {/* Back */}
+      <button
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-1 text-[13px] text-[#007AFF] font-semibold hover:text-[#0066D6] transition-colors active:scale-[0.97]"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Захиалга
+      </button>
+
+      {/* Header */}
+      <PageHeader
+        title={`#${order.orderNumber}`}
+        subtitle={order.createdAt ? format(new Date(order.createdAt), 'yyyy/MM/dd HH:mm') : undefined}
+        icon={Package}
+        iconColor={sc.color}
+        actions={
           <span
-            className="inline-flex px-3 py-1 rounded-full text-[13px] font-bold"
+            className="inline-flex px-3 py-1.5 rounded-full text-[13px] font-bold"
             style={{ backgroundColor: `${sc.color}15`, color: sc.color }}
           >
             {sc.label}
           </span>
-        </div>
-        <p className="text-[13px] text-[#8E8E93] mt-1">
-          {order.createdAt ? format(new Date(order.createdAt), 'yyyy/MM/dd HH:mm') : ''}
-        </p>
-      </div>
+        }
+      />
 
-      {/* Customer Info Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5">
-        <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide mb-3">Харилцагч</h3>
+      {/* KPI stats */}
+      <StatGrid cols={3}>
+        <StatCard label="Барааны төрөл" value={`${items.length} төрөл`} icon={Layers} gradient="purple" index={0} />
+        <StatCard label="Нийт тоо ширхэг" value={`${totalQty} ш`} icon={Boxes} gradient="orange" index={1} />
+        <StatCard label="Нийт дүн" value={formatMnt(order.totalAmount ?? 0)} icon={Wallet} gradient="green" index={2} />
+      </StatGrid>
+
+      {/* Customer Info */}
+      <SectionCard title="Харилцагч">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#AF52DE]/10 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#AF52DE]/10 flex items-center justify-center shrink-0">
               <User className="w-4 h-4 text-[#AF52DE]" />
             </div>
-            <div>
-              <p className="text-[15px] font-semibold text-[#1C1C1E]">{order.customer?.storeName ?? '—'}</p>
-              <p className="text-[13px] text-[#8E8E93]">{order.customer?.contactName ?? ''}</p>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-[#1A1D26] truncate">{order.customer?.storeName ?? '—'}</p>
+              <p className="text-[13px] text-[#8C8FA3] truncate">{order.customer?.contactName ?? ''}</p>
             </div>
           </div>
           {order.customer?.address && (
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center shrink-0">
                 <MapPin className="w-4 h-4 text-[#007AFF]" />
               </div>
-              <p className="text-[14px] text-[#1C1C1E]">{order.customer.address}</p>
+              <p className="text-[14px] text-[#1A1D26]">{order.customer.address}</p>
             </div>
           )}
           {order.customer?.phone && (
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center shrink-0">
                 <Phone className="w-4 h-4 text-[#34C759]" />
               </div>
-              <p className="text-[14px] text-[#1C1C1E]">{order.customer.phone}</p>
+              <p className="text-[14px] text-[#1A1D26]">{order.customer.phone}</p>
             </div>
           )}
         </div>
-      </div>
+      </SectionCard>
 
       {/* Action Buttons */}
       {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
@@ -121,7 +149,7 @@ export default function OrderDetailPage() {
             <button
               onClick={() => handleStatusUpdate('APPROVED')}
               disabled={updateStatus.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-xl text-[15px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
               style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
             >
               <CheckCircle className="w-4 h-4" /> Зөвшөөрөх
@@ -131,7 +159,7 @@ export default function OrderDetailPage() {
             <button
               onClick={() => handleStatusUpdate('SHIPPING')}
               disabled={updateStatus.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-xl text-[15px] font-semibold text-white shadow-sm shadow-[#AF52DE]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
               style={{ background: 'linear-gradient(135deg, #AF52DE, #BF5AF2)' }}
             >
               <Truck className="w-4 h-4" /> Хүргэлтэнд гаргах
@@ -141,7 +169,7 @@ export default function OrderDetailPage() {
             <button
               onClick={() => handleStatusUpdate('DELIVERED')}
               disabled={updateStatus.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-60"
+              className="inline-flex items-center gap-2 h-11 px-5 rounded-xl text-[15px] font-semibold text-white shadow-sm shadow-[#34C759]/25 transition-all active:scale-[0.97] disabled:opacity-60 hover:brightness-105"
               style={{ background: 'linear-gradient(135deg, #34C759, #30D158)' }}
             >
               <CheckCircle className="w-4 h-4" /> Хүргэсэн
@@ -153,7 +181,7 @@ export default function OrderDetailPage() {
               cancelOrder.mutate({ id });
             }}
             disabled={cancelOrder.isPending}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[15px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/15 transition-all active:scale-[0.97] disabled:opacity-60"
+            className="inline-flex items-center gap-2 h-11 px-5 rounded-xl text-[15px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/15 transition-all active:scale-[0.97] disabled:opacity-60"
           >
             <XCircle className="w-4 h-4" /> Цуцлах
           </button>
@@ -161,41 +189,57 @@ export default function OrderDetailPage() {
       )}
 
       {/* Order Items */}
-      <div>
-        <h3 className="text-[13px] font-semibold uppercase text-[#8E8E93] tracking-wide mb-3 px-1">
-          Бараа ({order.items?.length ?? 0})
-        </h3>
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden divide-y divide-[#E5E5EA]/50">
-          {(order.items ?? []).map((item: any) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#34C759]/10 flex items-center justify-center shrink-0">
-                <Package className="w-5 h-5 text-[#34C759]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">
-                  {item.product?.name ?? 'Бараа'}
-                </p>
-                <p className="text-[13px] text-[#8E8E93]">
-                  {item.quantity} x ₮{Number(item.unitPrice ?? 0).toLocaleString()}
-                </p>
-              </div>
-              <span className="text-[15px] font-semibold text-[#1C1C1E] shrink-0">
-                ₮{Number(item.lineTotal ?? 0).toLocaleString()}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Total */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5">
-        <div className="flex items-center justify-between">
-          <span className="text-[17px] font-semibold text-[#1C1C1E]">Нийт дүн</span>
-          <span className="text-[22px] font-bold text-[#007AFF]">
-            ₮{Number(order.totalAmount ?? 0).toLocaleString()}
-          </span>
-        </div>
-      </div>
+      <SectionCard title={`Бараа (${items.length})`} noPadding>
+        <DataTable
+          columns={[
+            {
+              key: 'product',
+              header: 'Бараа',
+              render: (row: any) => (
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-[#34C759]" />
+                  </div>
+                  <span className="text-[14px] font-semibold text-[#1A1D26]">{row.product?.name ?? 'Бараа'}</span>
+                </div>
+              ),
+            },
+            {
+              key: 'qty',
+              header: 'Тоо × Үнэ',
+              align: 'right',
+              render: (row: any) => (
+                <span className="text-[13px] text-[#8C8FA3] tabular-nums whitespace-nowrap">
+                  {row.quantity} × {formatMnt(row.unitPrice ?? 0)}
+                </span>
+              ),
+            },
+            {
+              key: 'lineTotal',
+              header: 'Дүн',
+              align: 'right',
+              render: (row: any) => (
+                <span className="text-[14px] font-semibold text-[#1A1D26] tabular-nums whitespace-nowrap">
+                  {formatMnt(row.lineTotal ?? 0)}
+                </span>
+              ),
+            },
+          ]}
+          rows={items}
+          keyField={(row: any) => row.id}
+          empty={<EmptyState icon={Package} title="Бараа байхгүй" />}
+          footer={
+            <tr className="border-t-2 border-[#E8ECF0] bg-[#F9FAFB]">
+              <td className="px-3 py-3 text-[15px] font-semibold text-[#1A1D26]" colSpan={2}>
+                Нийт дүн
+              </td>
+              <td className="px-3 py-3 text-right text-[18px] font-bold text-[#007AFF] tabular-nums whitespace-nowrap">
+                {formatMnt(order.totalAmount ?? 0)}
+              </td>
+            </tr>
+          }
+        />
+      </SectionCard>
     </div>
   );
 }

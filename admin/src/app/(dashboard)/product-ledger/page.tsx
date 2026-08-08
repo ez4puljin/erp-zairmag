@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import api from '@/lib/api';
 import { Search, Printer, ChevronDown, ChevronRight, Filter, Package } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, DateField, SelectField, ActionButton } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
 
 const UNIT_LABELS: Record<string, string> = { PIECE: 'ш', BOX: 'хайрцаг', KG: 'кг', LITER: 'л', PACK: 'баглаа' };
 const fmt = (n: number) => n.toLocaleString('mn-MN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -83,59 +87,44 @@ export default function ProductLedgerPage() {
     win.print();
   }
 
-  const inputClass = 'w-full px-3 py-2 rounded-xl bg-[#F2F2F7] text-[14px] text-[#1C1C1E] outline-none focus:ring-2 focus:ring-[#007AFF]/30 border border-transparent focus:border-[#007AFF]/20';
-
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Бараа материалын тайлан</h1>
-        {ledgerData && (
-          <button onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold text-[#8E8E93] bg-[#F2F2F7] hover:bg-[#E5E5EA]">
-            <Printer className="w-4 h-4" /> Хэвлэх
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Бараа материалын тайлан"
+        subtitle="Өртгөөр — эхний/эцсийн үлдэгдэл, орлого/зарлага"
+        icon={Package}
+        actions={
+          ledgerData ? (
+            <ActionButton variant="ghost" onClick={handlePrint}>
+              <Printer className="w-4 h-4" /> Хэвлэх
+            </ActionButton>
+          ) : undefined
+        }
+      />
 
       {/* Filter form */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] mb-1">Эхний огноо *</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] mb-1">Эцсийн огноо *</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] mb-1">Бараа материал</label>
-            <select value={productId} onChange={e => setProductId(e.target.value)} className={inputClass}>
-              <option value="">Бүгд (Бүх бараа)</option>
-              {products.map((p: any) => (
-                <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[12px] font-semibold text-[#8E8E93] mb-1">Барааны бүлэг</label>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className={inputClass}>
-              <option value="">Бүгд (Бүх ангилал)</option>
-              {categories.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button onClick={handleSearch} disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[14px] font-semibold text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #007AFF, #5856D6)' }}>
-              <Search className="w-4 h-4" />
-              {loading ? 'Хайж байна...' : 'Тайлан харах'}
-            </button>
-          </div>
-        </div>
-      </div>
+      <FilterBar>
+        <DateField label="Эхний огноо *" value={dateFrom} onChange={setDateFrom} />
+        <DateField label="Эцсийн огноо *" value={dateTo} onChange={setDateTo} />
+        <SelectField
+          label="Бараа материал"
+          value={productId}
+          onChange={setProductId}
+          options={products.map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))}
+          placeholder="Бүгд (Бүх бараа)"
+        />
+        <SelectField
+          label="Барааны бүлэг"
+          value={categoryId}
+          onChange={setCategoryId}
+          options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
+          placeholder="Бүгд (Бүх ангилал)"
+        />
+        <ActionButton onClick={handleSearch} disabled={loading}>
+          <Search className="w-4 h-4" />
+          {loading ? 'Хайж байна...' : 'Тайлан харах'}
+        </ActionButton>
+      </FilterBar>
 
       {/* Report table */}
       {ledgerData && (
@@ -143,31 +132,31 @@ export default function ProductLedgerPage() {
           {/* Print header (hidden on screen) */}
           <div className="hidden print:block text-center mb-4">
             <h2 className="text-[18px] font-bold">Бараа материалын тайлан /өртгөөр/</h2>
-            <p className="text-[13px] text-[#8E8E93]">{dateFrom} ~ {dateTo}</p>
+            <p className="text-[13px] text-[#8C8FA3]">{dateFrom} ~ {dateTo}</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr className="bg-[#F2F2F7] text-[#8E8E93] text-[11px] uppercase">
+                  <tr className="bg-[#F9FAFB] text-[#8C8FA3] text-[11px] uppercase tracking-wide">
                     <th className="px-2 py-2 text-left font-semibold w-8" rowSpan={2}></th>
                     <th className="px-2 py-2 text-left font-semibold" rowSpan={2}>Код</th>
                     <th className="px-2 py-2 text-left font-semibold" rowSpan={2}>Нэр</th>
-                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E5E5EA]" colSpan={2}>Эхний үлдэгдэл</th>
-                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E5E5EA]" colSpan={2}>Орлого</th>
-                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E5E5EA]" colSpan={2}>Зарлага</th>
-                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E5E5EA]" colSpan={2}>Эцсийн үлдэгдэл</th>
-                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E5E5EA]" rowSpan={2}>Нэгж өртөг</th>
+                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E8ECF0]" colSpan={2}>Эхний үлдэгдэл</th>
+                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E8ECF0]" colSpan={2}>Орлого</th>
+                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E8ECF0]" colSpan={2}>Зарлага</th>
+                    <th className="px-1 py-2 text-center font-semibold border-l border-[#E8ECF0]" colSpan={2}>Эцсийн үлдэгдэл</th>
+                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E8ECF0]" rowSpan={2}>Нэгж өртөг</th>
                   </tr>
-                  <tr className="bg-[#F2F2F7] text-[#8E8E93] text-[10px] uppercase">
-                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E5E5EA]">Тоо</th>
+                  <tr className="bg-[#F9FAFB] text-[#8C8FA3] text-[10px] uppercase tracking-wide">
+                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E8ECF0]">Тоо</th>
                     <th className="px-2 py-1.5 text-right font-semibold">Дүн</th>
-                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E5E5EA]">Тоо</th>
+                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E8ECF0]">Тоо</th>
                     <th className="px-2 py-1.5 text-right font-semibold">Дүн</th>
-                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E5E5EA]">Тоо</th>
+                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E8ECF0]">Тоо</th>
                     <th className="px-2 py-1.5 text-right font-semibold">Дүн</th>
-                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E5E5EA]">Тоо</th>
+                    <th className="px-2 py-1.5 text-right font-semibold border-l border-[#E8ECF0]">Тоо</th>
                     <th className="px-2 py-1.5 text-right font-semibold">Дүн</th>
                   </tr>
                 </thead>
@@ -179,59 +168,59 @@ export default function ProductLedgerPage() {
                       <Fragment key={item.product.id}>
                         {/* Summary row */}
                         <tr
-                          className={`border-b border-[#E5E5EA]/30 hover:bg-[#F2F2F7]/50 cursor-pointer transition-colors ${isExpanded ? 'bg-[#007AFF]/5' : ''}`}
+                          className={`border-b border-[#F2F4F7] hover:bg-[#F7F9FC] cursor-pointer transition-colors ${isExpanded ? 'bg-[#007AFF]/5' : ''}`}
                           onClick={() => hasTransactions && toggleExpand(item.product.id)}>
                           <td className="px-2 py-2 text-center">
                             {hasTransactions && (
                               isExpanded
                                 ? <ChevronDown className="w-3.5 h-3.5 text-[#007AFF] inline" />
-                                : <ChevronRight className="w-3.5 h-3.5 text-[#8E8E93] inline" />
+                                : <ChevronRight className="w-3.5 h-3.5 text-[#8C8FA3] inline" />
                             )}
                           </td>
                           <td className="px-2 py-2 font-mono text-[#007AFF] font-semibold">{item.product.sku}</td>
-                          <td className="px-2 py-2 font-medium text-[#1C1C1E]">
+                          <td className="px-2 py-2 font-medium text-[#1A1D26]">
                             {item.product.name}
-                            <span className="ml-1 text-[10px] text-[#8E8E93]">({UNIT_LABELS[item.product.unit] || item.product.unit})</span>
+                            <span className="ml-1 text-[10px] text-[#8C8FA3]">({UNIT_LABELS[item.product.unit] || item.product.unit})</span>
                           </td>
-                          <td className="px-2 py-2 text-right border-l border-[#E5E5EA]/50 font-semibold">{fmtInt(item.openingQty)}</td>
-                          <td className="px-2 py-2 text-right font-semibold">{fmt(item.openingAmount)}</td>
-                          <td className="px-2 py-2 text-right border-l border-[#E5E5EA]/50 font-semibold text-[#34C759]">{fmtInt(item.incomeQty)}</td>
-                          <td className="px-2 py-2 text-right font-semibold text-[#34C759]">{fmt(item.incomeAmount)}</td>
-                          <td className="px-2 py-2 text-right border-l border-[#E5E5EA]/50 font-semibold text-[#FF3B30]">{fmtInt(item.expenseQty)}</td>
-                          <td className="px-2 py-2 text-right font-semibold text-[#FF3B30]">{fmt(item.expenseAmount)}</td>
-                          <td className="px-2 py-2 text-right border-l border-[#E5E5EA]/50 font-bold">{fmtInt(item.closingQty)}</td>
-                          <td className="px-2 py-2 text-right font-bold">{fmt(item.closingAmount)}</td>
-                          <td className="px-2 py-2 text-right border-l border-[#E5E5EA]/50 font-semibold">{fmt(item.unitCost)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold tabular-nums">{fmtInt(item.openingQty)}</td>
+                          <td className="px-2 py-2 text-right font-semibold tabular-nums">{fmt(item.openingAmount)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold text-[#34C759] tabular-nums">{fmtInt(item.incomeQty)}</td>
+                          <td className="px-2 py-2 text-right font-semibold text-[#34C759] tabular-nums">{fmt(item.incomeAmount)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold text-[#FF3B30] tabular-nums">{fmtInt(item.expenseQty)}</td>
+                          <td className="px-2 py-2 text-right font-semibold text-[#FF3B30] tabular-nums">{fmt(item.expenseAmount)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-bold tabular-nums">{fmtInt(item.closingQty)}</td>
+                          <td className="px-2 py-2 text-right font-bold tabular-nums">{fmt(item.closingAmount)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold tabular-nums">{fmt(item.unitCost)}</td>
                         </tr>
 
                         {/* Detail transaction rows */}
                         {isExpanded && item.transactions.map((tx: any, txIdx: number) => (
                           <tr key={`${item.product.id}-tx-${txIdx}`}
-                            className="border-b border-[#E5E5EA]/20 bg-[#FAFAFA]">
+                            className="border-b border-[#F2F4F7] bg-[#F9FAFB]">
                             <td className="px-2 py-1.5"></td>
-                            <td className="px-2 py-1.5 text-[11px] text-[#8E8E93]">
+                            <td className="px-2 py-1.5 text-[11px] text-[#8C8FA3]">
                               {new Date(tx.date).toLocaleDateString('mn-MN')}
                             </td>
-                            <td className="px-2 py-1.5 text-[11px] text-[#3C3C43] italic" colSpan={1}>
+                            <td className="px-2 py-1.5 text-[11px] text-[#4A4D5C] italic" colSpan={1}>
                               {tx.description}
                             </td>
-                            <td className="px-2 py-1.5 text-right border-l border-[#E5E5EA]/30 text-[11px]"></td>
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px]"></td>
                             <td className="px-2 py-1.5 text-right text-[11px]"></td>
-                            <td className="px-2 py-1.5 text-right border-l border-[#E5E5EA]/30 text-[11px] text-[#34C759]">
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] text-[#34C759] tabular-nums">
                               {tx.incomeQty > 0 ? fmtInt(tx.incomeQty) : ''}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[11px] text-[#34C759]">
+                            <td className="px-2 py-1.5 text-right text-[11px] text-[#34C759] tabular-nums">
                               {tx.incomeAmount > 0 ? fmt(tx.incomeAmount) : ''}
                             </td>
-                            <td className="px-2 py-1.5 text-right border-l border-[#E5E5EA]/30 text-[11px] text-[#FF3B30]">
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] text-[#FF3B30] tabular-nums">
                               {tx.expenseQty > 0 ? fmtInt(tx.expenseQty) : ''}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-[11px] text-[#FF3B30]">
+                            <td className="px-2 py-1.5 text-right text-[11px] text-[#FF3B30] tabular-nums">
                               {tx.expenseAmount > 0 ? fmt(tx.expenseAmount) : ''}
                             </td>
-                            <td className="px-2 py-1.5 text-right border-l border-[#E5E5EA]/30 text-[11px] font-semibold">{fmtInt(tx.runningQty)}</td>
-                            <td className="px-2 py-1.5 text-right text-[11px] font-semibold">{fmt(tx.runningAmount)}</td>
-                            <td className="px-2 py-1.5 border-l border-[#E5E5EA]/30"></td>
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] font-semibold tabular-nums">{fmtInt(tx.runningQty)}</td>
+                            <td className="px-2 py-1.5 text-right text-[11px] font-semibold tabular-nums">{fmt(tx.runningAmount)}</td>
+                            <td className="px-2 py-1.5 border-l border-[#F0F2F5]"></td>
                           </tr>
                         ))}
                       </Fragment>
@@ -241,17 +230,17 @@ export default function ProductLedgerPage() {
                 {/* Totals footer */}
                 {ledgerData.totals && (
                   <tfoot>
-                    <tr className="bg-[#F2F2F7] font-bold text-[12px]">
+                    <tr className="bg-[#F9FAFB] border-t-2 border-[#E8ECF0] font-bold text-[12px]">
                       <td className="px-2 py-2.5" colSpan={3} style={{ textAlign: 'right' }}>Нийт дүн</td>
-                      <td className="px-2 py-2.5 text-right border-l border-[#E5E5EA]">{fmtInt(ledgerData.totals.openingQty)}</td>
-                      <td className="px-2 py-2.5 text-right">{fmt(ledgerData.totals.openingAmount)}</td>
-                      <td className="px-2 py-2.5 text-right border-l border-[#E5E5EA] text-[#34C759]">{fmtInt(ledgerData.totals.incomeQty)}</td>
-                      <td className="px-2 py-2.5 text-right text-[#34C759]">{fmt(ledgerData.totals.incomeAmount)}</td>
-                      <td className="px-2 py-2.5 text-right border-l border-[#E5E5EA] text-[#FF3B30]">{fmtInt(ledgerData.totals.expenseQty)}</td>
-                      <td className="px-2 py-2.5 text-right text-[#FF3B30]">{fmt(ledgerData.totals.expenseAmount)}</td>
-                      <td className="px-2 py-2.5 text-right border-l border-[#E5E5EA]">{fmtInt(ledgerData.totals.closingQty)}</td>
-                      <td className="px-2 py-2.5 text-right">{fmt(ledgerData.totals.closingAmount)}</td>
-                      <td className="px-2 py-2.5 border-l border-[#E5E5EA]"></td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] tabular-nums">{fmtInt(ledgerData.totals.openingQty)}</td>
+                      <td className="px-2 py-2.5 text-right tabular-nums">{fmt(ledgerData.totals.openingAmount)}</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] text-[#34C759] tabular-nums">{fmtInt(ledgerData.totals.incomeQty)}</td>
+                      <td className="px-2 py-2.5 text-right text-[#34C759] tabular-nums">{fmt(ledgerData.totals.incomeAmount)}</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] text-[#FF3B30] tabular-nums">{fmtInt(ledgerData.totals.expenseQty)}</td>
+                      <td className="px-2 py-2.5 text-right text-[#FF3B30] tabular-nums">{fmt(ledgerData.totals.expenseAmount)}</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] tabular-nums">{fmtInt(ledgerData.totals.closingQty)}</td>
+                      <td className="px-2 py-2.5 text-right tabular-nums">{fmt(ledgerData.totals.closingAmount)}</td>
+                      <td className="px-2 py-2.5 border-l border-[#E8ECF0]"></td>
                     </tr>
                   </tfoot>
                 )}
@@ -268,8 +257,8 @@ export default function ProductLedgerPage() {
           </div>
 
           {/* On-screen signature section */}
-          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-5 print:hidden">
-            <div className="grid grid-cols-2 gap-8 text-[13px] text-[#8E8E93]">
+          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 p-5 print:hidden">
+            <div className="grid grid-cols-2 gap-8 text-[13px] text-[#8C8FA3]">
               <p>Тайлан гаргасан: ..................................../ _____________ /</p>
               <p>Хянасан нягтлан бодогч: ..................................../ _____________ /</p>
             </div>
@@ -279,11 +268,13 @@ export default function ProductLedgerPage() {
 
       {/* Empty state */}
       {!ledgerData && !loading && (
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 py-16 text-center">
-          <Package className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-          <p className="text-[17px] font-semibold text-[#1C1C1E]">Бараа материалын тайлан</p>
-          <p className="text-[13px] text-[#8E8E93] mt-1">Огноо сонгоод "Тайлан харах" товч дарна уу</p>
-        </div>
+        <SectionCard noPadding>
+          <EmptyState
+            icon={Package}
+            title="Бараа материалын тайлан"
+            hint='Огноо сонгоод "Тайлан харах" товч дарна уу'
+          />
+        </SectionCard>
       )}
     </div>
   );

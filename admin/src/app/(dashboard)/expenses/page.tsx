@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { format } from 'date-fns';
-import { Plus, Receipt, Calendar, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Receipt, Trash2, X, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
@@ -114,105 +120,88 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Зардал</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
-          style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
-        >
-          <Plus className="w-4 h-4" /> Шинэ зардал
-        </button>
-      </div>
+      <PageHeader
+        title="Зардал"
+        subtitle="Салбарын зардлын бүртгэл, ангилал бүрээр"
+        icon={Receipt}
+        iconColor="#FF3B30"
+        actions={
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
+            style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
+          >
+            <Plus className="w-4 h-4" /> Шинэ зардал
+          </button>
+        }
+      />
 
       {/* Date Range Filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-[#8E8E93]" />
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
-              setPage(1);
-            }}
-            className={`${inputClass} !w-auto !py-2 !text-[13px]`}
-            placeholder="Эхлэх огноо"
-          />
-        </div>
-        <span className="text-[#AEAEB2] text-[13px]">—</span>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => {
-              setDateTo(e.target.value);
-              setPage(1);
-            }}
-            className={`${inputClass} !w-auto !py-2 !text-[13px]`}
-            placeholder="Дуусах огноо"
-          />
-        </div>
+      <FilterBar>
+        <DateField
+          label="Эхлэх огноо"
+          value={dateFrom}
+          onChange={(v) => {
+            setDateFrom(v);
+            setPage(1);
+          }}
+        />
+        <DateField
+          label="Дуусах огноо"
+          value={dateTo}
+          onChange={(v) => {
+            setDateTo(v);
+            setPage(1);
+          }}
+        />
         {(dateFrom || dateTo) && (
-          <button
+          <ActionButton
+            variant="ghost"
             onClick={() => {
               setDateFrom('');
               setDateTo('');
               setPage(1);
             }}
-            className="text-[13px] text-[#007AFF] font-medium hover:underline"
           >
             Цэвэрлэх
-          </button>
+          </ActionButton>
         )}
-      </div>
+      </FilterBar>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-4">
-          <p className="text-[13px] text-[#8E8E93] mb-1">Нийт зардал</p>
-          <p className="text-[22px] font-bold text-[#FF3B30]">
-            ₮{Number(totalAmount).toLocaleString()}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-4">
-          <p className="text-[13px] text-[#8E8E93] mb-1">Тоо ширхэг</p>
-          <p className="text-[22px] font-bold text-[#1C1C1E]">{totalCount}</p>
-        </div>
-      </div>
+      <StatGrid cols={2}>
+        <StatCard label="Нийт зардал" value={formatMnt(totalAmount)} icon={Receipt} gradient="red" index={0} />
+        <StatCard label="Тоо ширхэг" value={totalCount} hint="бүртгэл" icon={Hash} gradient="blue" index={1} />
+      </StatGrid>
 
       {/* Expense List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard title="Зардлын жагсаалт" noPadding>
         {loading ? (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-[#F2F2F7]" />
+                <div className="w-10 h-10 rounded-xl bg-[#F2F4F7]" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 bg-[#F2F2F7] rounded-lg" />
-                  <div className="h-3 w-24 bg-[#F2F2F7] rounded-lg" />
+                  <div className="h-4 w-32 bg-[#F2F4F7] rounded-lg" />
+                  <div className="h-3 w-24 bg-[#F2F4F7] rounded-lg" />
                 </div>
               </div>
             ))}
           </div>
         ) : expenses.length === 0 ? (
-          <div className="py-16 text-center">
-            <Receipt className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-            <p className="text-[17px] font-semibold text-[#1C1C1E]">Зардал олдсонгүй</p>
-          </div>
+          <EmptyState icon={Receipt} title="Зардал олдсонгүй" hint="Шинэ зардал бүртгэх эсвэл шүүлтээ өөрчилнө үү" />
         ) : (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {expenses.map((exp: any) => (
-              <div key={exp.id} className="flex items-center gap-3 px-4 py-3.5">
+              <div key={exp.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F7F9FC] transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#FF3B30]/10 flex items-center justify-center shrink-0">
                   <Receipt className="w-5 h-5 text-[#FF3B30]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">
+                  <p className="text-[15px] font-semibold text-[#1A1D26] truncate">
                     {exp.category?.name ?? exp.description ?? '—'}
                   </p>
-                  <p className="text-[13px] text-[#8E8E93] truncate">
+                  <p className="text-[13px] text-[#8C8FA3] truncate">
                     {exp.description && exp.category?.name ? exp.description : ''}
                     {exp.description && exp.category?.name && ' · '}
                     {exp.date
@@ -224,10 +213,10 @@ export default function ExpensesPage() {
                 </div>
                 <div className="text-right shrink-0 flex items-center gap-2">
                   <div>
-                    <p className="text-[15px] font-bold text-[#FF3B30]">
-                      -₮{Number(exp.amount ?? 0).toLocaleString()}
+                    <p className="text-[15px] font-bold text-[#FF3B30] tabular-nums">
+                      -{formatMnt(exp.amount)}
                     </p>
-                    <span className="text-[11px] font-medium text-[#8E8E93]">
+                    <span className="text-[11px] font-medium text-[#8C8FA3]">
                       {methodLabels[exp.paymentMethod] ?? exp.paymentMethod ?? ''}
                     </span>
                   </div>
@@ -242,7 +231,7 @@ export default function ExpensesPage() {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Pagination */}
       {meta && meta.totalPages > 1 && (
@@ -250,17 +239,17 @@ export default function ExpensesPage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 transition-all active:scale-95"
+            className="w-10 h-10 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] disabled:opacity-30 transition-all active:scale-95"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-[13px] font-medium text-[#8E8E93] px-3">
+          <span className="text-[13px] font-medium text-[#8C8FA3] px-3">
             {page} / {meta.totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
             disabled={page >= meta.totalPages}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 transition-all active:scale-95"
+            className="w-10 h-10 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] disabled:opacity-30 transition-all active:scale-95"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -271,19 +260,19 @@ export default function ExpensesPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#E5E5EA]/50 animate-ios-scale-in">
-            <div className="flex items-center justify-between p-5 border-b border-[#E5E5EA]/50">
-              <h2 className="text-[17px] font-bold text-[#1C1C1E]">Шинэ зардал</h2>
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#E8ECF0]/70 animate-ios-scale-in">
+            <div className="flex items-center justify-between p-5 border-b border-[#F0F2F5]">
+              <h2 className="text-[17px] font-bold text-[#1A1D26]">Шинэ зардал</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-8 h-8 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#8E8E93] hover:text-[#1C1C1E] transition-colors"
+                className="w-8 h-8 rounded-full bg-[#F2F4F7] flex items-center justify-center text-[#8C8FA3] hover:text-[#1A1D26] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Ангилал *</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Ангилал *</label>
                 <select
                   value={form.categoryId}
                   onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
@@ -299,7 +288,7 @@ export default function ExpensesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Дүн *</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Дүн *</label>
                 <input
                   type="number"
                   value={form.amount}
@@ -312,7 +301,7 @@ export default function ExpensesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Тайлбар</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Тайлбар</label>
                 <input
                   type="text"
                   value={form.description}
@@ -322,7 +311,7 @@ export default function ExpensesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Огноо</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Огноо</label>
                 <input
                   type="date"
                   value={form.date}
@@ -331,7 +320,7 @@ export default function ExpensesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Төлбөрийн хэлбэр</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Төлбөрийн хэлбэр</label>
                 <select
                   value={form.paymentMethod}
                   onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
@@ -343,7 +332,7 @@ export default function ExpensesPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Лавлагааны дугаар</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Лавлагааны дугаар</label>
                 <input
                   type="text"
                   value={form.referenceNo}
@@ -353,7 +342,7 @@ export default function ExpensesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8E8E93] mb-1.5">Тэмдэглэл</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Тэмдэглэл</label>
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}

@@ -36,6 +36,8 @@ import {
   Wallet,
   MessageSquare,
   Receipt,
+  ReceiptText,
+  PercentCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -100,8 +102,11 @@ const menuGroups: NavGroup[] = [
     title: 'ТАЙЛАН',
     description: 'Нэгдсэн тайлан, анализ',
     items: [
-      { href: '/product-ledger', label: 'Бараа тайлан', description: 'Барааны хөдөлгөөн', icon: ScrollText, color: '#0891B2', bg: '#ECFEFF' },
       { href: '/reports', label: 'Тайлан', description: 'Нэгдсэн тайлан', icon: BarChart3, color: '#6366F1', bg: '#EEF2FF' },
+      { href: '/reports/sales', label: 'Борлуулалтын бүртгэл', description: 'Гүйлгээ бүрээр', icon: ReceiptText, color: '#007AFF', bg: '#EFF6FF' },
+      { href: '/reports/ledger', label: 'Авлагын дэвтэр', description: 'Дебет/кредит', icon: BookOpen, color: '#F472B6', bg: '#FDF2F8' },
+      { href: '/reports/vat', label: 'НӨАТ тайлан', description: 'Гарсан НӨАТ', icon: PercentCircle, color: '#34C759', bg: '#ECFDF5' },
+      { href: '/product-ledger', label: 'Бараа тайлан', description: 'Барааны хөдөлгөөн', icon: ScrollText, color: '#0891B2', bg: '#ECFEFF' },
       { href: '/reports/drivers', label: 'Жолоочийн тайлан', description: 'Ачилт, борлуулалт', icon: Truck, color: '#5856D6', bg: '#EEF2FF' },
       { href: '/reports/bank-accounts', label: 'Дансны тайлан', description: 'Орлого, зарлага', icon: Wallet, color: '#0EA5E9', bg: '#F0F9FF' },
     ],

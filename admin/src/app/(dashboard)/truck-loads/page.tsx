@@ -10,6 +10,8 @@ import {
   PackageCheck, ShoppingBag, AlertTriangle,
   Search, Filter, ImageOff,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { formatMnt } from '@/components/shared/money';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -43,14 +45,14 @@ interface TruckLoad {
 
 // ====================== CONSTANTS ======================
 const COLUMNS = [
-  { id: 'loading', label: 'Жолооч ачилт', status: 'LOADING', color: '#007AFF', bg: '#EFF6FF', border: '#BFDBFE' },
-  { id: 'dispatched', label: 'Хүргэлтэнд гарсан', status: 'DISPATCHED', color: '#F59E0B', bg: '#FFFBEB', border: '#FDE68A' },
-  { id: 'completed', label: 'Буцаасан', status: 'COMPLETED', color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0' },
-  { id: 'archive', label: 'Архив', status: 'ARCHIVE', color: '#6B7280', bg: '#F3F4F6', border: '#D1D5DB' },
+  { id: 'loading', label: 'Жолооч ачилт', status: 'LOADING', color: '#007AFF', bg: '#EFF5FF', border: '#D6E4FF' },
+  { id: 'dispatched', label: 'Хүргэлтэнд гарсан', status: 'DISPATCHED', color: '#FF9500', bg: '#FFF7EC', border: '#FFE3BB' },
+  { id: 'completed', label: 'Буцаасан', status: 'COMPLETED', color: '#34C759', bg: '#EBF9F0', border: '#C2E9CF' },
+  { id: 'archive', label: 'Архив', status: 'ARCHIVE', color: '#8C8FA3', bg: '#F2F4F7', border: '#E4E7EC' },
 ];
 
 const inputClass =
-  'w-full px-3 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 focus:bg-white';
+  'w-full px-3 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15 focus:bg-white';
 
 // ====================== MAIN COMPONENT ======================
 export default function TruckLoadsKanban() {
@@ -306,33 +308,40 @@ export default function TruckLoadsKanban() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 animate-ios-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-[22px] font-bold text-[#1A1D26]">Машины ачилт</h1>
-          <p className="text-[12px] text-[#8C8FA3]">{today}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={fetchLoads} className="p-2.5 rounded-xl bg-white border border-[#E8ECF0] hover:bg-[#F5F6FA] transition-colors">
-            <RefreshCw className={`w-4 h-4 text-[#8C8FA3] ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-md shadow-[#007AFF]/25 hover:bg-[#0066D6] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Шинэ ачилт
-          </button>
-        </div>
+      <div className="flex-shrink-0">
+        <PageHeader
+          title="Машины ачилт"
+          subtitle={today}
+          icon={Truck}
+          actions={
+            <>
+              <button
+                onClick={fetchLoads}
+                className="w-9 h-9 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center hover:bg-[#F2F4F7] transition-all active:scale-95"
+              >
+                <RefreshCw className={`w-4 h-4 text-[#8C8FA3] ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-[13px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] hover:brightness-105"
+                style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
+              >
+                <Plus className="w-4 h-4" />
+                Шинэ ачилт
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* Mobile Tab Bar */}
-      <div className="flex lg:hidden gap-1 bg-white rounded-xl p-1 border border-[#E8ECF0] flex-shrink-0">
+      <div className="flex lg:hidden gap-1 bg-white rounded-xl p-1 border border-[#E8ECF0]/70 shadow-sm flex-shrink-0">
         {columnData.map((col, i) => (
           <button
             key={col.id}
             onClick={() => setActiveTab(i)}
             className={`flex-1 py-2 px-2 rounded-lg text-[11px] font-semibold text-center transition-all ${
-              activeTab === i ? 'bg-[#007AFF] text-white shadow-sm' : 'text-[#8C8FA3]'
+              activeTab === i ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25' : 'text-[#8C8FA3]'
             }`}
           >
             {col.label.split(' ')[0]}
@@ -398,7 +407,7 @@ export default function TruckLoadsKanban() {
                   <p className="text-[11px] text-[#8C8FA3]">Бараа сонгож, жолоочид хуваарилна</p>
                 </div>
               </div>
-              <button onClick={() => { setShowForm(false); resetForm(); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
+              <button onClick={() => { setShowForm(false); resetForm(); }} className="p-2 rounded-lg hover:bg-[#F2F4F7]">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
@@ -422,7 +431,7 @@ export default function TruckLoadsKanban() {
                   <div>
                     <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Жолооч *</label>
                     {drivers.length === 0 ? (
-                      <a href="/drivers" className="block px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#B91C1C] font-medium hover:bg-[#FECDD3] transition-all">
+                      <a href="/drivers" className="block px-4 py-2.5 rounded-xl bg-[#FF3B30]/8 border border-[#FF3B30]/20 text-[13px] text-[#FF3B30] font-medium hover:bg-[#FF3B30]/12 transition-all">
                         ⚠️ Жолооч бүртгээгүй байна. Эхлээд жолооч бүртгэнэ үү. <span className="underline font-bold">Жолооч бүртгэх</span>
                       </a>
                     ) : (
@@ -463,7 +472,7 @@ export default function TruckLoadsKanban() {
                         className={`px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all border-2 ${
                           formLocationType === 'URBAN'
                             ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-md'
-                            : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#007AFF]/40'
+                            : 'bg-white text-[#4A4D5C] border-[#E8ECF0] hover:border-[#007AFF]/40'
                         }`}
                       >
                         🏙️ Мөрөн
@@ -474,7 +483,7 @@ export default function TruckLoadsKanban() {
                         className={`px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all border-2 ${
                           formLocationType === 'RURAL'
                             ? 'bg-[#34C759] text-white border-[#34C759] shadow-md'
-                            : 'bg-white text-[#4A4D5C] border-[#E5E5EA] hover:border-[#34C759]/40'
+                            : 'bg-white text-[#4A4D5C] border-[#E8ECF0] hover:border-[#34C759]/40'
                         }`}
                       >
                         🏞️ Орон нутаг
@@ -522,7 +531,7 @@ export default function TruckLoadsKanban() {
               <div className="flex gap-2">
                 <button
                   onClick={() => { setShowForm(false); resetForm(); }}
-                  className="px-5 py-2.5 rounded-xl bg-[#F5F6FA] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
+                  className="px-5 py-2.5 rounded-xl bg-[#F2F4F7] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
                 >
                   Цуцлах
                 </button>
@@ -547,15 +556,15 @@ export default function TruckLoadsKanban() {
             {/* Header */}
             <div className="px-6 py-4 border-b border-[#E8ECF0] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 flex items-center justify-center">
-                  <Package className="w-5 h-5 text-[#F59E0B]" />
+                <div className="w-10 h-10 rounded-xl bg-[#FF9500]/10 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-[#FF9500]" />
                 </div>
                 <div>
                   <h2 className="text-[18px] font-bold text-[#1A1D26]">Нэмэлт бараа нэмэх</h2>
                   <p className="text-[11px] text-[#8C8FA3]">Одоо байгаа ачилтад нэмэлт бараа. Агуулахаас шууд хасагдана.</p>
                 </div>
               </div>
-              <button onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
+              <button onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }} className="p-2 rounded-lg hover:bg-[#F2F4F7]">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
@@ -578,14 +587,14 @@ export default function TruckLoadsKanban() {
               <div className="flex gap-2">
                 <button
                   onClick={() => { setAddItemsLoadId(null); setAddItemsFormItems([]); }}
-                  className="px-5 py-2.5 rounded-xl bg-[#F5F6FA] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
+                  className="px-5 py-2.5 rounded-xl bg-[#F2F4F7] text-[#8C8FA3] font-semibold text-[13px] hover:bg-[#E8ECF0]"
                 >
                   Цуцлах
                 </button>
                 <button
                   onClick={handleAddItemsSubmit}
                   disabled={submitting || addItemsFormItems.length === 0}
-                  className="px-6 py-2.5 rounded-xl bg-[#F59E0B] text-white text-[13px] font-semibold shadow-md shadow-[#F59E0B]/25 disabled:opacity-50 hover:bg-[#D97706] transition-colors flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-[#FF9500] text-white text-[13px] font-semibold shadow-md shadow-[#FF9500]/25 disabled:opacity-50 hover:brightness-95 transition-all flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
                   {submitting ? 'Нэмж байна...' : 'Нэмэлт бараа нэмэх'}
@@ -700,14 +709,14 @@ function KanbanCard({
     <div
       className={`bg-white rounded-xl border p-3 cursor-pointer hover:shadow-md transition-all group ${
         isCompletionRequested
-          ? 'border-2 border-[#EF4444] shadow-lg shadow-[#EF4444]/20 ring-2 ring-[#EF4444]/20 animate-pulse'
+          ? 'border-2 border-[#FF3B30] shadow-lg shadow-[#FF3B30]/20 ring-2 ring-[#FF3B30]/20 animate-pulse'
           : 'border-[#E8ECF0] hover:border-[#007AFF]/30'
       } ${isArchive ? 'opacity-70' : ''} ${isActioning ? 'opacity-60 pointer-events-none' : ''}`}
       onClick={onClick}
     >
       {/* Completion request banner */}
       {isCompletionRequested && (
-        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] mb-2 text-[11px] font-bold text-[#B91C1C]">
+        <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#FF3B30]/8 border border-[#FF3B30]/20 mb-2 text-[11px] font-bold text-[#FF3B30]">
           <AlertTriangle className="w-3.5 h-3.5" />
           ДУУСГАХ ХҮСЭЛТ — Батлахыг хүлээж байна
         </div>
@@ -715,7 +724,7 @@ function KanbanCard({
 
       {/* Old date warning */}
       {!isArchive && !isCompletionRequested && new Date(load.loadDate).toISOString().split('T')[0] < new Date().toISOString().split('T')[0] && (
-        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] mb-2 text-[10px] font-semibold text-[#92400E]">
+        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FF9500]/10 border border-[#FF9500]/25 mb-2 text-[10px] font-semibold text-[#FF9500]">
           <AlertTriangle className="w-3 h-3" />
           {new Date(load.loadDate).toLocaleDateString('mn-MN')} — өмнөх өдрийн ачилт
         </div>
@@ -734,7 +743,7 @@ function KanbanCard({
         <User className="w-3.5 h-3.5 text-[#8C8FA3]" />
         <span className="text-[12px] font-medium text-[#4A4D5C] truncate">{driverName || 'Жолооч'}</span>
         {load.driver?.phone && (
-          <span className="text-[10px] text-[#A0A3B1] ml-auto">{load.driver.phone}</span>
+          <span className="text-[10px] text-[#AEAEB2] ml-auto">{load.driver.phone}</span>
         )}
       </div>
 
@@ -754,8 +763,8 @@ function KanbanCard({
           <span
             className="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full"
             style={{
-              background: load.status === 'CANCELLED' ? '#FEF2F2' : '#ECFDF5',
-              color: load.status === 'CANCELLED' ? '#EF4444' : '#10B981',
+              background: load.status === 'CANCELLED' ? 'rgba(255,59,48,0.10)' : 'rgba(52,199,89,0.12)',
+              color: load.status === 'CANCELLED' ? '#FF3B30' : '#34C759',
             }}
           >
             {load.status === 'CANCELLED' ? 'Цуцалсан' : 'Дууссан'}
@@ -769,7 +778,7 @@ function KanbanCard({
           <Package className="w-3 h-3 text-[#007AFF]" />
           <span className="text-[11px] font-semibold text-[#4A4D5C]">{items.length} бараа</span>
         </div>
-        <span className="text-[11px] text-[#A0A3B1]">·</span>
+        <span className="text-[11px] text-[#AEAEB2]">·</span>
         <span className="text-[11px] font-semibold text-[#4A4D5C]">{totalLoaded} ш</span>
       </div>
 
@@ -781,7 +790,7 @@ function KanbanCard({
             <span className="font-bold text-[#4A4D5C]">{totalSold}/{totalLoaded}</span>
           </div>
           <div className="w-full h-1.5 bg-[#E8ECF0] rounded-full overflow-hidden">
-            <div className="h-full bg-[#10B981] rounded-full transition-all" style={{ width: `${Math.min(100, (totalSold / totalLoaded) * 100)}%` }} />
+            <div className="h-full bg-[#34C759] rounded-full transition-all" style={{ width: `${Math.min(100, (totalSold / totalLoaded) * 100)}%` }} />
           </div>
         </div>
       )}
@@ -791,13 +800,13 @@ function KanbanCard({
         <div className="grid grid-cols-4 gap-1 mb-2">
           {[
             { label: 'Ачсан', val: totalLoaded, color: '#007AFF' },
-            { label: 'Зарсан', val: totalSold, color: '#10B981' },
-            { label: 'Буцсан', val: totalReturned, color: '#F59E0B' },
-            { label: 'Гэмтсэн', val: totalDamaged, color: '#EF4444' },
+            { label: 'Зарсан', val: totalSold, color: '#34C759' },
+            { label: 'Буцсан', val: totalReturned, color: '#FF9500' },
+            { label: 'Гэмтсэн', val: totalDamaged, color: '#FF3B30' },
           ].map((s) => (
             <div key={s.label} className="text-center">
               <div className="text-[13px] font-bold" style={{ color: s.color }}>{s.val}</div>
-              <div className="text-[9px] text-[#A0A3B1]">{s.label}</div>
+              <div className="text-[9px] text-[#AEAEB2]">{s.label}</div>
             </div>
           ))}
         </div>
@@ -808,7 +817,7 @@ function KanbanCard({
         <div className="flex items-center gap-1.5 text-[11px] text-[#8C8FA3] mb-2">
           <DollarSign className="w-3 h-3" />
           <span>{salesCount} борлуулалт</span>
-          <span className="ml-auto font-bold text-[#1A1D26]">₮{salesTotal.toLocaleString()}</span>
+          <span className="ml-auto font-bold text-[#1A1D26]">{formatMnt(salesTotal)}</span>
         </div>
       )}
 
@@ -820,14 +829,14 @@ function KanbanCard({
               <button
                 onClick={() => onDispatch(load.id)}
                 disabled={isActioning}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-[#F59E0B] text-white text-[11px] font-semibold hover:bg-[#D97706] transition-colors disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-[#FF9500] text-white text-[11px] font-semibold hover:brightness-95 transition-all disabled:opacity-50"
               >
                 <Send className="w-3 h-3" /> Илгээх
               </button>
               <button
                 onClick={() => onCancel(load.id)}
                 disabled={isActioning}
-                className="p-2 rounded-lg border border-[#E8ECF0] text-[#EF4444] hover:bg-[#FEF2F2] transition-colors disabled:opacity-50"
+                className="p-2 rounded-lg border border-[#E8ECF0] text-[#FF3B30] hover:bg-[#FF3B30]/8 transition-colors disabled:opacity-50"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -844,14 +853,14 @@ function KanbanCard({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onClick(); }}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-[#10B981] text-white text-[11px] font-semibold hover:bg-[#059669] transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-[#34C759] text-white text-[11px] font-semibold hover:brightness-95 transition-all"
               >
                 <CheckCircle className="w-3 h-3" /> Дуусгах
               </button>
               <button
                 onClick={() => onCancel(load.id)}
                 disabled={isActioning}
-                className="p-2 rounded-lg border border-[#E8ECF0] text-[#EF4444] hover:bg-[#FEF2F2] transition-colors disabled:opacity-50"
+                className="p-2 rounded-lg border border-[#E8ECF0] text-[#FF3B30] hover:bg-[#FF3B30]/8 transition-colors disabled:opacity-50"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -928,13 +937,13 @@ function ProductGrid({
         <div className="flex items-center gap-2 mb-3">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A0A3B1]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8FA3]" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Бараа хайх (нэр, баркод)..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[13px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[13px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15"
             />
           </div>
 
@@ -953,7 +962,7 @@ function ProductGrid({
               type="button"
               onClick={() => setStockFilter('in_stock')}
               className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${
-                stockFilter === 'in_stock' ? 'bg-white text-[#10B981] shadow-sm' : 'text-[#8C8FA3]'
+                stockFilter === 'in_stock' ? 'bg-white text-[#34C759] shadow-sm' : 'text-[#8C8FA3]'
               }`}
             >
               Нөөцтэй
@@ -1000,7 +1009,7 @@ function ProductGrid({
       {/* Grid */}
       <div className="flex-1 overflow-y-auto p-5 bg-[#FAFBFC] min-h-0">
         {filtered.length === 0 ? (
-          <div className="text-center py-16 text-[13px] text-[#A0A3B1]">
+          <div className="text-center py-16 text-[13px] text-[#8C8FA3]">
             <Package className="w-12 h-12 text-[#E8ECF0] mx-auto mb-2" />
             Бараа олдсонгүй
           </div>
@@ -1039,7 +1048,7 @@ function ProductGrid({
                     )}
                     {/* Stock badge overlay */}
                     <div className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
-                      stock > 0 ? 'bg-[#10B981] text-white' : 'bg-[#EF4444] text-white'
+                      stock > 0 ? 'bg-[#34C759] text-white' : 'bg-[#FF3B30] text-white'
                     }`}>
                       {stock} нөөц
                     </div>
@@ -1057,7 +1066,7 @@ function ProductGrid({
                     </p>
                     <div className="flex items-center justify-between mt-1 mb-2">
                       <span className="text-[11px] font-semibold text-[#4A4D5C]">
-                        ₮{Number(p.sellingPrice ?? 0).toLocaleString()}
+                        {formatMnt(p.sellingPrice)}
                       </span>
                       {upb > 1 && (
                         <span className="text-[9px] text-[#8C8FA3] bg-[#F5F6FA] px-1 py-0.5 rounded">
@@ -1127,7 +1136,7 @@ function ProductGrid({
                             />
                             <span
                               className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold pointer-events-none"
-                              style={{ color: isSelected ? accentColor : '#A0A3B1' }}
+                              style={{ color: isSelected ? accentColor : '#8C8FA3' }}
                             >
                               {placeholder}
                             </span>

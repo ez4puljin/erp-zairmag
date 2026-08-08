@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { Tag, Plus, Trash2 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
@@ -63,17 +66,16 @@ export default function ExpenseCategoriesPage() {
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Зардлын ангилал</h1>
-      </div>
+      <PageHeader
+        title="Зардлын ангилал"
+        subtitle="Зардлыг бүлэглэх ангиллын жагсаалт"
+        icon={Tag}
+        iconColor="#007AFF"
+      />
 
       {/* Add Form */}
-      <form
-        onSubmit={handleAdd}
-        className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 p-4 space-y-3"
-      >
-        <div className="flex items-center gap-3">
+      <SectionCard title="Шинэ ангилал">
+        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <input
             type="text"
             value={name}
@@ -92,44 +94,41 @@ export default function ExpenseCategoriesPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-50"
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97] disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
           >
             <Plus className="w-4 h-4" /> Нэмэх
           </button>
-        </div>
-      </form>
+        </form>
+      </SectionCard>
 
       {/* Category List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard title="Ангилалууд" noPadding>
         {loading ? (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="px-4 py-4 flex items-center gap-3 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-[#F2F2F7]" />
+                <div className="w-10 h-10 rounded-xl bg-[#F2F4F7]" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 bg-[#F2F2F7] rounded-lg" />
-                  <div className="h-3 w-24 bg-[#F2F2F7] rounded-lg" />
+                  <div className="h-4 w-32 bg-[#F2F4F7] rounded-lg" />
+                  <div className="h-3 w-24 bg-[#F2F4F7] rounded-lg" />
                 </div>
               </div>
             ))}
           </div>
         ) : categories.length === 0 ? (
-          <div className="py-16 text-center">
-            <Tag className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-            <p className="text-[17px] font-semibold text-[#1C1C1E]">Ангилал олдсонгүй</p>
-          </div>
+          <EmptyState icon={Tag} title="Ангилал олдсонгүй" hint="Дээрх талбараас шинэ ангилал нэмнэ үү" />
         ) : (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {categories.map((cat: any) => (
-              <div key={cat.id} className="flex items-center gap-3 px-4 py-3.5">
+              <div key={cat.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F7F9FC] transition-colors">
                 <div className="w-10 h-10 rounded-xl bg-[#007AFF]/10 flex items-center justify-center shrink-0">
                   <Tag className="w-5 h-5 text-[#007AFF]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">{cat.name}</p>
+                  <p className="text-[15px] font-semibold text-[#1A1D26] truncate">{cat.name}</p>
                   {cat.description && (
-                    <p className="text-[13px] text-[#8E8E93] truncate">{cat.description}</p>
+                    <p className="text-[13px] text-[#8C8FA3] truncate">{cat.description}</p>
                   )}
                 </div>
                 <button
@@ -142,7 +141,7 @@ export default function ExpenseCategoriesPage() {
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

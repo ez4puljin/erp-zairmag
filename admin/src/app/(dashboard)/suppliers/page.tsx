@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { Truck, Plus, Search, Pencil, Trash2, X, ChevronLeft, ChevronRight, RefreshCw, Phone, Mail, MapPin, User, Building2, Wallet, FileText, Save } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, RefreshCw, Phone, Mail, MapPin, User, Building2, Wallet, FileText, Save } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, SearchField, ActionButton } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -87,58 +92,60 @@ export default function SuppliersPage() {
     finally { setDeleting(false); }
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
-  const labelClass = "block text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide mb-1.5";
+  const inputClass = "w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[15px] text-[#1A1D26] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white";
+  const labelClass = "block text-[13px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5";
 
   const avatarColors = ['#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#5856D6'];
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Нийлүүлэгч</h1>
-        <button onClick={openAdd}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
-          style={{ background: 'linear-gradient(135deg, #AF52DE, #BF5AF2)' }}>
-          <Plus className="w-4 h-4" /> Нэмэх
-        </button>
-      </div>
+      <PageHeader
+        title="Нийлүүлэгч"
+        subtitle="Нийлүүлэгчийн жагсаалт ба тооцооны мэдээлэл"
+        icon={Truck}
+        iconColor="#AF52DE"
+        actions={
+          <ActionButton onClick={openAdd}>
+            <Plus className="w-4 h-4" /> Нэмэх
+          </ActionButton>
+        }
+      />
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E8E93]" />
-        <input type="text" placeholder="Нийлүүлэгч хайх..." value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#E5E5EA]/40 border-none text-[15px] text-[#1C1C1E] placeholder-[#8E8E93] outline-none transition-all focus:bg-white focus:ring-2 focus:ring-[#007AFF]/20" />
-      </div>
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          placeholder="Нийлүүлэгч хайх..."
+          className="flex-1 min-w-[240px]"
+        />
+      </FilterBar>
 
       {/* Supplier List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard noPadding>
         {loading ? (
-          <div className="py-12 text-center"><RefreshCw className="w-6 h-6 text-[#8E8E93] mx-auto animate-spin" /></div>
+          <div className="py-16 text-center"><RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" /></div>
         ) : suppliers.length === 0 ? (
-          <div className="py-16 text-center">
-            <Truck className="w-12 h-12 text-[#AEAEB2] mx-auto mb-3" />
-            <p className="text-[17px] font-semibold text-[#1C1C1E]">Нийлүүлэгч олдсонгүй</p>
-          </div>
+          <EmptyState icon={Truck} title="Нийлүүлэгч олдсонгүй" hint="Шинэ нийлүүлэгч нэмэхийн тулд дээрх “Нэмэх” товчийг дарна уу" />
         ) : (
-          <div className="divide-y divide-[#E5E5EA]/50">
+          <div className="divide-y divide-[#F2F4F7]">
             {suppliers.map((s: any, i: number) => {
               const color = avatarColors[i % avatarColors.length];
               return (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F2F2F7]/50 transition-colors">
+                <div key={s.id} className="flex items-center gap-3 px-4 lg:px-5 py-3.5 hover:bg-[#F7F9FC] transition-colors">
                   <div className="w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-bold text-white shrink-0"
                        style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
                     {s.name?.charAt(0)?.toUpperCase() ?? '?'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-[#1C1C1E] truncate">{s.name}</p>
-                    <p className="text-[13px] text-[#8E8E93] truncate">
-                      {[s.contactName, s.phone, s.city].filter(Boolean).join(' \u00b7 ')}
+                    <p className="text-[15px] font-semibold text-[#1A1D26] truncate">{s.name}</p>
+                    <p className="text-[13px] text-[#8C8FA3] truncate">
+                      {[s.contactName, s.phone, s.city].filter(Boolean).join(' · ') || '—'}
                     </p>
                   </div>
                   {Number(s.openingBalance) > 0 && (
-                    <span className="text-[13px] font-semibold text-[#FF9500] mr-2">
-                      ₮{Number(s.openingBalance).toLocaleString()}
+                    <span className="text-[13px] font-semibold text-[#FF9500] tabular-nums mr-2 shrink-0">
+                      {formatMnt(s.openingBalance)}
                     </span>
                   )}
                   <div className="flex items-center gap-1 shrink-0">
@@ -154,18 +161,18 @@ export default function SuppliersPage() {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Pagination */}
       {meta && meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 transition-all active:scale-95">
+            className="w-10 h-10 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] shadow-sm disabled:opacity-30 transition-all active:scale-95">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-[13px] font-medium text-[#8E8E93] px-3">{page} / {meta.totalPages}</span>
+          <span className="text-[13px] font-medium text-[#8C8FA3] px-3">{page} / {meta.totalPages}</span>
           <button onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} disabled={page >= meta.totalPages}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 transition-all active:scale-95">
+            className="w-10 h-10 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] shadow-sm disabled:opacity-30 transition-all active:scale-95">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -177,16 +184,16 @@ export default function SuppliersPage() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl animate-ios-scale-in max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal header */}
-            <div className="flex items-center gap-4 px-6 py-5 border-b border-[#E5E5EA]/60">
+            <div className="flex items-center gap-4 px-6 py-5 border-b border-[#E8ECF0]/70">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #AF52DE, #BF5AF2)' }}>
                 <Truck className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <h3 className="text-[18px] font-bold text-[#1C1C1E]">{editItem ? 'Нийлүүлэгч засах' : 'Шинэ нийлүүлэгч'}</h3>
-                <p className="text-[12px] text-[#8E8E93] mt-0.5">Нийлүүлэгчийн дэлгэрэнгүй мэдээлэл</p>
+                <h3 className="text-[18px] font-bold text-[#1A1D26]">{editItem ? 'Нийлүүлэгч засах' : 'Шинэ нийлүүлэгч'}</h3>
+                <p className="text-[12px] text-[#8C8FA3] mt-0.5">Нийлүүлэгчийн дэлгэрэнгүй мэдээлэл</p>
               </div>
-              <button onClick={() => setShowModal(false)} className="p-2 rounded-xl hover:bg-[#F2F2F7] transition-colors">
-                <X className="w-5 h-5 text-[#8E8E93]" />
+              <button onClick={() => setShowModal(false)} className="p-2 rounded-xl hover:bg-[#F2F4F7] transition-colors">
+                <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
 
@@ -195,7 +202,7 @@ export default function SuppliersPage() {
               <div className="p-6 space-y-6">
                 {/* Section 1: Үндсэн мэдээлэл */}
                 <div>
-                  <h4 className="text-[10px] font-bold text-[#8E8E93] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold text-[#8C8FA3] uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Building2 className="w-3.5 h-3.5" />
                     Үндсэн мэдээлэл
                   </h4>
@@ -233,7 +240,7 @@ export default function SuppliersPage() {
 
                 {/* Section 2: Холбоо барих хаяг */}
                 <div>
-                  <h4 className="text-[10px] font-bold text-[#8E8E93] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold text-[#8C8FA3] uppercase tracking-wider mb-3 flex items-center gap-2">
                     <MapPin className="w-3.5 h-3.5" />
                     Холбоо барих хаяг
                   </h4>
@@ -263,7 +270,7 @@ export default function SuppliersPage() {
 
                 {/* Section 3: Санхүү */}
                 <div>
-                  <h4 className="text-[10px] font-bold text-[#8E8E93] uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold text-[#8C8FA3] uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Wallet className="w-3.5 h-3.5" />
                     Санхүү ба тэмдэглэл
                   </h4>
@@ -287,9 +294,9 @@ export default function SuppliersPage() {
               </div>
 
               {/* Modal footer */}
-              <div className="flex items-center gap-3 px-6 py-4 border-t border-[#E5E5EA]/60 bg-[#F9FAFB]">
+              <div className="flex items-center gap-3 px-6 py-4 border-t border-[#E8ECF0]/70 bg-[#F9FAFB]">
                 <button type="button" onClick={() => setShowModal(false)}
-                  className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-[#4A4D5C] bg-white border border-[#E5E5EA]/60 hover:bg-[#F2F4F7] transition-all active:scale-[0.97]">
+                  className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-[#4A4D5C] bg-white border border-[#E8ECF0]/70 hover:bg-[#F2F4F7] transition-all active:scale-[0.97]">
                   Цуцлах
                 </button>
                 <div className="flex-1" />
@@ -313,11 +320,11 @@ export default function SuppliersPage() {
             <div className="w-14 h-14 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-[#FF3B30]" />
             </div>
-            <h3 className="text-[18px] font-bold text-[#1C1C1E] mb-1">&ldquo;{deleteItem.name}&rdquo; устгах уу?</h3>
-            <p className="text-[14px] text-[#8E8E93] mb-5">Энэ нийлүүлэгчийг устгахдаа итгэлтэй байна уу?</p>
+            <h3 className="text-[18px] font-bold text-[#1A1D26] mb-1">&ldquo;{deleteItem.name}&rdquo; устгах уу?</h3>
+            <p className="text-[14px] text-[#8C8FA3] mb-5">Энэ нийлүүлэгчийг устгахдаа итгэлтэй байна уу?</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteItem(null)}
-                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#E5E5EA]/40 transition-all active:scale-[0.97]">
+                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] transition-all active:scale-[0.97]">
                 Цуцлах
               </button>
               <button onClick={handleDelete} disabled={deleting}

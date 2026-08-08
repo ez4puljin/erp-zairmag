@@ -6,6 +6,11 @@ import {
   ShoppingCart, Plus, X, Search, Check, Package,
   RefreshCw, User, Clock,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const STATUS_COLORS: Record<string, { label: string; color: string; bg: string }> = {
   PENDING: { label: 'Хүлээгдэж буй', color: '#FF9500', bg: '#FFF7ED' },
@@ -64,6 +69,7 @@ export default function DriverOrdersPage() {
   }, [customers, customerSearch]);
 
   const cartTotal = cart.reduce((s, c) => s + c.qty * c.unitPrice, 0);
+  const ordersTotal = orders.reduce((s, o: any) => s + Number(o.totalAmount ?? 0), 0);
 
   const addToCart = (product: any) => {
     const existing = cart.find((c) => c.productId === product.id);
@@ -99,63 +105,76 @@ export default function DriverOrdersPage() {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-5 animate-ios-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-[18px] font-bold text-[#1A1D26]">Захиалга</h2>
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FF9500] text-white text-[13px] font-semibold shadow-md shadow-[#FF9500]/25"
-        >
-          <Plus className="w-4 h-4" /> Захиалга авах
-        </button>
-      </div>
+      <PageHeader
+        title="Захиалга"
+        subtitle="Өнөөдрийн захиалгууд"
+        icon={ShoppingCart}
+        iconColor="#FF9500"
+        actions={
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl text-white text-[13px] font-semibold shadow-sm shadow-[#FF9500]/25 transition-all active:scale-[0.97] hover:brightness-105"
+            style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}
+          >
+            <Plus className="w-4 h-4" /> Захиалга авах
+          </button>
+        }
+      />
+
+      {/* KPIs */}
+      <StatGrid cols={2}>
+        <StatCard label="Өнөөдрийн захиалга" value={orders.length} icon={ShoppingCart} gradient="orange" index={0} />
+        <StatCard label="Нийт дүн" value={formatMnt(ordersTotal)} icon={Package} gradient="green" index={1} />
+      </StatGrid>
 
       {/* Today's orders */}
-      {loading ? (
-        <div className="py-12 text-center"><RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" /></div>
-      ) : orders.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#E8ECF0] py-12 text-center">
-          <ShoppingCart className="w-10 h-10 text-[#D0D2DA] mx-auto mb-3" />
-          <p className="text-[14px] text-[#8C8FA3]">Өнөөдөр захиалга авагдаагүй</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {orders.map((order: any) => {
-            const st = STATUS_COLORS[order.status] ?? STATUS_COLORS.PENDING;
-            return (
-              <div key={order.id} className="bg-white rounded-xl border border-[#E8ECF0] p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-bold text-[#007AFF]">#{order.orderNumber}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>
-                    {st.label}
-                  </span>
+      <SectionCard title="Өнөөдрийн захиалга" noPadding>
+        {loading ? (
+          <div className="py-14 text-center"><RefreshCw className="w-6 h-6 text-[#8C8FA3] mx-auto animate-spin" /></div>
+        ) : orders.length === 0 ? (
+          <EmptyState icon={ShoppingCart} title="Захиалга алга" hint="Өнөөдөр захиалга авагдаагүй байна" />
+        ) : (
+          <div className="divide-y divide-[#F2F4F7]">
+            {orders.map((order: any) => {
+              const st = STATUS_COLORS[order.status] ?? STATUS_COLORS.PENDING;
+              return (
+                <div key={order.id} className="px-4 lg:px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-bold text-[#007AFF]">#{order.orderNumber}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>
+                        {st.label}
+                      </span>
+                    </div>
+                    <span className="text-[15px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(order.totalAmount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-[#8C8FA3]">
+                    <span className="flex items-center gap-1 min-w-0">
+                      <User className="w-3 h-3 shrink-0" />
+                      <span className="truncate text-[#4A4D5C] font-medium">{order.customer?.storeName ?? 'Харилцагч'}</span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <Clock className="w-3 h-3" />
+                      {order.createdAt ? new Date(order.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-[12px] text-[#8C8FA3] mb-1">
-                  <User className="w-3 h-3" />
-                  <span>{order.customer?.storeName ?? 'Харилцагч'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-[#8C8FA3] flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {order.createdAt ? new Date(order.createdAt).toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' }) : ''}
-                  </span>
-                  <span className="text-[15px] font-bold text-[#1A1D26]">₮{Number(order.totalAmount ?? 0).toLocaleString()}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
 
       {/* New Order Bottom Sheet */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex flex-col">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowNew(false); setSelectedCustomer(null); setCart([]); setCustomerSearch(''); }} />
-          <div className="relative mt-auto bg-white rounded-t-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#E8ECF0] flex items-center justify-between rounded-t-3xl">
+          <div className="relative mt-auto bg-white rounded-t-3xl shadow-2xl max-h-[90vh] overflow-y-auto animate-ios-slide-up">
+            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-[#F0F2F5] flex items-center justify-between rounded-t-3xl">
               <h2 className="text-[16px] font-bold text-[#1A1D26]">Захиалга авах</h2>
-              <button onClick={() => { setShowNew(false); setSelectedCustomer(null); setCart([]); setCustomerSearch(''); }} className="p-2 rounded-lg hover:bg-[#F5F6FA]">
+              <button onClick={() => { setShowNew(false); setSelectedCustomer(null); setCart([]); setCustomerSearch(''); }} className="p-2 rounded-lg hover:bg-[#F5F6FA] transition-colors">
                 <X className="w-5 h-5 text-[#8C8FA3]" />
               </button>
             </div>
@@ -164,7 +183,7 @@ export default function DriverOrdersPage() {
               {/* Customer selection */}
               {!selectedCustomer ? (
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">Харилцагч сонгох</label>
+                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5 block">Харилцагч сонгох</label>
                   <div className="relative mb-2">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A0A3B1]" />
                     <input
@@ -172,15 +191,15 @@ export default function DriverOrdersPage() {
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
                       placeholder="Нэр, утас хайх..."
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] outline-none focus:border-[#007AFF]"
+                      className="w-full pl-10 pr-4 h-11 rounded-xl bg-[#F5F6FA] border border-transparent text-[14px] text-[#1A1D26] outline-none focus:border-[#007AFF]/40 focus:bg-white transition-all"
                     />
                   </div>
-                  <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                     {filteredCustomers.map((c: any) => (
                       <button
                         key={c.id}
                         onClick={() => setSelectedCustomer(c)}
-                        className="w-full text-left p-3 rounded-xl hover:bg-[#F5F6FA] border border-[#E8ECF0]"
+                        className="w-full text-left p-3 rounded-xl bg-white hover:bg-[#F5F6FA] border border-[#E8ECF0]/70 transition-colors"
                       >
                         <p className="text-[13px] font-semibold text-[#1A1D26]">{c.storeName}</p>
                         <p className="text-[11px] text-[#8C8FA3]">{c.phone ?? ''} · {c.address ?? ''}</p>
@@ -190,12 +209,14 @@ export default function DriverOrdersPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0]">
-                  <Check className="w-5 h-5 text-[#10B981]" />
-                  <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-[#1A1D26]">{selectedCustomer.storeName}</p>
+                  <div className="w-9 h-9 rounded-xl bg-white/70 flex items-center justify-center shrink-0">
+                    <Check className="w-5 h-5 text-[#10B981]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-[#1A1D26] truncate">{selectedCustomer.storeName}</p>
                     <p className="text-[11px] text-[#8C8FA3]">{selectedCustomer.phone}</p>
                   </div>
-                  <button onClick={() => setSelectedCustomer(null)} className="p-1 rounded hover:bg-white/50">
+                  <button onClick={() => setSelectedCustomer(null)} className="p-1.5 rounded-lg hover:bg-white/60 transition-colors">
                     <X className="w-4 h-4 text-[#8C8FA3]" />
                   </button>
                 </div>
@@ -204,20 +225,20 @@ export default function DriverOrdersPage() {
               {/* Product selection */}
               {selectedCustomer && (
                 <div>
-                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase mb-1.5 block">
+                  <label className="text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1.5 block">
                     Бараа сонгох
-                    {cart.length > 0 && <span className="ml-2 text-[#007AFF]">{cart.length} бараа · ₮{cartTotal.toLocaleString()}</span>}
+                    {cart.length > 0 && <span className="ml-2 text-[#007AFF] normal-case">{cart.length} бараа · {formatMnt(cartTotal)}</span>}
                   </label>
                   <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
                     {products.map((p: any) => {
                       const inCart = cart.find((c) => c.productId === p.id);
                       const qty = inCart?.qty ?? 0;
                       return (
-                        <div key={p.id} className={`rounded-xl border p-3 ${qty > 0 ? 'bg-[#EFF6FF] border-[#007AFF]/30' : 'bg-white border-[#E8ECF0]'}`}>
+                        <div key={p.id} className={`rounded-xl border p-3 transition-colors ${qty > 0 ? 'bg-[#EFF6FF] border-[#007AFF]/30' : 'bg-white border-[#E8ECF0]/70'}`}>
                           <div className="flex items-center justify-between mb-2">
-                            <div className="flex-1 mr-2">
+                            <div className="flex-1 mr-2 min-w-0">
                               <p className="text-[13px] font-semibold text-[#1A1D26] truncate">{p.name}</p>
-                              <p className="text-[10px] text-[#8C8FA3]">₮{Number(p.sellingPrice ?? 0).toLocaleString()} · Нөөц: {p.stockAvailable ?? 0}</p>
+                              <p className="text-[10px] text-[#8C8FA3]">{formatMnt(p.sellingPrice)} · Нөөц: {p.stockAvailable ?? 0}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -227,12 +248,12 @@ export default function DriverOrdersPage() {
                                 else setCart((prev) => prev.map((c) => c.productId === p.id ? { ...c, qty: c.qty - 1 } : c));
                               }}
                               disabled={qty <= 0}
-                              className="w-10 h-10 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center text-[16px] font-bold disabled:opacity-30"
+                              className="w-10 h-10 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0]/70 flex items-center justify-center text-[16px] font-bold text-[#4A4D5C] disabled:opacity-30 active:scale-95 transition-all"
                             >−</button>
-                            <span className="w-10 text-center text-[14px] font-bold text-[#1A1D26]">{qty}</span>
+                            <span className="w-10 text-center text-[14px] font-bold text-[#1A1D26] tabular-nums">{qty}</span>
                             <button
                               onClick={() => addToCart(p)}
-                              className="w-10 h-10 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] flex items-center justify-center text-[16px] font-bold"
+                              className="w-10 h-10 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0]/70 flex items-center justify-center text-[16px] font-bold text-[#4A4D5C] active:scale-95 transition-all"
                             >+</button>
                           </div>
                         </div>
@@ -247,9 +268,10 @@ export default function DriverOrdersPage() {
                 <button
                   onClick={handleSubmitOrder}
                   disabled={submitting || cart.length === 0}
-                  className="w-full py-3.5 rounded-xl bg-[#FF9500] text-white text-[14px] font-semibold disabled:opacity-50"
+                  className="w-full h-12 rounded-xl text-white text-[14px] font-semibold shadow-sm shadow-[#FF9500]/25 disabled:opacity-50 active:scale-[0.99] transition-all"
+                  style={{ background: 'linear-gradient(135deg, #FF9500, #FFCC00)' }}
                 >
-                  {submitting ? 'Илгээж байна...' : `Захиалга илгээх · ₮${cartTotal.toLocaleString()}`}
+                  {submitting ? 'Илгээж байна...' : `Захиалга илгээх · ${formatMnt(cartTotal)}`}
                 </button>
               )}
             </div>

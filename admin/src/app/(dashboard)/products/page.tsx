@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import Link from 'next/link';
-import { Package, Plus, Search, ChevronRight, ChevronLeft, AlertTriangle, Pencil, Trash2, Upload, TrendingUp, Archive, BarChart3, Box } from 'lucide-react';
+import { Package, Plus, ChevronRight, ChevronLeft, AlertTriangle, Pencil, Trash2, Upload, TrendingUp } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/error-banner';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatCard, StatGrid, type StatGradient } from '@/components/shared/stat-card';
+import { SectionCard } from '@/components/shared/section-card';
+import { FilterBar, SearchField } from '@/components/shared/filter-bar';
+import { EmptyState } from '@/components/shared/empty-state';
+import { formatMnt } from '@/components/shared/money';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -58,68 +64,54 @@ export default function ProductsPage() {
   const lowStockCount = products.filter(p => p.stockAvailable <= p.reorderLevel).length;
   const totalValue = products.reduce((s, p) => s + Number(p.sellingPrice) * p.stockAvailable, 0);
 
-  const stats = [
-    { label: 'Нийт бараа', value: totalProducts, icon: Package, gradient: 'linear-gradient(135deg, #007AFF, #5AC8FA)', iconBg: 'rgba(255,255,255,0.2)' },
-    { label: 'Нөөц дутуу', value: lowStockCount, icon: AlertTriangle, gradient: 'linear-gradient(135deg, #FF3B30, #FF6B6B)', iconBg: 'rgba(255,255,255,0.2)' },
-    { label: 'Нөөцийн үнэлгээ', value: `₮${totalValue.toLocaleString()}`, icon: TrendingUp, gradient: 'linear-gradient(135deg, #34C759, #30D158)', iconBg: 'rgba(255,255,255,0.2)' },
+  const stats: { label: string; value: string | number; icon: typeof Package; gradient: StatGradient }[] = [
+    { label: 'Нийт бараа', value: totalProducts, icon: Package, gradient: 'blue' },
+    { label: 'Нөөц дутуу', value: lowStockCount, icon: AlertTriangle, gradient: 'red' },
+    { label: 'Нөөцийн үнэлгээ', value: formatMnt(totalValue), icon: TrendingUp, gradient: 'green' },
   ];
 
   return (
-    <div className="space-y-5 animate-ios-fade-in max-w-[1400px]">
+    <div className="space-y-5 animate-ios-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-[24px] font-bold text-[#1C1C1E] tracking-tight">Бүтээгдэхүүн</h1>
-          <p className="text-[13px] text-[#8E8E93] mt-0.5">Бүтээгдэхүүний бүртгэл, нөөцийн удирдлага</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/products/import"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/8 hover:bg-[#007AFF]/15 border border-[#007AFF]/15 transition-all active:scale-[0.97]">
-            <Upload className="w-4 h-4" /> Импорт
-          </Link>
-          <Link href="/products/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white shadow-lg shadow-[#007AFF]/25 transition-all active:scale-[0.97] hover:shadow-xl hover:shadow-[#007AFF]/30"
-            style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}>
-            <Plus className="w-4 h-4" /> Шинэ бараа
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Бүтээгдэхүүн"
+        subtitle="Бүтээгдэхүүний бүртгэл, нөөцийн удирдлага"
+        icon={Package}
+        actions={
+          <>
+            <Link href="/products/import"
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/8 hover:bg-[#007AFF]/15 border border-[#007AFF]/15 transition-all active:scale-[0.97]">
+              <Upload className="w-4 h-4" /> Импорт
+            </Link>
+            <Link href="/products/new"
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl text-[13px] font-semibold text-white shadow-sm shadow-[#007AFF]/25 transition-all active:scale-[0.97] hover:brightness-105"
+              style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}>
+              <Plus className="w-4 h-4" /> Шинэ бараа
+            </Link>
+          </>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <StatGrid cols={3}>
         {stats.map((s, i) => (
-          <div
-            key={s.label}
-            className={`rounded-2xl p-4 text-white relative overflow-hidden animate-ios-slide-up stagger-${i + 1}`}
-            style={{ background: s.gradient }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-medium text-white/70 uppercase tracking-wide">{s.label}</p>
-                <p className="text-[22px] font-bold mt-1">{s.value}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: s.iconBg }}>
-                <s.icon className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          </div>
+          <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} gradient={s.gradient} index={i} />
         ))}
-      </div>
+      </StatGrid>
 
       {/* Search + Category Filter */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8E8E93]" />
-          <input type="text" placeholder="Бараа хайх (нэр, баркод)..." value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#E5E5EA]/60 text-[14px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/15" />
-        </div>
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          placeholder="Бараа хайх (нэр, баркод)..."
+          className="flex-1 min-w-[200px]"
+        />
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => { setSelectedCategory(''); setPage(1); }}
-            className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
-              !selectedCategory ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/25' : 'bg-white text-[#4A4D5C] border border-[#E5E5EA]/60 hover:bg-[#F2F4F7]'
+            className={`h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all ${
+              !selectedCategory ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25' : 'bg-white text-[#4A4D5C] border border-[#E8ECF0]/70 hover:bg-[#F2F4F7]'
             }`}
           >
             Бүгд
@@ -128,22 +120,22 @@ export default function ProductsPage() {
             <button
               key={cat.id}
               onClick={() => { setSelectedCategory(cat.id); setPage(1); }}
-              className={`px-3.5 py-2 rounded-xl text-[12px] font-semibold transition-all ${
-                selectedCategory === cat.id ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/25' : 'bg-white text-[#4A4D5C] border border-[#E5E5EA]/60 hover:bg-[#F2F4F7]'
+              className={`h-9 px-3.5 rounded-xl text-[12px] font-semibold transition-all ${
+                selectedCategory === cat.id ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25' : 'bg-white text-[#4A4D5C] border border-[#E8ECF0]/70 hover:bg-[#F2F4F7]'
               }`}
             >
               {cat.name}
             </button>
           ))}
         </div>
-      </div>
+      </FilterBar>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {/* Products Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[#E5E5EA]/50 overflow-hidden">
+      <SectionCard noPadding>
         {/* Table Header */}
-        <div className="hidden md:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 bg-[#F9FAFB] border-b border-[#E5E5EA]/50 text-[11px] font-bold text-[#8E8E93] uppercase tracking-wider">
+        <div className="hidden md:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-5 py-3 bg-[#F9FAFB] border-b border-[#F0F2F5] text-[11px] font-bold text-[#8C8FA3] uppercase tracking-wider">
           <div className="w-12" />
           <div>Бараа</div>
           <div className="w-20 text-center">Ангилал</div>
@@ -167,13 +159,7 @@ export default function ProductsPage() {
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#F2F2F7] flex items-center justify-center mx-auto mb-4">
-              <Package className="w-8 h-8 text-[#AEAEB2]" />
-            </div>
-            <p className="text-[17px] font-bold text-[#1C1C1E] mb-1">Бараа олдсонгүй</p>
-            <p className="text-[13px] text-[#8E8E93]">Хайлтын үр дүн хоосон байна</p>
-          </div>
+          <EmptyState icon={Package} title="Бараа олдсонгүй" hint="Хайлтын үр дүн хоосон байна" />
         ) : (
           <div className="divide-y divide-[#F2F4F7]">
             {products.map((product: any) => {
@@ -183,11 +169,11 @@ export default function ProductsPage() {
               const margin = Number(product.sellingPrice) > 0 ? Math.round((profit / Number(product.sellingPrice)) * 100) : 0;
 
               return (
-                <div key={product.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors group">
+                <div key={product.id} className="flex items-center gap-4 px-4 lg:px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors group">
                   {/* Image */}
                   {product.imageUrl ? (
                     <img src={`${API_URL}${product.imageUrl}`} alt={product.name}
-                      className="w-12 h-12 rounded-xl object-cover shrink-0 ring-1 ring-[#E5E5EA]/50" />
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 ring-1 ring-[#E8ECF0]/70" />
                   ) : (
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isOut ? 'bg-[#FF3B30]/8' : isLow ? 'bg-[#FF9500]/8' : 'bg-[#34C759]/8'}`}>
                       <Package className={`w-5 h-5 ${isOut ? 'text-[#FF3B30]' : isLow ? 'text-[#FF9500]' : 'text-[#34C759]'}`} />
@@ -197,7 +183,7 @@ export default function ProductsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-semibold text-[#1C1C1E] truncate">{product.name}</p>
+                      <p className="text-[14px] font-semibold text-[#1A1D26] truncate">{product.name}</p>
                       {isOut && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#FF3B30]/10 text-[#FF3B30] uppercase shrink-0">
                           Дууссан
@@ -209,7 +195,7 @@ export default function ProductsPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-[#8E8E93] truncate mt-0.5">
+                    <p className="text-[12px] text-[#8C8FA3] truncate mt-0.5">
                       <span className="font-mono text-[#AEAEB2]">{product.sku}</span>
                       {product.supplier && <span> · {product.supplier.name}</span>}
                       {product.unitsPerBox > 1 && <span className="text-[#007AFF]"> · {product.unitsPerBox}ш/хайрцаг</span>}
@@ -227,7 +213,7 @@ export default function ProductsPage() {
 
                   {/* Price */}
                   <div className="text-right shrink-0 w-24">
-                    <p className="text-[14px] font-bold text-[#1C1C1E]">₮{Number(product.sellingPrice).toLocaleString()}</p>
+                    <p className="text-[14px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(product.sellingPrice)}</p>
                     <p className="text-[10px] text-[#34C759] font-semibold">
                       +{margin}% ашиг
                     </p>
@@ -235,7 +221,7 @@ export default function ProductsPage() {
 
                   {/* Stock */}
                   <div className="text-right shrink-0 w-20">
-                    <p className={`text-[14px] font-bold ${isOut ? 'text-[#FF3B30]' : isLow ? 'text-[#FF9500]' : 'text-[#1C1C1E]'}`}>
+                    <p className={`text-[14px] font-bold tabular-nums ${isOut ? 'text-[#FF3B30]' : isLow ? 'text-[#FF9500]' : 'text-[#1A1D26]'}`}>
                       {product.stockAvailable}
                     </p>
                     <p className="text-[10px] text-[#AEAEB2]">
@@ -259,17 +245,17 @@ export default function ProductsPage() {
             })}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Pagination */}
       {meta && meta.totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-[12px] text-[#8E8E93]">
+          <p className="text-[12px] text-[#8C8FA3]">
             Нийт {meta.total} бараа · {page}/{meta.totalPages} хуудас
           </p>
           <div className="flex items-center gap-1.5">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-              className="w-9 h-9 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 hover:bg-[#F2F4F7] transition-all active:scale-95">
+              className="w-9 h-9 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] disabled:opacity-30 hover:bg-[#F2F4F7] transition-all active:scale-95">
               <ChevronLeft className="w-4 h-4" />
             </button>
             {Array.from({ length: Math.min(5, meta.totalPages) }, (_, i) => {
@@ -277,14 +263,14 @@ export default function ProductsPage() {
               return (
                 <button key={p} onClick={() => setPage(p)}
                   className={`w-9 h-9 rounded-xl text-[13px] font-semibold transition-all active:scale-95 ${
-                    p === page ? 'bg-[#007AFF] text-white shadow-md shadow-[#007AFF]/25' : 'bg-white border border-[#E5E5EA]/50 text-[#4A4D5C] hover:bg-[#F2F4F7]'
+                    p === page ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25' : 'bg-white border border-[#E8ECF0]/70 text-[#4A4D5C] hover:bg-[#F2F4F7]'
                   }`}>
                   {p}
                 </button>
               );
             })}
             <button onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))} disabled={page >= meta.totalPages}
-              className="w-9 h-9 rounded-xl bg-white border border-[#E5E5EA]/50 flex items-center justify-center text-[#8E8E93] disabled:opacity-30 hover:bg-[#F2F4F7] transition-all active:scale-95">
+              className="w-9 h-9 rounded-xl bg-white border border-[#E8ECF0]/70 flex items-center justify-center text-[#8C8FA3] disabled:opacity-30 hover:bg-[#F2F4F7] transition-all active:scale-95">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -299,11 +285,11 @@ export default function ProductsPage() {
             <div className="w-14 h-14 rounded-2xl bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-[#FF3B30]" />
             </div>
-            <h3 className="text-[18px] font-bold text-[#1C1C1E] mb-1">Устгах уу?</h3>
-            <p className="text-[14px] text-[#8E8E93] mb-5">Энэ бүтээгдэхүүнийг устгахдаа итгэлтэй байна уу?</p>
+            <h3 className="text-[18px] font-bold text-[#1A1D26] mb-1">Устгах уу?</h3>
+            <p className="text-[14px] text-[#8C8FA3] mb-5">Энэ бүтээгдэхүүнийг устгахдаа итгэлтэй байна уу?</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteId(null)}
-                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8E8E93] bg-[#F2F4F7] hover:bg-[#E5E5EA] transition-all active:scale-[0.97]">
+                className="flex-1 py-3 rounded-xl text-[15px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] hover:bg-[#E5E5EA] transition-all active:scale-[0.97]">
                 Цуцлах
               </button>
               <button onClick={handleDelete} disabled={deleting}
