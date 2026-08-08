@@ -21,6 +21,7 @@ import {
   EyeOff,
   CreditCard,
   Wallet,
+  Hash,
 } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -67,6 +68,7 @@ export default function CustomerDetailPage() {
     storeName: '',
     contactName: '',
     phone: '',
+    registerNo: '',
     address: '',
     customerCategoryId: '',
     pricingTier: 'STANDARD',
@@ -154,6 +156,7 @@ export default function CustomerDetailPage() {
       storeName: customer.storeName ?? '',
       contactName: customer.contactName ?? '',
       phone: customer.phone ?? '',
+      registerNo: customer.registerNo ?? '',
       address: customer.address ?? '',
       customerCategoryId: customer.customerCategoryId ?? '',
       pricingTier: customer.pricingTier ?? 'STANDARD',
@@ -172,6 +175,7 @@ export default function CustomerDetailPage() {
         storeName: editForm.storeName,
         contactName: editForm.contactName,
         phone: editForm.phone,
+        registerNo: editForm.registerNo || undefined,
         address: editForm.address,
         customerCategoryId: editForm.customerCategoryId || undefined,
         pricingTier: editForm.pricingTier,
@@ -356,6 +360,17 @@ export default function CustomerDetailPage() {
               <div className="min-w-0">
                 <p className="text-[12px] text-[#8C8FA3]">Хаяг</p>
                 <p className="text-[14px] text-[#1A1D26] font-medium">{customer.address}</p>
+              </div>
+            </div>
+          )}
+          {customer.registerNo && (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#5856D6]/10 flex items-center justify-center shrink-0">
+                <Hash className="w-4 h-4 text-[#5856D6]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[12px] text-[#8C8FA3]">РД</p>
+                <p className="text-[14px] text-[#1A1D26] font-medium">{customer.registerNo}</p>
               </div>
             </div>
           )}
@@ -573,6 +588,18 @@ export default function CustomerDetailPage() {
                   }
                   required
                   placeholder="Утасны дугаар"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>РД</label>
+                <input
+                  type="text"
+                  value={editForm.registerNo}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, registerNo: e.target.value }))
+                  }
+                  placeholder="Регистрийн дугаар"
                   className={inputClass}
                 />
               </div>
