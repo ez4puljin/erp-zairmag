@@ -21,8 +21,9 @@ export default function SalesReportScreen() {
     try {
       const res = await api.get(`/api/reports/daily-sales?from=${from}&to=${to}`);
       const body = res.data;
-      // Handle different response shapes: array, { data: [] }, { days: [] }, { dailySales: [] }
+      // API нь { summary, daily } гэж буцаадаг. Бусад хэлбэрийг нөөцөд үлдээв.
       const items = Array.isArray(body) ? body
+        : Array.isArray(body?.daily) ? body.daily
         : Array.isArray(body?.data) ? body.data
         : Array.isArray(body?.days) ? body.days
         : Array.isArray(body?.dailySales) ? body.dailySales

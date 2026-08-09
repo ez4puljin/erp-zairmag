@@ -6,9 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
+import { router } from 'expo-router';
 import { useAuth } from '@/src/hooks/use-auth';
 import api from '@/src/lib/api';
 import type { Order, PaginatedResponse } from '@/src/types';
@@ -17,9 +19,10 @@ interface TruckLoad {
   id: string;
   loadNumber: number;
   status: string;
-  driverName?: string;
-  totalQuantity?: number;
-  itemCount?: number;
+  driver?: { firstName?: string; lastName?: string };
+  items?: { loadedQty?: number; soldQty?: number }[];
+  sales?: { totalAmount?: number | string }[];
+  _count?: { sales?: number };
 }
 
 interface DashboardStats {
@@ -27,7 +30,7 @@ interface DashboardStats {
   totalProducts: number;
   totalCustomers: number;
   todaySales: number;
-  todayTruckLoads: TruckLoad[];
+  activeLoads: TruckLoad[];
   recentOrders: Order[];
 }
 
@@ -38,7 +41,7 @@ export default function AdminDashboardScreen() {
     totalProducts: 0,
     totalCustomers: 0,
     todaySales: 0,
-    todayTruckLoads: [],
+    activeLoads: [],
     recentOrders: [],
   });
   const [loading, setLoading] = useState(true);
@@ -48,28 +51,48 @@ export default function AdminDashboardScreen() {
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      const [ordersRes, productsRes, customersRes, truckLoadsRes, recentRes] =
+      // Замд яваа ачилтыг огноогоор биш ТӨЛӨВӨӨР шүүнэ — жолооч өчигдөр
+      // гарсан ч эргэж ороогүй бол хяналтын самбарт харагдах ёстой.
+      const [ordersRes, productsRes, customersRes, loadingRes, dispatchedRes, completionRes, recentRes] =
         await Promise.all([
           api.get<PaginatedResponse<Order>>('/api/orders?limit=1'),
           api.get<PaginatedResponse<unknown>>('/api/products?limit=1'),
           api.get<PaginatedResponse<unknown>>('/api/customers?limit=1'),
-          api.get<PaginatedResponse<TruckLoad>>(
-            `/api/truck-loads?dateFrom=${today}&dateTo=${today}&limit=100`,
-          ),
+          api.get<PaginatedResponse<TruckLoad>>('/api/truck-loads?status=LOADING&limit=50'),
+          api.get<PaginatedResponse<TruckLoad>>('/api/truck-loads?status=DISPATCHED&limit=50'),
+          api.get<PaginatedResponse<TruckLoad>>('/api/truck-loads?status=COMPLETION_REQUESTED&limit=50'),
           api.get<PaginatedResponse<Order>>('/api/orders?limit=5'),
         ]);
 
+      const activeLoads = [
+        ...(dispatchedRes.data.data ?? []),
+        ...(completionRes.data.data ?? []),
+        ...(loadingRes.data.data ?? []),
+      ];
+
+      // Өнөөдрийн борлуулалт — түгээлтийн борлуулалтаас. Урьд нь зөвхөн
+      // сүүлийн 5 захиалгаас тооцдог тул бараг үргэлж 0 гардаг байв.
+      let todaySales = 0;
+      try {
+        const rep = await api.get(`/api/reports/daily-sales?from=${today}&to=${today}`);
+        const body: any = rep.data;
+        // API нь { summary: { totalRevenue }, daily: [...] } гэж буцаадаг.
+        todaySales = Number(body?.summary?.totalRevenue ?? 0)
+          || (Array.isArray(body?.daily)
+            ? body.daily.reduce((s: number, r: any) => s + Number(r.revenue ?? 0), 0)
+            : 0);
+      } catch {
+        // тайлан авчирч чадаагүй ч самбар ажиллана
+      }
+
       const recentOrders = recentRes.data.data;
-      const todaySales = recentOrders
-        .filter((o) => o.status === 'DELIVERED')
-        .reduce((sum, o) => sum + Number(o.totalAmount), 0);
 
       setStats({
         totalOrders: ordersRes.data.meta.total,
         totalProducts: productsRes.data.meta.total,
         totalCustomers: customersRes.data.meta.total,
         todaySales,
-        todayTruckLoads: truckLoadsRes.data.data,
+        activeLoads,
         recentOrders,
       });
     } catch {
@@ -186,41 +209,75 @@ export default function AdminDashboardScreen() {
         </View>
       </View>
 
-      {/* Today's Truck Loads */}
+      {/* Замд яваа ачилт */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ӨНӨӨДРИЙН АЧИЛТ</Text>
-        {stats.todayTruckLoads.length === 0 ? (
-          <Text style={styles.emptyText}>Өнөөдөр ачилт байхгүй</Text>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>ЗАМД ЯВАА АЧИЛТ</Text>
+          {stats.activeLoads.length > 0 ? (
+            <Text style={styles.sectionCount}>{stats.activeLoads.length}</Text>
+          ) : null}
+        </View>
+
+        {stats.activeLoads.length === 0 ? (
+          <Text style={styles.emptyText}>Замд яваа ачилт байхгүй</Text>
         ) : (
-          stats.todayTruckLoads.map((load) => (
-            <View key={load.id} style={styles.truckLoadRow}>
-              <View style={styles.truckLoadInfo}>
-                <Text style={styles.truckLoadNumber}>
-                  #{load.loadNumber}
-                </Text>
-                {load.driverName && (
-                  <Text style={styles.truckLoadDriver}>
-                    {load.driverName}
-                  </Text>
-                )}
-              </View>
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: statusColor(load.status) + '20' },
-                ]}
+          stats.activeLoads.map((load) => {
+            const driverName = load.driver
+              ? `${load.driver.lastName ?? ''} ${load.driver.firstName ?? ''}`.trim()
+              : '—';
+            const loaded = (load.items ?? []).reduce((s, i) => s + (i.loadedQty ?? 0), 0);
+            const sold = (load.items ?? []).reduce((s, i) => s + (i.soldQty ?? 0), 0);
+            const revenue = (load.sales ?? []).reduce((s, x) => s + Number(x.totalAmount ?? 0), 0);
+            const salesCount = load._count?.sales ?? load.sales?.length ?? 0;
+            const remaining = loaded - sold;
+
+            return (
+              <TouchableOpacity
+                key={load.id}
+                style={styles.loadCard}
+                activeOpacity={0.6}
+                onPress={() => router.push(`/(admin)/features/truck-loads/${load.id}` as any)}
               >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: statusColor(load.status) },
-                  ]}
-                >
-                  {truckStatusLabel(load.status)}
-                </Text>
-              </View>
-            </View>
-          ))
+                <View style={styles.loadTop}>
+                  <View style={styles.loadDriver}>
+                    <View style={styles.loadAvatar}>
+                      <Ionicons name="person" size={13} color="#5856D6" />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.loadDriverName} numberOfLines={1}>{driverName}</Text>
+                      <Text style={styles.loadNo}>Ачилт #{load.loadNumber}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: statusColor(load.status) + '20' }]}>
+                    <Text style={[styles.badgeText, { color: statusColor(load.status) }]}>
+                      {truckStatusLabel(load.status)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.loadStats}>
+                  <View style={styles.loadStat}>
+                    <Text style={styles.loadStatValue}>{salesCount}</Text>
+                    <Text style={styles.loadStatLabel}>БОР-Т</Text>
+                  </View>
+                  <View style={[styles.loadStat, styles.loadDivider]}>
+                    <Text style={[styles.loadStatValue, { color: '#34C759' }]}>{sold}</Text>
+                    <Text style={styles.loadStatLabel}>ЗАРСАН</Text>
+                  </View>
+                  <View style={[styles.loadStat, styles.loadDivider]}>
+                    <Text style={[styles.loadStatValue, { color: '#FF9500' }]}>{remaining}</Text>
+                    <Text style={styles.loadStatLabel}>ҮЛДЭГДЭЛ</Text>
+                  </View>
+                  <View style={[styles.loadStat, styles.loadDivider, { flex: 1.4 }]}>
+                    <Text style={[styles.loadStatValue, { color: '#007AFF' }]} numberOfLines={1}>
+                      {revenue.toLocaleString()}₮
+                    </Text>
+                    <Text style={styles.loadStatLabel}>ОРЛОГО</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </View>
 
@@ -269,6 +326,20 @@ export default function AdminDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  sectionCount: { fontSize: 12, fontWeight: '700', color: '#5856D6', backgroundColor: '#5856D615', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
+  loadCard: { backgroundColor: '#F7F8FA', borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#EDEFF3' },
+  loadTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  loadDriver: { flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 },
+  loadAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#5856D615', justifyContent: 'center', alignItems: 'center' },
+  loadDriverName: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  loadNo: { fontSize: 11, color: '#8E8E93', marginTop: 1 },
+  loadStats: { flexDirection: 'row', alignItems: 'center', marginTop: 11, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E2E5EA' },
+  loadStat: { flex: 1, alignItems: 'center' },
+  loadDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#E2E5EA' },
+  loadStatValue: { fontSize: 15, fontWeight: '800', color: '#1C1C1E', fontVariant: ['tabular-nums'] },
+  loadStatLabel: { fontSize: 9, fontWeight: '700', color: '#8E8E93', marginTop: 2, letterSpacing: 0.3 },
+
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
