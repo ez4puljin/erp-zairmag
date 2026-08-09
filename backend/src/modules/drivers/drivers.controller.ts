@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -80,5 +81,17 @@ export class DriversController {
   @Roles(Role.ADMIN)
   resetPassword(@Param('id') id: string, @Body() body: { password: string }) {
     return this.driversService.resetPassword(id, body.password);
+  }
+
+  @Get(':id/usage')
+  @Roles(Role.ADMIN)
+  getUsage(@Param('id', ParseUUIDPipe) id: string) {
+    return this.driversService.getDriverUsage(id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN)
+  removeDriver(@Param('id', ParseUUIDPipe) id: string) {
+    return this.driversService.removeDriver(id);
   }
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import {
   Truck, Phone, User, RefreshCw, Plus, X,
-  Edit3, Key, Power, Mail, Shield,
+  Edit3, Key, Power, Mail, Shield, Trash2, Package,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { FilterBar, SearchField } from '@/components/shared/filter-bar';
@@ -153,6 +153,45 @@ export default function DriversPage() {
     }
   };
 
+  /** Ачилт эсвэл борлуулалт хийсэн жолоочийг устгах боломжгүй. */
+  const hasActivity = (driver: any) =>
+    (driver.salesCount ?? 0) > 0 || (driver.truckLoadCount ?? 0) > 0;
+
+  const handleDelete = async (driver: any) => {
+    const name = `${driver.firstName} ${driver.lastName}`;
+
+    if (hasActivity(driver)) {
+      const parts: string[] = [];
+      if (driver.salesCount > 0) parts.push(`${driver.salesCount} борлуулалт`);
+      if (driver.truckLoadCount > 0) parts.push(`${driver.truckLoadCount} ачилт`);
+
+      const deactivate = confirm(
+        `${name} жолоочийг устгах боломжгүй.\n\n` +
+          `${parts.join(', ')} хийсэн байна. Устгавал тэдгээр баримтын ` +
+          `холбоос тасарч, тайлан буруу болно.\n\n` +
+          `Оронд нь идэвхгүй болгох уу? Түүхэн баримт хэвээр хадгалагдана.`,
+      );
+      if (deactivate && driver.isActive !== false) {
+        try {
+          await api.post(`/api/drivers/${driver.id}/toggle-active`);
+          fetchDrivers();
+        } catch (e: any) {
+          alert(e.response?.data?.message ?? 'Алдаа гарлаа');
+        }
+      }
+      return;
+    }
+
+    if (!confirm(`${name} жолоочийг бүрмөсөн устгах уу?\n\nЭнэ үйлдлийг буцаах боломжгүй.`)) return;
+
+    try {
+      await api.delete(`/api/drivers/${driver.id}`);
+      fetchDrivers();
+    } catch (e: any) {
+      alert(e.response?.data?.message ?? 'Алдаа гарлаа');
+    }
+  };
+
   const closeModal = () => {
     setShowModal(null);
     setSelectedDriver(null);
@@ -239,6 +278,12 @@ export default function DriversPage() {
                         <Mail className="w-3 h-3" /> {driver.email}
                       </span>
                     )}
+                    {hasActivity(driver) && (
+                      <span className="flex items-center gap-1 text-[12px] text-[#8C8FA3]">
+                        <Package className="w-3 h-3" />
+                        {driver.salesCount ?? 0} борлуулалт · {driver.truckLoadCount ?? 0} ачилт
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -266,6 +311,21 @@ export default function DriversPage() {
                     title={driver.isActive !== false ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}
                   >
                     <Power className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(driver)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      hasActivity(driver)
+                        ? 'text-[#D0D2DA] hover:bg-[#F2F4F7] cursor-help'
+                        : 'text-[#8C8FA3] hover:bg-[#FF3B30]/10 hover:text-[#FF3B30]'
+                    }`}
+                    title={
+                      hasActivity(driver)
+                        ? 'Борлуулалт/ачилт хийсэн тул устгах боломжгүй'
+                        : 'Устгах'
+                    }
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

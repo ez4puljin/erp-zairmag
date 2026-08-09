@@ -7,7 +7,7 @@ export class DriversService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.user.findMany({
+    const drivers = await this.prisma.user.findMany({
       where: { role: Role.DRIVER },
       select: {
         id: true,
@@ -16,6 +16,7 @@ export class DriversService {
         phone: true,
         email: true,
         isActive: true,
+        _count: { select: { truckLoads: true } },
         deliveryAssignments: {
           where: { completedAt: null },
           select: { id: true, orderId: true, scheduledDate: true },
@@ -23,6 +24,25 @@ export class DriversService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Борлуулалт нь ачилтаар дамжин жолоочтой холбогддог. Жолооч бүрт
+    // тусад нь асуухын оронд нэг удаа уншаад санах ойд нэгтгэнэ.
+    const loads = await this.prisma.truckLoad.findMany({
+      select: { driverId: true, _count: { select: { sales: true } } },
+    });
+    const salesByDriver = new Map<string, number>();
+    for (const load of loads) {
+      salesByDriver.set(
+        load.driverId,
+        (salesByDriver.get(load.driverId) ?? 0) + load._count.sales,
+      );
+    }
+
+    return drivers.map(({ _count, ...d }) => ({
+      ...d,
+      truckLoadCount: _count.truckLoads,
+      salesCount: salesByDriver.get(d.id) ?? 0,
+    }));
   }
 
   async findOne(id: string) {
@@ -203,6 +223,62 @@ export class DriversService {
       data: { isActive: !driver.isActive },
       select: { id: true, isActive: true, firstName: true, lastName: true },
     });
+  }
+
+  /**
+   * Жолоочийн бүртгэлийг устгах боломжтой эсэхийг шалгана.
+   *
+   * Ачилт эсвэл борлуулалт хийсэн жолоочийг устгавал тэдгээр баримтын
+   * холбоос тасарч, тайлан буруу болно. Тиймээс устгахын оронд идэвхгүй
+   * болгоно.
+   */
+  async getDriverUsage(id: string) {
+    const driver = await this.prisma.user.findUnique({ where: { id } });
+    if (!driver || driver.role !== Role.DRIVER) {
+      throw new NotFoundException('Жолооч олдсонгүй.');
+    }
+
+    const truckLoadCount = await this.prisma.truckLoad.count({
+      where: { driverId: id },
+    });
+    const salesCount = await this.prisma.truckSale.count({
+      where: { truckLoad: { driverId: id } },
+    });
+
+    return {
+      truckLoadCount,
+      salesCount,
+      canDelete: truckLoadCount === 0 && salesCount === 0,
+    };
+  }
+
+  async removeDriver(id: string) {
+    const usage = await this.getDriverUsage(id);
+
+    if (!usage.canDelete) {
+      const parts: string[] = [];
+      if (usage.salesCount > 0) parts.push(`${usage.salesCount} борлуулалт`);
+      if (usage.truckLoadCount > 0) parts.push(`${usage.truckLoadCount} ачилт`);
+      throw new BadRequestException(
+        `Энэ жолооч ${parts.join(', ')} хийсэн тул устгах боломжгүй. ` +
+          'Оронд нь идэвхгүй болгоно уу — түүхэн баримт хэвээр хадгалагдана.',
+      );
+    }
+
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (err: any) {
+      // Өөр хүснэгтээс хамааралтай байвал Prisma P2003 буцаана.
+      if (err?.code === 'P2003') {
+        throw new BadRequestException(
+          'Энэ жолооч системд бүртгэлтэй үйлдэлтэй тул устгах боломжгүй. ' +
+            'Оронд нь идэвхгүй болгоно уу.',
+        );
+      }
+      throw err;
+    }
+
+    return { message: 'Жолооч устгагдлаа.' };
   }
 
   async resetPassword(id: string, newPassword: string) {
