@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, StatusBar }
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AdminListScreen, ListCard, FilterChips } from '@/src/components/admin';
+import { AdminListScreen, ListCard, FilterChips, ListSummary } from '@/src/components/admin';
 import { getImageUrl } from '@/src/lib/image-url';
 import { formatCurrency } from '@/src/lib/format';
 import api from '@/src/lib/api';
@@ -35,6 +35,22 @@ export default function ProductsListScreen() {
         filters={filters}
         filterKey="categoryId"
         defaultFilter={categoryId}
+        headerSummary={(items: any[]) => {
+          const lowStock = items.filter(p => (p.stockAvailable ?? 0) <= (p.reorderLevel ?? 0));
+          const stockValue = items.reduce(
+            (s, p) => s + Number(p.stockAvailable ?? 0) * Number(p.sellingPrice ?? 0),
+            0,
+          );
+          return (
+            <ListSummary
+              stats={[
+                { label: 'Бараа', value: items.length },
+                { label: 'Дуусч буй', value: lowStock.length, color: lowStock.length > 0 ? '#FF3B30' : undefined },
+                { label: 'Нөөцийн дүн', value: formatCurrency(stockValue) },
+              ]}
+            />
+          );
+        }}
         renderItem={(p: any) => {
           const low = (p.stockAvailable ?? 0) <= (p.reorderLevel ?? 0);
           const imgUrl = p.imageUrl ? getImageUrl(p.imageUrl) : null;

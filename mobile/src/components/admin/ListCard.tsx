@@ -5,26 +5,47 @@ import { Ionicons } from '@expo/vector-icons';
 
 export interface Badge { text: string; color: string; }
 
+export interface MetaItem {
+  /** Жижиг тэмдэг, ж нь "12 борлуулалт". */
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  color?: string;
+}
+
 interface Props {
   title: string;
   subtitle?: string | null;
   rightText?: string | null;
   rightSubtext?: string | null;
   badge?: Badge | null;
+  /** Гарчгийн доор гарах жижиг тоон мэдээлэл. Жагсаалт хоосон харагдахаас сэргийлнэ. */
+  meta?: (MetaItem | null | false | undefined)[];
+  /** Зүүн ирмэг дэх өнгөт зурвас — төлөв ялгахад. */
+  accentColor?: string | null;
   icon?: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
   imageUrl?: string | null;
   onPress?: () => void;
   onLongPress?: () => void;
   chevron?: boolean;
+  /** Идэвхгүй бичлэгийг бүдэг харуулна. */
+  dimmed?: boolean;
 }
 
 export function ListCard({
-  title, subtitle, rightText, rightSubtext, badge, icon, iconColor = '#007AFF', imageUrl, onPress, onLongPress, chevron = true,
+  title, subtitle, rightText, rightSubtext, badge, meta, accentColor, icon, iconColor = '#007AFF',
+  imageUrl, onPress, onLongPress, chevron = true, dimmed = false,
 }: Props) {
+  const metaItems = (meta ?? []).filter(Boolean) as MetaItem[];
   const Container: any = onPress || onLongPress ? TouchableOpacity : View;
   return (
-    <Container onPress={onPress} onLongPress={onLongPress} activeOpacity={0.7} style={s.card}>
+    <Container
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={0.6}
+      style={[s.card, dimmed && s.dimmed]}
+    >
+      {accentColor ? <View style={[s.accent, { backgroundColor: accentColor }]} /> : null}
       <View style={s.row}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={s.image} contentFit="cover" cachePolicy="disk" />
@@ -44,6 +65,16 @@ export function ListCard({
             ) : null}
           </View>
           {subtitle ? <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+          {metaItems.length > 0 ? (
+            <View style={s.metaRow}>
+              {metaItems.map((m, i) => (
+                <View key={i} style={s.metaChip}>
+                  {m.icon ? <Ionicons name={m.icon} size={11} color={m.color ?? '#8E8E93'} /> : null}
+                  <Text style={[s.metaText, m.color ? { color: m.color } : null]}>{m.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         {rightText ? (
@@ -62,8 +93,13 @@ export function ListCard({
 }
 
 const s = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E8ECF0' },
+  card: { backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E8ECF0', overflow: 'hidden' },
+  dimmed: { opacity: 0.55 },
+  accent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#F2F4F7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  metaText: { fontSize: 11, fontWeight: '600', color: '#6B7280' },
   image: { width: 44, height: 44, borderRadius: 10 },
   iconWrap: { width: 42, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
