@@ -107,18 +107,16 @@ cd ..
 ороогүй. **Заавал backup хийнэ** — дэлгэрэнгүйг
 `mobile\credentials\README.md`-д бичсэн.
 
-### EAS үүлэн build (одоогоор ажиллаж байгаа арга)
+### Локал build — WSL2 дотор (үндсэн арга)
 
 ```bat
-cd mobile
-npx eas build --platform android --profile production
+build-apk-wsl.bat
 ```
 
-~15 минутын дараа татах холбоос гарна.
+Гаралт: төслийн үндсэн хавтаст `zairmag-erp.apk` (~82 MB, 4 архитектур).
+Хугацаа ~26 минут.
 
-### Локал build — Windows дээр одоогоор БОЛОМЖГҮЙ
-
-`build-apk.bat` скрипт бэлэн боловч Windows дээр дуустал ажиллахгүй:
+**Яагаад Linux дотор вэ?** Windows дээр build дуустал ажиллахгүй:
 
 ```
 ninja: error: Filename longer than 260 characters
@@ -126,22 +124,57 @@ ninja: error: Filename longer than 260 characters
 
 React Native-ийн шинэ архитектур C++ кодыг codegen-ээр үүсгэдэг ба CMake нь
 объект файлын нэрэн дотор эх файлын бүтэн замыг давтдаг. Үр дүнгийн зам 390
-тэмдэгт болж, ninja-гийн 260 хязгаараас хэтэрдэг.
+тэмдэгт болж, ninja-гийн 260 хязгаараас хэтэрдэг. Туршиж үзсэн бүх арга
+бүтээгүй: `LongPathsEnabled` (аль хэдийн асаалттай, ninja мөрддөггүй),
+`CMAKE_OBJECT_PATH_MAX` (RN-ийн Gradle plugin дарж бичдэг), төслийг богино
+зам руу зөөх (хамгийн богино зам дээр ч 304 тэмдэгт). Linux-д ийм хязгаар
+байхгүй.
 
-Туршиж үзсэн, тус болоогүй аргууд:
+#### Нэг удаагийн тохиргоо (шинэ компьютерт)
 
-| Арга | Үр дүн |
-|---|---|
-| `LongPathsEnabled` бүртгэл | Аль хэдийн асаалттай — ninja үүнийг мөрддөггүй |
-| `CMAKE_OBJECT_PATH_MAX` | RN-ийн Gradle plugin CMake аргументыг дарж бичдэг |
-| Төслийг богино зам руу зөөх | Хамгийн богино зам дээр ч 304 тэмдэгт — хангалтгүй |
+1. **BIOS** дээр процессорын виртуалчлал асаах:
+   `Advanced → CPU Configuration → Intel Virtualization Technology = Enabled`
+2. Администратор PowerShell дээр — дараа нь компьютер дахин асаана:
 
-Шийдэл нь Linux орчинд build хийх (замын хязгааргүй). WSL2 суулгахад
-процессорын виртуалчлалыг BIOS дээр асаах шаардлагатай.
+```bash
+wsl --install --no-distribution
+```
 
-Локал build хийхээр бол `build-apk.bat` нь JDK 21 (Android Studio доторх
-`jbr`) болон `%LOCALAPPDATA%\Android\Sdk`-г ашиглана. Gradle-ийн кэшийг
-`D:\gradle-home` руу заасан — C: диск дүүрэхээс сэргийлэв.
+3. Ubuntu-г **D: диск рүү** суулгах (C: дүүрэхээс сэргийлнэ):
+
+```bash
+wsl --install Ubuntu --location D:\wsl\Ubuntu --no-launch
+```
+
+4. Орчныг бэлдэх (JDK 17, Node 22, Android SDK ~2 GB):
+
+```bash
+wsl -d Ubuntu -u root -- bash "/mnt/c/.../scripts/wsl-setup.sh"
+```
+
+`--no-launch` тугийг санаатай ашигласан — Ubuntu-гийн анхны нэвтрэлтийн
+хэрэглэгч үүсгэх алхам гарахгүй. Бүх зүйл `root`-оор ажиллана.
+
+#### Тайлбар
+
+`scripts/wsl-build-apk.sh` нь эх кодыг `/mnt/c`-ээс Linux файл систем рүү
+хуулж (9p файл систем удаан тул), npm install → expo prebuild → Gradle
+хийгээд APK-г буцаан Windows тал руу гаргана. `mobile/credentials/`
+хамт хуулагдах тул гарын үсэг зөв зурагдана.
+
+### EAS үүлэн build (нөөц арга)
+
+```bat
+cd mobile
+npx eas build --platform android --profile production
+```
+
+~15 минутын дараа татах холбоос гарна. Үнэгүй багцын хязгаартай.
+
+### Windows дээрх build-apk.bat
+
+`build-apk.bat` нь дээрх замын хязгаарт тулдаг тул **дуустал ажиллахгүй**.
+Лавлагаанд үлдээсэн. Gradle-ийн кэшийг `D:\gradle-home` руу заасан.
 
 ## Алхам 7: Firewall port нээх
 
