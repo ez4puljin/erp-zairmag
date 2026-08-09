@@ -11,7 +11,12 @@ export class TruckSalesController {
   @Post()
   @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.DRIVER)
   create(@Body() dto: CreateTruckSaleDto, @Req() req: any) {
-    return this.service.createSale(dto, req.user.id);
+    // Огноог нөхөж бичих эрхийг зөвхөн админ/менежерт өгнө —
+    // эс бөгөөс жолооч борлуулалтаа өөр өдөр рүү шилжүүлэх боломжтой болно.
+    const canBackdate =
+      req.user.role === Role.ADMIN || req.user.role === Role.WAREHOUSE_MANAGER;
+    const payload = canBackdate ? dto : { ...dto, saleDate: undefined };
+    return this.service.createSale(payload, req.user.id);
   }
 
   @Get('truck-load/:truckLoadId')

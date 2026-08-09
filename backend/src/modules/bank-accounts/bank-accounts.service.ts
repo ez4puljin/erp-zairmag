@@ -67,7 +67,7 @@ export class BankAccountsService {
     if (from) dateFilter.gte = new Date(from);
     if (to) dateFilter.lte = new Date(to + 'T23:59:59.999Z');
 
-    const [payments, supplierPayments] = await Promise.all([
+    const [payments, supplierPayments, expenses] = await Promise.all([
       this.prisma.payment.findMany({
         where: {
           bankAccountId: id,
@@ -88,18 +88,40 @@ export class BankAccountsService {
         },
         orderBy: { date: 'desc' },
       }),
+      this.prisma.expense.findMany({
+        where: {
+          bankAccountId: id,
+          ...(from || to ? { date: dateFilter } : {}),
+        },
+        include: {
+          category: { select: { id: true, name: true } },
+        },
+        orderBy: { date: 'desc' },
+      }),
     ]);
 
-    const inflowTotal = payments.reduce((s, p) => s + Number(p.amount), 0);
-    const outflowTotal = supplierPayments.reduce((s, p) => s + Number(p.amount), 0);
+    // Харилцагчийн төлбөр хоёр чиглэлтэй: RECEIPT = орлого, PAYOUT = зарлага.
+    const inflowTotal = payments
+      .filter((p) => p.type !== 'PAYOUT')
+      .reduce((s, p) => s + Number(p.amount), 0);
+    const customerPayout = payments
+      .filter((p) => p.type === 'PAYOUT')
+      .reduce((s, p) => s + Number(p.amount), 0);
+    const supplierOutflow = supplierPayments.reduce((s, p) => s + Number(p.amount), 0);
+    const expenseOutflow = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const outflowTotal = supplierOutflow + expenseOutflow + customerPayout;
 
     return {
       account: acc,
       payments,
       supplierPayments,
+      expenses,
       summary: {
         inflowTotal,
         outflowTotal,
+        supplierOutflow,
+        expenseOutflow,
+        customerPayout,
         net: inflowTotal - outflowTotal,
       },
     };
@@ -118,10 +140,21 @@ export class BankAccountsService {
 
     const report = await Promise.all(
       accounts.map(async (acc) => {
-        const [inflow, outflow] = await Promise.all([
+        const [inflow, payoutOut, supplierOut, expenseOut] = await Promise.all([
           this.prisma.payment.aggregate({
             where: {
               bankAccountId: acc.id,
+              type: 'RECEIPT',
+              ...(from || to ? { createdAt: dateFilter } : {}),
+            },
+            _sum: { amount: true },
+            _count: true,
+          }),
+          // Харилцагчид олгосон мөнгө — данснаас гарах урсгал.
+          this.prisma.payment.aggregate({
+            where: {
+              bankAccountId: acc.id,
+              type: 'PAYOUT',
               ...(from || to ? { createdAt: dateFilter } : {}),
             },
             _sum: { amount: true },
@@ -135,15 +168,33 @@ export class BankAccountsService {
             _sum: { amount: true },
             _count: true,
           }),
+          // Зардал ч мөн данснаас гарах урсгал.
+          this.prisma.expense.aggregate({
+            where: {
+              bankAccountId: acc.id,
+              ...(from || to ? { date: dateFilter } : {}),
+            },
+            _sum: { amount: true },
+            _count: true,
+          }),
         ]);
 
         const inflowAmount = Number(inflow._sum.amount ?? 0);
-        const outflowAmount = Number(outflow._sum.amount ?? 0);
+        const payoutAmount = Number(payoutOut._sum.amount ?? 0);
+        const supplierAmount = Number(supplierOut._sum.amount ?? 0);
+        const expenseAmount = Number(expenseOut._sum.amount ?? 0);
+        const outflowAmount = supplierAmount + expenseAmount + payoutAmount;
 
         return {
           account: acc,
           inflow: { count: inflow._count, amount: inflowAmount },
-          outflow: { count: outflow._count, amount: outflowAmount },
+          outflow: {
+            count: supplierOut._count + expenseOut._count + payoutOut._count,
+            amount: outflowAmount,
+            supplier: { count: supplierOut._count, amount: supplierAmount },
+            expense: { count: expenseOut._count, amount: expenseAmount },
+            customerPayout: { count: payoutOut._count, amount: payoutAmount },
+          },
           net: inflowAmount - outflowAmount,
         };
       }),

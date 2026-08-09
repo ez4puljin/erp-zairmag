@@ -3,26 +3,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { format } from 'date-fns';
-import { Plus, Receipt, Trash2, X, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { Plus, Receipt, Trash2, Pencil, X, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
-import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
+import { FilterBar, DateField, SelectField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
-import { EXPENSE_PAYMENT_METHODS } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 
-const methodLabels: Record<string, string> = {
-  CASH: 'Бэлэн',
-  BANK_TRANSFER: 'Шилжүүлэг',
-  CARD: 'Карт',
-};
-
 export default function ExpensesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+  /** Засаж буй зардал. null бол шинээр бүртгэх горим. */
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>(null);
   const [page, setPage] = useState(1);
@@ -30,6 +29,10 @@ export default function ExpensesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [categories, setCategories] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  // Шүүлтүүр: зардлын ангилал ба зарлага гарсан данс
+  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterAccountId, setFilterAccountId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -37,7 +40,7 @@ export default function ExpensesPage() {
     amount: '',
     description: '',
     date: format(new Date(), 'yyyy-MM-dd'),
-    paymentMethod: 'CASH',
+    bankAccountId: '',
     referenceNo: '',
     notes: '',
   });
@@ -49,6 +52,8 @@ export default function ExpensesPage() {
     params.set('limit', '20');
     if (dateFrom) params.set('dateFrom', dateFrom);
     if (dateTo) params.set('dateTo', dateTo);
+    if (filterCategoryId) params.set('categoryId', filterCategoryId);
+    if (filterAccountId) params.set('bankAccountId', filterAccountId);
     api
       .get(`/api/expenses?${params.toString()}`)
       .then((res) => {
@@ -60,18 +65,28 @@ export default function ExpensesPage() {
         console.error(err);
       })
       .finally(() => setLoading(false));
-  }, [page, dateFrom, dateTo]);
+  }, [page, dateFrom, dateTo, filterCategoryId, filterAccountId]);
 
   useEffect(() => {
     api
       .get('/api/expense-categories')
       .then((res) => setCategories(res.data?.data ?? res.data ?? []))
       .catch(console.error);
+    api
+      .get('/api/bank-accounts')
+      .then((res) => setAccounts(res.data?.data ?? res.data ?? []))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
+
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.name }));
+  const accountOptions = accounts.map((a: any) => ({
+    value: a.id,
+    label: `${a.bankName} · ${a.accountNumber}`,
+  }));
 
   const totalAmount = meta?.totalAmount ?? expenses.reduce((s: number, e: any) => s + Number(e.amount ?? 0), 0);
   const totalCount = meta?.total ?? expenses.length;
@@ -81,22 +96,28 @@ export default function ExpensesPage() {
     if (!form.categoryId || !form.amount) return;
     setSubmitting(true);
     try {
-      await api.post('/api/expenses', {
+      const payload = {
         categoryId: form.categoryId,
         amount: Number(form.amount),
         description: form.description,
         date: form.date,
-        paymentMethod: form.paymentMethod || undefined,
+        bankAccountId: form.bankAccountId || undefined,
         referenceNo: form.referenceNo || undefined,
         notes: form.notes || undefined,
-      });
+      };
+      if (editingId) {
+        await api.patch(`/api/expenses/${editingId}`, payload);
+      } else {
+        await api.post('/api/expenses', payload);
+      }
       setShowModal(false);
+      setEditingId(null);
       setForm({
         categoryId: '',
         amount: '',
         description: '',
         date: format(new Date(), 'yyyy-MM-dd'),
-        paymentMethod: 'CASH',
+        bankAccountId: '',
         referenceNo: '',
         notes: '',
       });
@@ -107,6 +128,43 @@ export default function ExpensesPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /** Мөрийг засах горимд нээнэ. */
+  const openEdit = (exp: any) => {
+    setEditingId(exp.id);
+    setForm({
+      categoryId: exp.categoryId ?? exp.category?.id ?? '',
+      amount: String(Number(exp.amount ?? 0)),
+      description: exp.description ?? '',
+      date: exp.date
+        ? format(new Date(exp.date), 'yyyy-MM-dd')
+        : format(new Date(), 'yyyy-MM-dd'),
+      bankAccountId: exp.bankAccountId ?? exp.bankAccount?.id ?? '',
+      referenceNo: exp.referenceNo ?? '',
+      notes: exp.notes ?? '',
+    });
+    setShowModal(true);
+  };
+
+  /** Шинээр бүртгэх горимд цэвэр формоор нээнэ. */
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({
+      categoryId: '',
+      amount: '',
+      description: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
+      bankAccountId: '',
+      referenceNo: '',
+      notes: '',
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingId(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -129,7 +187,7 @@ export default function ExpensesPage() {
         iconColor="#FF3B30"
         actions={
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreate}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all active:scale-[0.97]"
             style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
           >
@@ -156,12 +214,38 @@ export default function ExpensesPage() {
             setPage(1);
           }}
         />
-        {(dateFrom || dateTo) && (
+        <SelectField
+          label="Зардлын ангилал"
+          value={filterCategoryId}
+          onChange={(v) => {
+            setFilterCategoryId(v);
+            setPage(1);
+          }}
+          options={[{ value: '', label: 'Бүх ангилал' }, ...categoryOptions]}
+          placeholder="Бүх ангилал"
+        />
+        <SelectField
+          label="Зарлага гарсан данс"
+          value={filterAccountId}
+          onChange={(v) => {
+            setFilterAccountId(v);
+            setPage(1);
+          }}
+          options={[
+            { value: '', label: 'Бүх данс' },
+            ...accountOptions,
+            { value: 'none', label: 'Данс сонгоогүй' },
+          ]}
+          placeholder="Бүх данс"
+        />
+        {(dateFrom || dateTo || filterCategoryId || filterAccountId) && (
           <ActionButton
             variant="ghost"
             onClick={() => {
               setDateFrom('');
               setDateTo('');
+              setFilterCategoryId('');
+              setFilterAccountId('');
               setPage(1);
             }}
           >
@@ -204,13 +288,15 @@ export default function ExpensesPage() {
                     {exp.category?.name ?? exp.description ?? '—'}
                   </p>
                   <p className="text-[13px] text-[#8C8FA3] truncate">
-                    {exp.description && exp.category?.name ? exp.description : ''}
-                    {exp.description && exp.category?.name && ' · '}
-                    {exp.date
-                      ? format(new Date(exp.date), 'yyyy/MM/dd')
-                      : exp.createdAt
-                        ? format(new Date(exp.createdAt), 'yyyy/MM/dd')
-                        : '—'}
+                    {[
+                      exp.date
+                        ? format(new Date(exp.date), 'yyyy/MM/dd')
+                        : exp.createdAt
+                          ? format(new Date(exp.createdAt), 'yyyy/MM/dd')
+                          : null,
+                      exp.description,
+                      exp.referenceNo,
+                    ].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 <div className="text-right shrink-0 flex items-center gap-2">
@@ -219,15 +305,29 @@ export default function ExpensesPage() {
                       -{formatMnt(exp.amount)}
                     </p>
                     <span className="text-[11px] font-medium text-[#8C8FA3]">
-                      {methodLabels[exp.paymentMethod] ?? exp.paymentMethod ?? ''}
+                      {exp.bankAccount
+                        ? `${exp.bankAccount.bankName} · ${exp.bankAccount.accountNumber}`
+                        : 'Данс сонгоогүй'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleDelete(exp.id)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-[#AEAEB2] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-all"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => openEdit(exp)}
+                        aria-label="Засах"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[#AEAEB2] hover:text-[#007AFF] hover:bg-[#007AFF]/10 transition-all"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(exp.id)}
+                        aria-label="Устгах"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-[#AEAEB2] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -261,12 +361,12 @@ export default function ExpensesPage() {
       {/* New Expense Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#E8ECF0]/70 animate-ios-scale-in">
             <div className="flex items-center justify-between p-5 border-b border-[#F0F2F5]">
-              <h2 className="text-[17px] font-bold text-[#1A1D26]">Шинэ зардал</h2>
+              <h2 className="text-[17px] font-bold text-[#1A1D26]">{editingId ? 'Зардал засах' : 'Шинэ зардал'}</h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="w-8 h-8 rounded-full bg-[#F2F4F7] flex items-center justify-center text-[#8C8FA3] hover:text-[#1A1D26] transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -278,7 +378,7 @@ export default function ExpensesPage() {
                 <SearchableSelect
                   value={form.categoryId}
                   onChange={(v) => setForm({ ...form, categoryId: v })}
-                  options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
+                  options={categoryOptions}
                   required
                   inputClassName={inputClass}
                   widthClass="w-full"
@@ -287,16 +387,7 @@ export default function ExpensesPage() {
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Дүн *</label>
-                <input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  className={inputClass}
-                  placeholder="0"
-                  required
-                  min="0"
-                  step="any"
-                />
+                <MoneyInput value={form.amount} onChange={(v: string) => setForm({ ...form, amount: v })} required placeholder="0" className={inputClass} />
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Тайлбар</label>
@@ -318,15 +409,18 @@ export default function ExpensesPage() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Төлбөрийн хэлбэр</label>
+                <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Зарлага хийсэн данс</label>
                 <SearchableSelect
-                  value={form.paymentMethod}
-                  onChange={(v) => setForm({ ...form, paymentMethod: v })}
-                  options={EXPENSE_PAYMENT_METHODS}
+                  value={form.bankAccountId}
+                  onChange={(v) => setForm({ ...form, bankAccountId: v })}
+                  options={accountOptions}
                   inputClassName={inputClass}
                   widthClass="w-full"
-                  aria-label="Төлбөрийн хэлбэр"
+                  aria-label="Зарлага хийсэн данс"
                 />
+                <p className="mt-1.5 text-[12px] text-[#8C8FA3]">
+                  Данс сонговол тухайн дансны үлдэгдлээс дүн хасагдана.
+                </p>
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Лавлагааны дугаар</label>

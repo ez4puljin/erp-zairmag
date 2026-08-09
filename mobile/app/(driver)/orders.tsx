@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/lib/api';
+import { matchesSearch } from '@/src/lib/barcode';
 
 const SCREEN_W = Dimensions.get('window').width;
 const GRID_GAP = 8;
@@ -99,7 +100,7 @@ export default function OrdersScreen() {
     }
     if (productSearch) {
       const q = productSearch.toLowerCase();
-      list = list.filter((p: any) => (p.name ?? '').toLowerCase().includes(q) || (p.sku ?? '').includes(q));
+      list = list.filter((p: any) => matchesSearch(p, q));
     }
     return list;
   }, [products, selectedCategory, productSearch]);

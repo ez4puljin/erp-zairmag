@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   Truck, Plus, Package, Calendar, User, Phone,
   RefreshCw, X, Send, CheckCircle, Ban, Hash,
@@ -20,7 +21,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 interface TruckLoadItem {
   id: string;
   productId: string;
-  product: { id: string; name: string; sku?: string; sellingPrice?: number; unitsPerBox?: number };
+  product: { id: string; name: string; barcodes?: { code: string }[]; sellingPrice?: number; unitsPerBox?: number };
   loadedQty: number;
   soldQty: number;
   returnedQty: number;
@@ -907,7 +908,7 @@ function ProductGrid({
   const filtered = products.filter((p: any) => {
     if (search) {
       const q = search.toLowerCase();
-      if (!p.name?.toLowerCase().includes(q) && !p.sku?.toLowerCase().includes(q)) return false;
+      if (!matchesSearch(p, q)) return false;
     }
     if (categoryId && p.categoryId !== categoryId && p.category?.id !== categoryId) return false;
     if (stockFilter === 'in_stock' && (p.stockAvailable ?? 0) <= 0) return false;

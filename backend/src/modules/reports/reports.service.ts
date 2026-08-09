@@ -362,7 +362,7 @@ export class ReportsService {
                 quantity: true,
                 unitPrice: true,
                 lineTotal: true,
-                product: { select: { id: true, name: true, sku: true } },
+                product: { select: { id: true, name: true, barcodes: { select: { code: true } } } },
               },
             },
           },
@@ -521,7 +521,7 @@ export class ReportsService {
           customer: s.customer,
           items: (s.items ?? []).map((i: any) => ({
             productName: i.product?.name ?? '-',
-            sku: i.product?.sku,
+            barcode: i.product?.barcodes?.[0]?.code ?? null,
             quantity: i.quantity,
             unitPrice: Number(i.unitPrice ?? 0),
             lineTotal: Number(i.lineTotal ?? 0),
@@ -599,7 +599,7 @@ export class ReportsService {
             include: {
               customer: { select: { id: true, storeName: true } },
               createdBy: { select: { firstName: true, lastName: true } },
-              items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+              items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } } } } } },
             },
             orderBy: { deliveredAt: 'asc' },
           })
@@ -610,7 +610,7 @@ export class ReportsService {
             include: {
               customer: { select: { id: true, storeName: true } },
               truckLoad: { select: { driver: { select: { firstName: true, lastName: true } } } },
-              items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+              items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } } } } } },
             },
             orderBy: { createdAt: 'asc' },
           })
@@ -629,7 +629,7 @@ export class ReportsService {
       itemCount: number;
       subtotal: number;
       total: number;
-      lines: Array<{ productId: string; productName: string; sku: string | null; quantity: number; unitPrice: number; lineTotal: number }>;
+      lines: Array<{ productId: string; productName: string; barcode: string | null; quantity: number; unitPrice: number; lineTotal: number }>;
     };
 
     const rows: Row[] = [];
@@ -638,7 +638,7 @@ export class ReportsService {
       const lines = o.items.map((i) => ({
         productId: i.productId,
         productName: i.product?.name ?? '-',
-        sku: i.product?.sku ?? null,
+        barcode: (i.product as any)?.barcodes?.[0]?.code ?? null,
         quantity: i.deliveredQty ?? i.quantity,
         unitPrice: Number(i.unitPrice),
         lineTotal: Number(i.unitPrice) * (i.deliveredQty ?? i.quantity),
@@ -663,7 +663,7 @@ export class ReportsService {
       const lines = s.items.map((i) => ({
         productId: i.productId,
         productName: i.product?.name ?? '-',
-        sku: i.product?.sku ?? null,
+        barcode: (i.product as any)?.barcodes?.[0]?.code ?? null,
         quantity: i.quantity,
         unitPrice: Number(i.unitPrice),
         lineTotal: Number(i.lineTotal),
@@ -691,7 +691,7 @@ export class ReportsService {
     let revenue = 0;
     let itemCount = 0;
     const byMethod: Record<string, { count: number; amount: number }> = {};
-    const byProduct = new Map<string, { name: string; sku: string | null; qty: number; revenue: number }>();
+    const byProduct = new Map<string, { name: string; barcode: string | null; qty: number; revenue: number }>();
     const byCustomer = new Map<string, { storeName: string; count: number; amount: number }>();
 
     for (const r of rows) {
@@ -708,7 +708,7 @@ export class ReportsService {
         byCustomer.set(r.customerId, c);
       }
       for (const l of r.lines) {
-        const p = byProduct.get(l.productId) ?? { name: l.productName, sku: l.sku, qty: 0, revenue: 0 };
+        const p = byProduct.get(l.productId) ?? { name: l.productName, barcode: l.barcode, qty: 0, revenue: 0 };
         p.qty += l.quantity;
         p.revenue += l.lineTotal;
         byProduct.set(l.productId, p);

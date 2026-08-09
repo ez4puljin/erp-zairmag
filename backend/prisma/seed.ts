@@ -206,7 +206,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Ванилийн зайрмаг 5L',
-        sku: 'IC-VAN-5L',
+        barcodes: { create: [{ code: 'IC-VAN-5L' }] },
         description: 'Сонгодог ванилийн амттай, 5 литрийн сав',
         categoryId: catTub.id,
         supplierId: supplier1.id,
@@ -220,7 +220,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Шоколадны зайрмаг 5L',
-        sku: 'IC-CHO-5L',
+        barcodes: { create: [{ code: 'IC-CHO-5L' }] },
         description: 'Бельгийн шоколадны амттай, 5 литрийн сав',
         categoryId: catTub.id,
         supplierId: supplier1.id,
@@ -234,7 +234,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Гүзээлзгэнэтэй зайрмаг 5L',
-        sku: 'IC-STR-5L',
+        barcodes: { create: [{ code: 'IC-STR-5L' }] },
         description: 'Шинэ гүзээлзгэнэтэй, 5 литрийн сав',
         categoryId: catTub.id,
         supplierId: supplier1.id,
@@ -248,7 +248,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Манго гелато 1L',
-        sku: 'GEL-MAN-1L',
+        barcodes: { create: [{ code: 'GEL-MAN-1L' }] },
         description: 'Италийн жинхэнэ гелато, манго амт',
         categoryId: catGelato.id,
         supplierId: supplier2.id,
@@ -262,7 +262,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Фисташкийн гелато 1L',
-        sku: 'GEL-PIS-1L',
+        barcodes: { create: [{ code: 'GEL-PIS-1L' }] },
         description: 'Италийн жинхэнэ гелато, фисташки амт',
         categoryId: catGelato.id,
         supplierId: supplier2.id,
@@ -276,7 +276,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Классик зайрмагны мөс',
-        sku: 'BAR-CLA-1',
+        barcodes: { create: [{ code: 'BAR-CLA-1' }] },
         description: 'Шоколадаар бүрсэн зайрмагны мөс',
         categoryId: catBar.id,
         supplierId: supplier3.id,
@@ -290,7 +290,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Карамелтай зайрмагны мөс',
-        sku: 'BAR-CAR-1',
+        barcodes: { create: [{ code: 'BAR-CAR-1' }] },
         description: 'Карамелийн бүрхүүлтэй зайрмагны мөс',
         categoryId: catBar.id,
         supplierId: supplier3.id,
@@ -304,7 +304,7 @@ async function main() {
     prisma.product.create({
       data: {
         name: 'Дундуур зайрмаг - Ванил',
-        sku: 'CONE-VAN-1',
+        barcodes: { create: [{ code: 'CONE-VAN-1' }] },
         description: 'Дундуур савтай ванилийн зайрмаг, 12 ширхэгтэй хайрцаг',
         categoryId: catCone.id,
         supplierId: supplier3.id,

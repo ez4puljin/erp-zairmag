@@ -32,7 +32,8 @@ export interface Customer {
 export interface Product {
   id: string;
   name: string;
-  sku: string;
+  /** Нэг бараа олон баркодтой байж болно. Код өөр бараатай давхардаж болно. */
+  barcodes?: { id?: string; code: string }[];
   description?: string;
   category: { id: string; name: string };
   unit: string;
@@ -55,7 +56,7 @@ export interface Category {
 export interface OrderItem {
   id: string;
   productId: string;
-  product: { name: string; sku: string; unit: string };
+  product: { name: string; barcodes?: { code: string }[]; unit: string };
   quantity: number;
   unitPrice: number;
   lineTotal: number;

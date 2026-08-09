@@ -45,6 +45,12 @@ export class ProductsController {
     res.send(buffer);
   }
 
+  /** Уншуулсан баркодоор хайх. Олон бараа таарч болох тул жагсаалт буцаана. */
+  @Get('by-barcode/:code')
+  findByBarcode(@Param('code') code: string) {
+    return this.productsService.findByBarcode(code);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);

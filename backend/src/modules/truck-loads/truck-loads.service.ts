@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTruckLoadDto } from './dto/create-truck-load.dto';
@@ -79,7 +80,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+              select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
             },
           },
         },
@@ -121,7 +122,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -132,12 +133,16 @@ export class TruckLoadsService {
   }
 
   // DISPATCH - Transfer stock from warehouse to truck
-  async dispatch(id: string, userId: string) {
+  /** @param onlyDriverId заасан бол зөвхөн тэр жолоочийн ачилтыг илгээхийг зөвшөөрнө. */
+  async dispatch(id: string, userId: string, onlyDriverId?: string) {
     const truckLoad = await this.prisma.truckLoad.findUnique({
       where: { id },
       include: { items: true },
     });
     if (!truckLoad) throw new NotFoundException('Ачилт олдсонгүй.');
+    if (onlyDriverId && truckLoad.driverId !== onlyDriverId) {
+      throw new ForbiddenException('Зөвхөн өөрийн ачилтыг илгээх боломжтой.');
+    }
     if (truckLoad.status !== 'LOADING') {
       throw new BadRequestException('Зөвхөн LOADING статустай ачилтыг илгээх боломжтой.');
     }
@@ -191,7 +196,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -259,7 +264,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -339,7 +344,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -362,7 +367,7 @@ export class TruckLoadsService {
       where: { id },
       data: { status: 'COMPLETION_REQUESTED' as any },
       include: {
-        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true } } } },
+        items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true } } } },
         driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
       },
     });
@@ -472,7 +477,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true } },
+              product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -584,7 +589,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, unitsPerBox: true, weightGrams: true },
+                select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, unitsPerBox: true, weightGrams: true },
               },
             },
           },
@@ -622,7 +627,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
+              product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -650,7 +655,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
+              select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -662,7 +667,7 @@ export class TruckLoadsService {
             createdBy: { select: { id: true, firstName: true, lastName: true } },
             items: {
               include: {
-                product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true } },
+                product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unitsPerBox: true, weightGrams: true } },
               },
             },
           },
@@ -671,7 +676,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -689,7 +694,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
+              select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -697,7 +702,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -718,7 +723,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
+              select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -726,7 +731,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -782,7 +787,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
+              product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },

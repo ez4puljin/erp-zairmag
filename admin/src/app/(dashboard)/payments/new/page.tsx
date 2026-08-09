@@ -9,13 +9,21 @@ import { SectionCard } from '@/components/shared/section-card';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { PAYMENT_METHODS } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
+import { format } from 'date-fns';
 
 export default function NewPaymentPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<any[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ customerId: '', amount: '', method: 'CASH', bankAccountId: '', externalRef: '', notes: '' });
+  const [form, setForm] = useState({
+    customerId: '', amount: '', method: 'CASH', bankAccountId: '',
+    externalRef: '', notes: '',
+    /** RECEIPT = харилцагчаас авсан, PAYOUT = харилцагчид олгосон. */
+    type: 'RECEIPT',
+    paidAt: format(new Date(), 'yyyy-MM-dd'),
+  });
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
   useEffect(() => {
@@ -35,7 +43,9 @@ export default function NewPaymentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.bankAccountId) {
-      alert('Данс заавал сонгоно уу (төлбөр хүлээн авсан данс)');
+      alert(form.type === 'PAYOUT'
+        ? 'Данс заавал сонгоно уу (мөнгө гарах данс)'
+        : 'Данс заавал сонгоно уу (төлбөр хүлээн авсан данс)');
       return;
     }
     setSubmitting(true);
@@ -47,6 +57,8 @@ export default function NewPaymentPage() {
         bankAccountId: form.bankAccountId,
         reference: form.externalRef || undefined,
         note: form.notes || undefined,
+        type: form.type,
+        paidAt: new Date(`${form.paidAt}T12:00:00`).toISOString(),
       });
       router.push('/payments');
     } catch (err: any) {
@@ -72,6 +84,47 @@ export default function NewPaymentPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <SectionCard>
           <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Гүйлгээний төрөл</label>
+              <div className="flex gap-2">
+                {[
+                  { v: 'RECEIPT', l: 'Төлбөр авах', hint: 'Харилцагчаас мөнгө орж ирнэ' },
+                  { v: 'PAYOUT', l: 'Мөнгө олгох', hint: 'Харилцагч руу мөнгө гарна' },
+                ].map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, type: o.v }))}
+                    className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-all active:scale-[0.98] ${
+                      form.type === o.v
+                        ? o.v === 'PAYOUT'
+                          ? 'bg-[#FF3B30] border-[#FF3B30] text-white'
+                          : 'bg-[#34C759] border-[#34C759] text-white'
+                        : 'bg-white border-[#E8ECF0] text-[#4A4D5C] hover:bg-[#F7F9FC]'
+                    }`}
+                  >
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[12px] text-[#8C8FA3]">
+                {form.type === 'PAYOUT'
+                  ? 'Данснаас мөнгө гарч, харилцагчийн өр нэмэгдэнэ.'
+                  : 'Данс нэмэгдэж, харилцагчийн өр буурна.'}
+              </p>
+            </div>
+
+            <div>
+              <label className={labelClass}>Огноо</label>
+              <input
+                type="date"
+                value={form.paidAt}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={e => setForm(prev => ({ ...prev, paidAt: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+
             <div>
               <label className={labelClass}>Харилцагч</label>
               {customers.length === 0 ? (
@@ -101,7 +154,7 @@ export default function NewPaymentPage() {
 
             <div>
               <label className={labelClass}>Дүн (₮)</label>
-              <input type="number" min="1" value={form.amount} onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))} required placeholder="0" className={inputClass} />
+              <MoneyInput value={form.amount} onChange={(v: string) => setForm(prev => ({ ...prev, amount: v }))} required placeholder="0" className={inputClass} />
             </div>
 
             <div>
@@ -117,7 +170,7 @@ export default function NewPaymentPage() {
             </div>
 
             <div>
-              <label className={labelClass}>Хүлээн авсан данс *</label>
+              <label className={labelClass}>{form.type === 'PAYOUT' ? 'Мөнгө гарах данс *' : 'Хүлээн авсан данс *'}</label>
               <SearchableSelect
                 value={form.bankAccountId}
                 onChange={v => setForm(prev => ({ ...prev, bankAccountId: v }))}

@@ -8,6 +8,7 @@ import { formatCurrency } from '@/src/lib/format';
 import { getImageUrl } from '@/src/lib/image-url';
 import api from '@/src/lib/api';
 import type { Product } from '@/src/types';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 export default function InventoryListScreen() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -71,7 +72,7 @@ export default function InventoryListScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={s.name} numberOfLines={1}>{p.name}</Text>
                     <Text style={s.meta} numberOfLines={1}>
-                      {p.sku} · {formatCurrency(p.sellingPrice)}
+                      {primaryBarcode(p) ?? '—'} · {formatCurrency(p.sellingPrice)}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

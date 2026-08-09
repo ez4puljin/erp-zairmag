@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/shared/section-card';
 import { DataTable, type Column } from '@/components/shared/data-table';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { MoneyInput } from '@/components/shared/money-input';
 
 export default function CashClosingsPage() {
   const [closings, setClosings] = useState<any[]>([]);
@@ -174,7 +175,7 @@ export default function CashClosingsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Эхний үлдэгдэл</label>
-              <input type="number" step="0.01" value={form.openingBalance} onChange={e => setForm({ ...form, openingBalance: e.target.value })} required className={inputClass} />
+              <MoneyInput value={form.openingBalance} onChange={(v: string) => setForm({ ...form, openingBalance: v })} required className={inputClass} />
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Бэлэн орлого (Cash In)</label>

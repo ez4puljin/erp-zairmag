@@ -57,7 +57,7 @@ export class SuppliersService {
           select: {
             id: true,
             name: true,
-            sku: true,
+            barcodes: { select: { code: true } },
             sellingPrice: true,
             stockAvailable: true,
             isActive: true,

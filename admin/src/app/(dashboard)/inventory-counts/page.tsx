@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import { ClipboardCheck, Plus, Upload, Filter, CheckCircle, AlertTriangle, Printer, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
@@ -126,11 +127,15 @@ export default function InventoryCountsPage() {
         barcodeMap.set(barcode, (barcodeMap.get(barcode) || 0) + count);
       }
 
-      // Match barcodes to product SKUs
+      // Оруулсан баркодыг барааны аль ч баркодтой тулгана.
       const items = activeCount.items.map((item: any) => {
-        const sku = item.product?.sku;
-        if (sku && barcodeMap.has(sku)) {
-          const counted = barcodeMap.get(sku)!;
+        let counted: number | undefined;
+        for (const [code, qty] of barcodeMap) {
+          if (hasBarcode(item.product, code)) {
+            counted = (counted ?? 0) + qty;
+          }
+        }
+        if (counted !== undefined) {
           return { ...item, countedQty: counted, difference: counted - item.systemQty };
         }
         return item;
@@ -288,7 +293,7 @@ export default function InventoryCountsPage() {
                     return (
                       <tr key={item.id} className={`${hasDiff ? (diff! > 0 ? 'bg-[#34C759]/5' : 'bg-[#FF3B30]/5') : ''}`}>
                         <td className="px-3 py-2 text-[#8C8FA3]">{idx + 1}</td>
-                        <td className="px-3 py-2 font-mono text-[#8C8FA3]">{item.product?.sku}</td>
+                        <td className="px-3 py-2 font-mono text-[#8C8FA3]">{primaryBarcode(item.product) ?? "—"}</td>
                         <td className="px-3 py-2 font-medium text-[#1A1D26]">{item.product?.name}</td>
                         <td className="px-3 py-2 text-[#8C8FA3]">{UNIT_LABELS[item.product?.unit] || item.product?.unit}</td>
                         <td className="px-3 py-2 text-right text-[#1A1D26] tabular-nums">{formatMnt(unitPrice)}</td>

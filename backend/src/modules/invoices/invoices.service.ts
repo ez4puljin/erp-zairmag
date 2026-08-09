@@ -141,7 +141,7 @@ export class InvoicesService {
                   select: {
                     id: true,
                     name: true,
-                    sku: true,
+                    barcodes: { select: { code: true } },
                     unit: true,
                     imageUrl: true,
                   },

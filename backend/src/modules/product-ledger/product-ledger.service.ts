@@ -26,7 +26,7 @@ export class ProductLedgerService {
       select: {
         id: true,
         name: true,
-        sku: true,
+        barcodes: { select: { code: true } },
         unit: true,
         costPrice: true,
         sellingPrice: true,
@@ -254,7 +254,7 @@ export class ProductLedgerService {
       return {
         product: {
           id: product.id,
-          sku: product.sku,
+          barcode: (product as any).barcodes?.[0]?.code ?? null,
           name: product.name,
           unit: product.unit,
           costPrice,

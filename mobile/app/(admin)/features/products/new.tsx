@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { FormModal, FormField } from '@/src/components/admin';
+import { FormModal, FormField, BarcodeFields, cleanBarcodes } from '@/src/components/admin';
 import { router } from 'expo-router';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
@@ -14,8 +14,9 @@ export default function NewProductScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [barcodes, setBarcodes] = useState<string[]>(['']);
   const [form, setForm] = useState({
-    name: '', sku: '', categoryId: '', supplierId: '', unit: 'PIECE',
+    name: '', categoryId: '', supplierId: '', unit: 'PIECE',
     costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '', unitsPerBox: '1',
   });
 
@@ -58,14 +59,13 @@ export default function NewProductScreen() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) { setError('Нэр заавал'); return; }
-    if (!form.sku.trim()) { setError('Баркод заавал'); return; }
     if (!form.categoryId) { setError('Ангилал сонгоно уу'); return; }
     if (!form.sellingPrice) { setError('Зарах үнэ заавал'); return; }
     setSubmitting(true); setError(null);
     try {
       const res = await api.post('/api/products', {
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        barcodes: cleanBarcodes(barcodes),
         categoryId: form.categoryId,
         supplierId: form.supplierId || undefined,
         unit: form.unit,
@@ -111,7 +111,7 @@ export default function NewProductScreen() {
       </View>
 
       <FormField label="Нэр" value={form.name} onChange={v => update('name', v)} required />
-      <FormField label="Баркод (SKU)" value={form.sku} onChange={v => update('sku', v)} required />
+      <BarcodeFields value={barcodes} onChange={setBarcodes} />
       <FormField label="Ангилал" value={form.categoryId} onChange={v => update('categoryId', v)} type="select" required options={categories.map((c: any) => ({ label: c.name, value: c.id }))} />
       <FormField label="Нийлүүлэгч" value={form.supplierId} onChange={v => update('supplierId', v)} type="select" options={[{label: 'Сонгох...', value: ''}, ...suppliers.map((s: any) => ({ label: s.name, value: s.id }))]} />
       <FormField

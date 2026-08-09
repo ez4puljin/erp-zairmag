@@ -20,7 +20,7 @@ import { SearchableSelect } from '@/components/shared/searchable-select';
 export interface PosCartLine {
   productId: string;
   name: string;
-  sku?: string;
+  barcode?: string;
   quantity: number;
   unitPrice: number;
   maxQty: number;

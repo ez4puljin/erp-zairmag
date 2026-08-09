@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Fragment } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import { Search, Printer, ChevronDown, ChevronRight, Filter, Package } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
@@ -110,7 +111,7 @@ export default function ProductLedgerPage() {
           label="Бараа материал"
           value={productId}
           onChange={setProductId}
-          options={products.map((p: any) => ({ value: p.id, label: `${p.sku} - ${p.name}` }))}
+          options={products.map((p: any) => ({ value: p.id, label: `${primaryBarcode(p) ?? "—"} - ${p.name}` }))}
           placeholder="Бүгд (Бүх бараа)"
         />
         <SelectField
@@ -177,7 +178,7 @@ export default function ProductLedgerPage() {
                                 : <ChevronRight className="w-3.5 h-3.5 text-[#8C8FA3] inline" />
                             )}
                           </td>
-                          <td className="px-2 py-2 font-mono text-[#007AFF] font-semibold">{item.product.sku}</td>
+                          <td className="px-2 py-2 font-mono text-[#007AFF] font-semibold">{primaryBarcode(item.product) ?? "—"}</td>
                           <td className="px-2 py-2 font-medium text-[#1A1D26]">
                             {item.product.name}
                             <span className="ml-1 text-[10px] text-[#8C8FA3]">({UNIT_LABELS[item.product.unit] || item.product.unit})</span>

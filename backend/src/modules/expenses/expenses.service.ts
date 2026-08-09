@@ -14,6 +14,7 @@ export class ExpensesService {
     dateFrom?: string,
     dateTo?: string,
     categoryId?: string,
+    bankAccountId?: string,
   ): Promise<PaginatedResponse<any>> {
     const { page = 1, limit = 20, order = 'desc' } = pagination;
     const skip = (page - 1) * limit;
@@ -22,6 +23,11 @@ export class ExpensesService {
 
     if (categoryId) {
       where.categoryId = categoryId;
+    }
+
+    if (bankAccountId) {
+      // "none" = данс сонгоогүй зардлууд
+      where.bankAccountId = bankAccountId === 'none' ? null : bankAccountId;
     }
 
     if (dateFrom || dateTo) {
@@ -43,6 +49,9 @@ export class ExpensesService {
         include: {
           category: {
             select: { id: true, name: true },
+          },
+          bankAccount: {
+            select: { id: true, bankName: true, accountNumber: true },
           },
           createdBy: {
             select: { id: true, firstName: true, lastName: true },
@@ -70,6 +79,9 @@ export class ExpensesService {
         category: {
           select: { id: true, name: true },
         },
+        bankAccount: {
+          select: { id: true, bankName: true, accountNumber: true },
+        },
         createdBy: {
           select: { id: true, firstName: true, lastName: true },
         },
@@ -92,30 +104,46 @@ export class ExpensesService {
       throw new NotFoundException(`Expense category with ID ${dto.categoryId} not found`);
     }
 
-    return this.prisma.expense.create({
-      data: {
-        categoryId: dto.categoryId,
-        amount: dto.amount,
-        description: dto.description,
-        date: new Date(dto.date),
-        paymentMethod: dto.paymentMethod,
-        referenceNo: dto.referenceNo,
-        notes: dto.notes,
-        createdById: userId,
-      },
-      include: {
-        category: {
-          select: { id: true, name: true },
+    if (dto.bankAccountId) {
+      const account = await this.prisma.bankAccount.findUnique({
+        where: { id: dto.bankAccountId },
+      });
+      if (!account) throw new NotFoundException('Данс олдсонгүй.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.create({
+        data: {
+          categoryId: dto.categoryId,
+          amount: dto.amount,
+          description: dto.description,
+          date: new Date(dto.date),
+          bankAccountId: dto.bankAccountId,
+          referenceNo: dto.referenceNo,
+          notes: dto.notes,
+          createdById: userId,
         },
-        createdBy: {
-          select: { id: true, firstName: true, lastName: true },
+        include: {
+          category: { select: { id: true, name: true } },
+          bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
         },
-      },
+      });
+
+      // Зардал = данснаас гарах урсгал.
+      if (dto.bankAccountId) {
+        await tx.bankAccount.update({
+          where: { id: dto.bankAccountId },
+          data: { currentBalance: { decrement: dto.amount } },
+        });
+      }
+
+      return expense;
     });
   }
 
   async update(id: string, dto: Partial<CreateExpenseDto>) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
     if (dto.categoryId) {
       const category = await this.prisma.expenseCategory.findUnique({
@@ -126,30 +154,62 @@ export class ExpensesService {
       }
     }
 
+    if (dto.bankAccountId) {
+      const account = await this.prisma.bankAccount.findUnique({
+        where: { id: dto.bankAccountId },
+      });
+      if (!account) throw new NotFoundException('Данс олдсонгүй.');
+    }
+
     const data: any = { ...dto };
     if (dto.date) {
       data.date = new Date(dto.date);
     }
 
-    return this.prisma.expense.update({
-      where: { id },
-      data,
-      include: {
-        category: {
-          select: { id: true, name: true },
+    // Данс эсвэл дүн өөрчлөгдвөл хуучин нөлөөг буцаагаад шинийг нь тавина.
+    const oldAccountId = existing.bankAccountId;
+    const oldAmount = Number(existing.amount);
+    const newAccountId = dto.bankAccountId !== undefined ? dto.bankAccountId : oldAccountId;
+    const newAmount = dto.amount !== undefined ? Number(dto.amount) : oldAmount;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (oldAccountId) {
+        await tx.bankAccount.update({
+          where: { id: oldAccountId },
+          data: { currentBalance: { increment: oldAmount } },
+        });
+      }
+      if (newAccountId) {
+        await tx.bankAccount.update({
+          where: { id: newAccountId },
+          data: { currentBalance: { decrement: newAmount } },
+        });
+      }
+
+      return tx.expense.update({
+        where: { id },
+        data,
+        include: {
+          category: { select: { id: true, name: true } },
+          bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
         },
-        createdBy: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
+      });
     });
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
 
-    return this.prisma.expense.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      // Устгахад данснаас хассан дүнг буцааж нэмнэ.
+      if (existing.bankAccountId) {
+        await tx.bankAccount.update({
+          where: { id: existing.bankAccountId },
+          data: { currentBalance: { increment: Number(existing.amount) } },
+        });
+      }
+      return tx.expense.delete({ where: { id } });
     });
   }
 

@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsInt,
   IsEnum,
+  IsArray,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -16,9 +17,11 @@ export class CreateProductDto {
   @IsNotEmpty()
   name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  sku: string;
+  /** Нэг бараа олон баркодтой байж болно. Код давхардаж болно (өөр бараатай). */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  barcodes?: string[];
 
   @IsOptional()
   @IsString()

@@ -10,7 +10,7 @@ export class InventoryCountsService {
     // Get all active products with current stock
     const products = await this.prisma.product.findMany({
       where: { deletedAt: null, isActive: true },
-      select: { id: true, name: true, sku: true, stockAvailable: true, unit: true },
+      select: { id: true, name: true, barcodes: { select: { code: true } }, stockAvailable: true, unit: true },
       orderBy: { name: 'asc' },
     });
 
@@ -30,7 +30,7 @@ export class InventoryCountsService {
       },
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, sku: true, unit: true, sellingPrice: true } } },
+          include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true } } },
           orderBy: { product: { name: 'asc' } },
         },
         createdBy: { select: { firstName: true, lastName: true } },
@@ -53,7 +53,7 @@ export class InventoryCountsService {
       where: { id },
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, sku: true, unit: true, stockAvailable: true, sellingPrice: true } } },
+          include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, stockAvailable: true, sellingPrice: true } } },
           orderBy: { product: { name: 'asc' } },
         },
         createdBy: { select: { firstName: true, lastName: true } },

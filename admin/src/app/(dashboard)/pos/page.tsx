@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   Truck,
   ShoppingCart,
@@ -41,7 +42,7 @@ interface TruckLoadItem {
   product: {
     id: string;
     name: string;
-    sku?: string;
+    barcodes?: { code: string }[];
     sellingPrice: number;
     unitsPerBox?: number;
   };
@@ -71,7 +72,7 @@ interface Customer {
 interface CartItem {
   productId: string;
   name: string;
-  sku?: string;
+  barcode?: string;
   quantity: number;
   unitPrice: number;
   maxQty: number;
@@ -83,7 +84,7 @@ interface SaleResult {
   saleNumber: string;
   createdAt: string;
   customer: Customer;
-  items: { product: { name: string; sku?: string }; quantity: number; unitPrice: number; lineTotal: number }[];
+  items: { product: { name: string; barcodes?: { code: string }[] }; quantity: number; unitPrice: number; lineTotal: number }[];
   totalAmount: number;
   paymentMethod: string;
   notes?: string;
@@ -123,6 +124,10 @@ export default function POSPage() {
   // Barcode scanner state
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<BarcodeScanFeedback>(null);
+  /** Нэг баркодод хэд хэдэн бараа таарсан үед сонгуулах цонх. */
+  const [scanChoices, setScanChoices] = useState<{ code: string; items: TruckLoadItem[] } | null>(null);
+  /** Нөхөж бүртгэх огноо (зөвхөн админ). Хоосон = өнөөдөр. */
+  const [saleDate, setSaleDate] = useState('');
 
   // Гар утасны хуудсууд (bottom sheet)
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
@@ -229,11 +234,7 @@ export default function POSPage() {
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return availableProducts;
     const q = productSearch.toLowerCase();
-    return availableProducts.filter(
-      (item) =>
-        item.product.name?.toLowerCase().includes(q) ||
-        item.product.sku?.toLowerCase().includes(q)
-    );
+    return availableProducts.filter((item) => matchesSearch(item.product, q));
   }, [availableProducts, productSearch]);
 
   // Derived: summary
@@ -262,7 +263,7 @@ export default function POSPage() {
         {
           productId: item.productId,
           name: item.product.name,
-          sku: item.product.sku,
+          barcode: primaryBarcode(item.product) ?? undefined,
           quantity: next,
           unitPrice: item.unitPrice || item.product.sellingPrice,
           maxQty: remaining,
@@ -299,7 +300,7 @@ export default function POSPage() {
         key: item.id,
         productId: item.productId,
         name: item.product.name,
-        sku: item.product.sku,
+        barcode: primaryBarcode(item.product) ?? undefined,
         unitPrice: item.unitPrice || item.product.sellingPrice,
         remaining: item.loadedQty - item.soldQty,
         unitsPerBox: item.product.unitsPerBox || 1,
@@ -331,19 +332,33 @@ export default function POSPage() {
   // эхний тэгүүдийг хасаад харьцуулна.
   const normalizeCode = (code: string) => code.replace(/\D/g, '').replace(/^0+/, '');
 
+  /** Уншуулсан код тухайн барааны аль нэг баркодтой таарах эсэх. */
+  const itemHasCode = (i: TruckLoadItem, scanned: string) =>
+    (i.product.barcodes ?? []).some((b) => normalizeCode(b.code) === scanned);
+
   const handleBarcode = (code: string) => {
     const scanned = normalizeCode(code);
-    const item = scanned
-      ? availableProducts.find((i) => normalizeCode(i.product.sku ?? '') === scanned)
-      : undefined;
+    // Нэг баркодыг хэд хэдэн бараа хуваалцаж болно (ижил код, өөр амт) —
+    // тиймээс бүх таарцыг олоод, олон бол хэрэглэгчээс сонгуулна.
+    const matches = scanned ? availableProducts.filter((i) => itemHasCode(i, scanned)) : [];
 
-    if (!item) {
+    if (matches.length === 0) {
       // Ачилтад байхгүй бол кодыг хайлтын талбарт тавина — modal хаагдмагц харагдана.
       setProductSearch(code.trim());
       setScanFeedback({ type: 'error', text: `Ачилтад олдсонгүй: ${code.trim()}` });
       return;
     }
 
+    if (matches.length > 1) {
+      setScanChoices({ code: code.trim(), items: matches });
+      return;
+    }
+
+    addScannedItem(matches[0]);
+  };
+
+  /** Сонгогдсон барааг сагсанд нэмнэ (скан болон сонголтын цонх хоёуланд). */
+  const addScannedItem = (item: TruckLoadItem) => {
     const remaining = item.loadedQty - item.soldQty;
     const current = cart.find((c) => c.productId === item.productId)?.quantity ?? 0;
     if (current >= remaining) {
@@ -427,6 +442,10 @@ export default function POSPage() {
       };
       if (paymentMethod === 'COMBINED') {
         body.combinedPayments = combinedPayments.filter((p) => p.amount > 0);
+      }
+      // Нөхөж бүртгэх огноо — сервер зөвхөн админ/менежерээс хүлээж авна.
+      if (saleDate) {
+        body.saleDate = new Date(`${saleDate}T12:00:00`).toISOString();
       }
       const res = await api.post('/api/truck-sales', body);
       const result = res.data?.data ?? res.data;
@@ -755,8 +774,8 @@ export default function POSPage() {
                         <p className="text-[14px] font-semibold text-[#1A1D26] truncate leading-tight">
                           {item.product.name}
                         </p>
-                        {item.product.sku && (
-                          <p className="text-[11px] text-[#AEAEB2] mt-0.5">{item.product.sku}</p>
+                        {primaryBarcode(item.product) && (
+                          <p className="text-[11px] text-[#AEAEB2] mt-0.5">{primaryBarcode(item.product)}</p>
                         )}
                       </div>
                       <span className="text-[14px] font-bold text-[#1A1D26] flex-shrink-0 tabular-nums">
@@ -1012,6 +1031,38 @@ export default function POSPage() {
             <span className="text-[20px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(cartTotal)}</span>
           </div>
 
+          {/* Нөхөж бүртгэх огноо — зөвхөн админ/менежерт. Жолоочийн илгээсэн утгыг сервер хэрэгсэхгүй. */}
+          {user?.role !== 'DRIVER' && (
+            <div className="px-4 pt-3 space-y-2">
+              <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide">
+                Борлуулалтын огноо
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={saleDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  className="flex-1 h-9 px-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[13px] text-[#1A1D26] outline-none focus:border-[#007AFF]/40"
+                />
+                {saleDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSaleDate('')}
+                    className="h-9 px-3 rounded-xl text-[12px] font-semibold text-[#8C8FA3] bg-[#F2F4F7] hover:bg-[#E8ECF0] transition-colors"
+                  >
+                    Өнөөдөр
+                  </button>
+                )}
+              </div>
+              {saleDate && (
+                <p className="text-[11px] font-medium text-[#FF9500]">
+                  Энэ борлуулалт {saleDate}-ны огноогоор бүртгэгдэнэ.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Payment method - horizontal pills */}
           <div className="px-4 py-3 space-y-2">
             <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide">
@@ -1198,6 +1249,54 @@ export default function POSPage() {
         title="Бараа скан хийх"
         hint="Барааны зураасан кодыг хүрээн дотор барина уу"
       />
+
+      {/* Нэг баркод хэд хэдэн бараанд харьяалагдах үед аль нь болохыг сонгуулна. */}
+      {scanChoices && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setScanChoices(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-[#E8ECF0]">
+              <p className="text-[15px] font-semibold text-[#1A1D26]">Аль бараа вэ?</p>
+              <p className="text-[12px] text-[#8C8FA3] mt-0.5">
+                {scanChoices.code} — {scanChoices.items.length} бараанд бүртгэлтэй
+              </p>
+            </div>
+            <div className="max-h-[320px] overflow-y-auto divide-y divide-[#F0F2F5]">
+              {scanChoices.items.map((item) => {
+                const remaining = item.loadedQty - item.soldQty;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      addScannedItem(item);
+                      setScanChoices(null);
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-[#F5F6FA] transition-colors active:scale-[0.99]"
+                  >
+                    <p className="text-[14px] font-semibold text-[#1A1D26]">{item.product.name}</p>
+                    <p className="text-[12px] text-[#8C8FA3] mt-0.5">
+                      Үлдэгдэл: {remaining}ш · {formatMnt(item.unitPrice || item.product.sellingPrice)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanChoices(null)}
+              className="w-full px-4 py-3 text-[14px] font-semibold text-[#8C8FA3] border-t border-[#E8ECF0] hover:bg-[#F5F6FA] transition-colors"
+            >
+              Болих
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1238,7 +1337,7 @@ function ReceiptContent({
     customerPhone: customer?.phone ?? null,
     items: (saleResult.items ?? []).map((item) => ({
       name: item.product?.name ?? '-',
-      barcode: (item.product as any)?.barcode ?? null,
+      barcode: (item.product as any)?.barcodes?.[0]?.code ?? null,
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
       lineTotal: Number(item.lineTotal ?? item.quantity * item.unitPrice),

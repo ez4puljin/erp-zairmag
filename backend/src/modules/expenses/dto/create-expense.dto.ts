@@ -1,6 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsDateString, IsNotEmpty, IsUUID, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, IsNotEmpty, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaymentMethod } from '@prisma/client';
 
 export class CreateExpenseDto {
   @IsUUID()
@@ -18,9 +17,10 @@ export class CreateExpenseDto {
   @IsDateString()
   date: string;
 
+  /** Зарлага гарсан данс. Сонгосон бол тухайн дансны үлдэгдлээс хасагдана. */
   @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
+  @IsUUID()
+  bankAccountId?: string;
 
   @IsOptional()
   @IsString()

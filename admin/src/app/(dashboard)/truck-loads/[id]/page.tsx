@@ -3,6 +3,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   ChevronLeft, Truck, Package, User, Calendar, Phone,
   Clock, RefreshCw, Send, CheckCircle, Ban, ChevronDown,
@@ -531,7 +532,7 @@ export default function TruckLoadDetailPage() {
                   }}
                   options={products.map((p: any) => ({
                     value: p.id,
-                    label: `${p.name} (${p.sku}) — нөөц: ${p.stockAvailable ?? '?'}`,
+                    label: `${p.name} (${primaryBarcode(p) ?? "—"}) — нөөц: ${p.stockAvailable ?? "?"}`,
                   }))}
                   emptyText="Бараа сонгох..."
                   inputClassName={inputClass}
@@ -657,7 +658,7 @@ export default function TruckLoadDetailPage() {
                     <tr key={item.id} className="hover:bg-[#F7F9FC]">
                       <td className="px-5 py-3">
                         <p className="text-[14px] font-medium text-[#1A1D26]">{item.product?.name ?? '—'}</p>
-                        {item.product?.sku && <p className="text-[12px] text-[#8C8FA3]">{item.product.sku}</p>}
+                        {primaryBarcode(item.product) && <p className="text-[12px] text-[#8C8FA3]">{primaryBarcode(item.product)}</p>}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <p className="text-[14px] font-semibold text-[#1A1D26] tabular-nums">{loaded}</p>

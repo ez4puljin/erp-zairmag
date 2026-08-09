@@ -21,7 +21,7 @@ export interface PosProductEntry {
   key: string;
   productId: string;
   name: string;
-  sku?: string;
+  barcode?: string;
   unitPrice: number;
   remaining: number;
   unitsPerBox: number;

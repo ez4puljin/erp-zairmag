@@ -8,6 +8,7 @@ import { SectionCard } from '@/components/shared/section-card';
 import { FilterBar, SearchField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { MoneyInput } from '@/components/shared/money-input';
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -279,7 +280,7 @@ export default function SuppliersPage() {
                       <label className={labelClass}>Эхний үлдэгдэл</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-semibold text-[#AEAEB2] pointer-events-none">₮</span>
-                        <input type="number" step="0.01" value={form.openingBalance} onChange={e => setForm(prev => ({ ...prev, openingBalance: e.target.value }))} placeholder="0.00" className={`${inputClass} pl-9`} />
+                        <MoneyInput value={form.openingBalance} onChange={(v: string) => setForm(prev => ({ ...prev, openingBalance: v }))} placeholder="0.00" className={`${inputClass} pl-9`} />
                       </div>
                     </div>
                     <div>

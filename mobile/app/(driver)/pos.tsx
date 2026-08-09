@@ -13,13 +13,14 @@ import ViewShot from 'react-native-view-shot';
 import { SaleReceipt, widthForPaper } from '../../src/components/PrintableReceipt';
 import { fetchReceiptSettings, loadCachedSettings, DEFAULT_SETTINGS, type ReceiptSettings } from '../../src/lib/receipt-settings';
 import { printImageBase64, feedLines, getSavedPrinter, scanBluetoothDevices, connectPrinter, savePrinter } from '../../src/lib/printer';
-import { BarcodeScannerModal, normalizeCode } from '../../src/components/admin';
+import { BarcodeScannerModal, hasBarcode } from '../../src/components/admin';
+import { matchesSearch } from '@/src/lib/barcode';
 
 // Image URL is now built dynamically via getImageUrl()
 
 interface TruckLoadItem {
   id: string;
-  product: { id: string; name: string; sku: string; sellingPrice: number | string; sellingPriceRural?: number | string; unitsPerBox?: number; imageUrl?: string | null };
+  product: { id: string; name: string; barcodes?: { code: string }[]; sellingPrice: number | string; sellingPriceRural?: number | string; unitsPerBox?: number; imageUrl?: string | null };
   loadedQty: number;
   soldQty: number;
 }
@@ -120,7 +121,7 @@ export default function POSScreen() {
     let list = items.filter(i => (i.loadedQty - i.soldQty) > 0);
     if (productSearch.trim()) {
       const q = productSearch.toLowerCase();
-      list = list.filter(i => i.product.name.toLowerCase().includes(q) || (i.product.sku || '').toLowerCase().includes(q));
+      list = list.filter(i => matchesSearch(i.product, q));
     }
     if (selectedFilter) {
       if (selectedFilter.type === 'category') list = list.filter(i => (i.product as any).categoryId === selectedFilter.id || (i.product as any).category?.id === selectedFilter.id);
@@ -150,20 +151,8 @@ export default function POSScreen() {
       return [...prev, { productId: item.product.id, productName: item.product.name, unitPrice: price, quantity: safeQty, maxQuantity: maxQ, unitsPerBox: upb }];
     });
   };
-  /**
-   * Зураасан кодыг ачилтад байгаа бараатай тааруулна.
-   * Энэ системд барааны SKU нь зураасан кодын үүрэг гүйцэтгэдэг.
-   */
-  const handleScanned = (code: string) => {
-    setScannerOpen(false);
-    const target = normalizeCode(code);
-    const found = availableProducts.find(
-      (it: any) => normalizeCode(it.product?.sku ?? '') === target,
-    );
-    if (!found) {
-      Alert.alert('Олдсонгүй', `"${code}" кодтой бараа энэ ачилтад алга.`);
-      return;
-    }
+  /** Сонгогдсон мөрийг сагсанд нэг ширхэгээр нэмнэ. */
+  const addScanned = (found: any) => {
     if (found.loadedQty - found.soldQty <= 0) {
       Alert.alert('Дууссан', `${found.product.name}: машинд үлдэгдэлгүй байна.`);
       return;
@@ -172,6 +161,37 @@ export default function POSScreen() {
     const current = cart.find(c => c.productId === found.product.id)?.quantity ?? 0;
     setCartQty(found, current + 1);
     setProductSearch('');
+  };
+
+  /**
+   * Зураасан кодыг ачилтад байгаа бараатай тааруулна.
+   * Нэг кодыг хэд хэдэн бараа хуваалцаж болох тул олон таарвал сонгуулна.
+   */
+  const handleScanned = (code: string) => {
+    setScannerOpen(false);
+    const matches = availableProducts.filter((it: any) => hasBarcode(it.product, code));
+
+    if (matches.length === 0) {
+      Alert.alert('Олдсонгүй', `"${code}" кодтой бараа энэ ачилтад алга.`);
+      return;
+    }
+
+    if (matches.length > 1) {
+      Alert.alert(
+        'Аль бараа вэ?',
+        `${code.trim()} — ${matches.length} бараанд бүртгэлтэй.`,
+        [
+          ...matches.map((m: any) => ({
+            text: `${m.product.name} (${m.loadedQty - m.soldQty}ш)`,
+            onPress: () => addScanned(m),
+          })),
+          { text: 'Болих', style: 'cancel' as const },
+        ],
+      );
+      return;
+    }
+
+    addScanned(matches[0]);
   };
 
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(c => c.productId !== pid));

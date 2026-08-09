@@ -106,7 +106,7 @@ export function SaleReceipt({ sale, customer, paymentMethod, copyLabel, driverNa
       {/* Items rows */}
       {items.map((item: any, idx: number) => {
         const name = item?.product?.name ?? '-';
-        const sku = item?.product?.sku ?? item?.product?.barcode;
+        const sku = item?.product?.barcodes?.[0]?.code ?? item?.product?.barcode;
         const qty = item?.quantity ?? 0;
         const price = Number(item?.unitPrice ?? 0);
         const lineTotal = Number(item?.lineTotal ?? qty * price);
@@ -239,7 +239,7 @@ export function HandoverReceipt({ load, type, copyLabel, settings = DEFAULT_SETT
       <View style={s.tableDividerDashed} />
 
       {items.map((item: any, idx: number) => {
-        const sku = item?.product?.sku ?? item?.product?.barcode;
+        const sku = item?.product?.barcodes?.[0]?.code ?? item?.product?.barcode;
         const prefix = settings.showItemNumber ? `${idx + 1}. ` : '';
         return (
           <View key={idx} style={s.itemRow}>

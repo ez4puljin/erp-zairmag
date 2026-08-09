@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/shared/section-card';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { PRICING_TIERS } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
 
 export default function NewCustomerPage() {
   const router = useRouter();
@@ -129,11 +130,11 @@ export default function NewCustomerPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Зээлийн хязгаар (₮)</label>
-              <input type="number" min="0" value={form.creditLimit} onChange={e => handleChange('creditLimit', e.target.value)} placeholder="0" className={inputClass} />
+              <MoneyInput value={form.creditLimit} onChange={(v: string) => handleChange('creditLimit', v)} placeholder="0" className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Эхний үлдэгдэл (₮)</label>
-              <input type="number" min="0" value={form.openingBalance} onChange={e => handleChange('openingBalance', e.target.value)} placeholder="0" className={inputClass} />
+              <MoneyInput value={form.openingBalance} onChange={(v: string) => handleChange('openingBalance', v)} placeholder="0" className={inputClass} />
             </div>
           </div>
         </SectionCard>

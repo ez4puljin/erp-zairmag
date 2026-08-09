@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   Package, AlertTriangle, TrendingUp, RefreshCw,
   Boxes, XCircle, CheckCircle2,
@@ -47,7 +48,7 @@ export default function InventoryPage() {
     return products.filter((p: any) => {
       if (search) {
         const q = search.toLowerCase();
-        if (!p.name?.toLowerCase().includes(q) && !p.sku?.toLowerCase().includes(q)) return false;
+        if (!matchesSearch(p, q)) return false;
       }
       if (categoryFilter && p.categoryId !== categoryFilter && p.category?.id !== categoryFilter) return false;
       const stock = p.stockAvailable ?? p.totalStock ?? 0;
@@ -192,7 +193,7 @@ export default function InventoryPage() {
                       )}
                     </div>
                     <p className="text-[12px] text-[#8C8FA3] truncate mt-0.5">
-                      <span className="font-mono text-[#AEAEB2]">{p.sku}</span>
+                      <span className="font-mono text-[#AEAEB2]">{primaryBarcode(p) ?? "—"}</span>
                       <span className="md:hidden"> · {p.category?.name ?? '—'}</span>
                     </p>
                   </div>

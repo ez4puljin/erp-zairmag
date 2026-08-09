@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   ChevronLeft,
   Search,
@@ -25,7 +26,7 @@ import { formatMnt } from '@/components/shared/money';
 interface Product {
   id: string;
   name: string;
-  sku: string;
+  barcodes?: { code: string }[];
   sellingPrice: number;
   stockAvailable: number;
   imageUrl?: string;
@@ -73,8 +74,7 @@ export default function NewOrderPage() {
     if (!productSearch) return products;
     const q = productSearch.toLowerCase();
     return products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
+      matchesSearch(p, q) ||
       p.category?.name?.toLowerCase().includes(q)
     );
   }, [products, productSearch]);
