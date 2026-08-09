@@ -13,6 +13,7 @@ import ViewShot from 'react-native-view-shot';
 import { SaleReceipt, widthForPaper } from '../../src/components/PrintableReceipt';
 import { fetchReceiptSettings, loadCachedSettings, DEFAULT_SETTINGS, type ReceiptSettings } from '../../src/lib/receipt-settings';
 import { printImageBase64, feedLines, getSavedPrinter, scanBluetoothDevices, connectPrinter, savePrinter } from '../../src/lib/printer';
+import { BarcodeScannerModal, normalizeCode } from '../../src/components/admin';
 
 // Image URL is now built dynamically via getImageUrl()
 
@@ -73,6 +74,7 @@ export default function POSScreen() {
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [printerDevices, setPrinterDevices] = useState<{ address: string; name: string }[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [printing, setPrinting] = useState(false);
 
   // Android back button
@@ -148,6 +150,30 @@ export default function POSScreen() {
       return [...prev, { productId: item.product.id, productName: item.product.name, unitPrice: price, quantity: safeQty, maxQuantity: maxQ, unitsPerBox: upb }];
     });
   };
+  /**
+   * Зураасан кодыг ачилтад байгаа бараатай тааруулна.
+   * Энэ системд барааны SKU нь зураасан кодын үүрэг гүйцэтгэдэг.
+   */
+  const handleScanned = (code: string) => {
+    setScannerOpen(false);
+    const target = normalizeCode(code);
+    const found = availableProducts.find(
+      (it: any) => normalizeCode(it.product?.sku ?? '') === target,
+    );
+    if (!found) {
+      Alert.alert('Олдсонгүй', `"${code}" кодтой бараа энэ ачилтад алга.`);
+      return;
+    }
+    if (found.loadedQty - found.soldQty <= 0) {
+      Alert.alert('Дууссан', `${found.product.name}: машинд үлдэгдэлгүй байна.`);
+      return;
+    }
+    // Уншсан бүрт нэг ширхэг нэмнэ — дараалан уншуулахад тоо өснө.
+    const current = cart.find(c => c.productId === found.product.id)?.quantity ?? 0;
+    setCartQty(found, current + 1);
+    setProductSearch('');
+  };
+
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(c => c.productId !== pid));
 
   const cartTotal = cart.reduce((s, c) => s + c.unitPrice * c.quantity, 0);
@@ -358,6 +384,9 @@ export default function POSScreen() {
           <Ionicons name="search" size={18} color="#8E8E93" />
           <TextInput style={st.searchField} placeholder="Бараа хайх (нэр, баркод)..." placeholderTextColor="#AEAEB2" value={productSearch} onChangeText={setProductSearch} />
           {productSearch.length > 0 && <TouchableOpacity onPress={() => setProductSearch('')}><Ionicons name="close-circle" size={20} color="#AEAEB2" /></TouchableOpacity>}
+          <TouchableOpacity onPress={() => setScannerOpen(true)} style={st.scanBtn}>
+            <Ionicons name="barcode-outline" size={18} color="#fff" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowFilter(true)} style={[st.filterBtn, selectedFilter && st.filterBtnActive]}>
             <Ionicons name="filter" size={16} color={selectedFilter ? '#fff' : '#8E8E93'} />
           </TouchableOpacity>
@@ -482,6 +511,13 @@ export default function POSScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        <BarcodeScannerModal
+          visible={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onScanned={handleScanned}
+          hint="Барааны зураасан кодыг хүрээнд байрлуулна уу"
+        />
       </View>
     );
   }
@@ -685,6 +721,7 @@ export default function POSScreen() {
 }
 
 const st = StyleSheet.create({
+  scanBtn: { width: 34, height: 34, borderRadius: 9, backgroundColor: '#14B8A6', justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 32 },
   emptyIcon: { width: 72, height: 72, borderRadius: 20, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },

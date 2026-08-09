@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/src/lib/format';
 import type { PickerProduct } from './ProductPicker';
 
@@ -31,6 +32,7 @@ export function QuantitySheet({
   onConfirm: (result: QuantityResult) => void;
   confirmLabel?: string;
 }) {
+  const insets = useSafeAreaInsets();
   const perBox = Math.max(1, Number(product?.unitsPerBox ?? 1));
   const [boxes, setBoxes] = useState('');
   const [pieces, setPieces] = useState('');
@@ -61,7 +63,7 @@ export function QuantitySheet({
       >
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onCancel} />
 
-        <View style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
           <View style={s.handle} />
 
           <Text style={s.name} numberOfLines={2}>{product.name}</Text>
@@ -145,7 +147,6 @@ const s = StyleSheet.create({
   sheet: {
     backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22,
     paddingHorizontal: 18, paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 18,
   },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D8DEE8', alignSelf: 'center', marginBottom: 14 },
   name: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },

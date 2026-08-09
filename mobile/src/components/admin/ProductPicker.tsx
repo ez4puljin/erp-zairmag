@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, FlatList, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/src/lib/format';
 
 export interface PickerProduct {
@@ -40,6 +41,7 @@ export function ProductPicker({
   /** Камераар сканнердах товч. Заагаагүй бол товч харагдахгүй. */
   onScanRequest?: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -56,7 +58,7 @@ export function ProductPicker({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent={false}>
       <View style={s.container}>
-        <View style={s.header}>
+        <View style={[s.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
           <TouchableOpacity onPress={onClose} style={s.headerBtn}>
             <Text style={s.cancel}>Хаах</Text>
           </TouchableOpacity>
@@ -124,7 +126,7 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingTop: Platform.OS === 'ios' ? 56 : 16, paddingBottom: 12,
+    paddingHorizontal: 12, paddingBottom: 12,
     backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E8ECF0',
   },
   headerBtn: { minWidth: 56 },

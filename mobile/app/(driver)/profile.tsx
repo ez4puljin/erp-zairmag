@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/use-auth';
+import { PrinterSetup } from '../../src/components/PrinterSetup';
 
 const ROLE_LABELS: Record<string, string> = {
   DRIVER: 'Жолооч',
@@ -60,14 +61,8 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Printer Settings */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Принтер тохиргоо</Text>
-          <View style={styles.printerRow}>
-            <View style={styles.printerDot} />
-            <Text style={styles.printerText}>Bluetooth принтер холбогдоогүй</Text>
-          </View>
-        </View>
+        {/* Принтер тохиргоо — холбох боломжтой */}
+        <PrinterSetup />
 
         {/* Info */}
         <View style={styles.card}>

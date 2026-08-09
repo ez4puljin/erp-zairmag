@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * Зураасан код уншигч.
@@ -57,6 +58,7 @@ export function BarcodeScannerModal({
   onScanned: (code: string) => void;
   hint?: string;
 }) {
+  const insets = useSafeAreaInsets();
   const mod = getCamera();
   const cameraPossible = isCameraScanAvailable();
   const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>(
@@ -96,7 +98,7 @@ export function BarcodeScannerModal({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-          <View style={m.sheet}>
+          <View style={[m.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 10 }]}>
             <View style={m.handle} />
             <Text style={m.title}>Зураасан код оруулах</Text>
             <Text style={m.note}>
@@ -162,7 +164,7 @@ export function BarcodeScannerModal({
           </View>
         ) : null}
 
-        <TouchableOpacity style={s.closeBtn} onPress={onClose}>
+        <TouchableOpacity style={[s.closeBtn, { top: Math.max(insets.top, 16) + 8 }]} onPress={onClose}>
           <Ionicons name="close" size={26} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -176,7 +178,6 @@ const m = StyleSheet.create({
   sheet: {
     backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22,
     paddingHorizontal: 18, paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 18,
   },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D8DEE8', alignSelf: 'center', marginBottom: 14 },
   title: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
@@ -203,7 +204,7 @@ const s = StyleSheet.create({
   },
   hint: { color: '#fff', fontSize: 14, marginTop: 18, textAlign: 'center', paddingHorizontal: 30 },
   closeBtn: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 56 : 24, right: 20,
+    position: 'absolute', right: 20,
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center',
   },
