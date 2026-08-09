@@ -88,8 +88,11 @@ export default function SalesRegisterPage() {
         <FilterBar>
           <DateField label="Эхлэх" value={f.from} onChange={(v) => setF((s) => ({ ...s, from: v }))} />
           <DateField label="Дуусах" value={f.to} onChange={(v) => setF((s) => ({ ...s, to: v }))} />
-          <SelectField label="Суваг" value={f.channel} onChange={(v) => setF((s) => ({ ...s, channel: v as any }))}
-            options={[{ value: 'ALL', label: 'Бүгд' }, { value: 'ORDER', label: 'Захиалга' }, { value: 'TRUCK', label: 'Машин' }]} />
+          {/* "Бүгд" нь placeholder мөр болж ордог тул оролтод бичвэр болж суухгүй.
+              API нь заавал ALL/ORDER/TRUCK хүлээдэг тул хоосныг ALL руу хөрвүүлнэ. */}
+          <SelectField label="Суваг" value={f.channel === 'ALL' ? '' : f.channel}
+            onChange={(v) => setF((s) => ({ ...s, channel: (v || 'ALL') as any }))}
+            options={[{ value: 'ORDER', label: 'Захиалга' }, { value: 'TRUCK', label: 'Машин' }]} placeholder="Бүгд" />
           <SelectField label="Харилцагч" value={f.customerId} onChange={(v) => setF((s) => ({ ...s, customerId: v }))} options={customers} placeholder="Бүгд" />
           <SelectField label="Бүтээгдэхүүн" value={f.productId} onChange={(v) => setF((s) => ({ ...s, productId: v }))} options={products} placeholder="Бүгд" />
           <SelectField label="Төлбөр" value={f.paymentMethod} onChange={(v) => setF((s) => ({ ...s, paymentMethod: v }))}

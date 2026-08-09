@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Combobox } from '@base-ui/react/combobox';
 import { ChevronDown, Check, Search } from 'lucide-react';
 
@@ -69,14 +69,35 @@ export function SearchableSelect({
     [items, value]
   );
 
+  // "Бүгд" сонгогдсон үед оролтод бодит текст болж суудаг байсан тул хайхын
+  // тулд эхлээд түүнийг устгах шаардлагатай болдог байв. Оронд нь placeholder
+  // хэлбэрээр харуулна — жагсаалтад мөр нь хэвээр үлдэх тул цэвэрлэх боломжтой.
+  const inputValue = selected?.value === ALL ? null : selected;
+
+  // Товшиход сонгосон утга бүхэлдээ тэмдэглэгдэж, шууд дарж бичих боломжтой
+  // болно — өмнө нь хайхын тулд хуучин утгыг гараар устгах шаардлагатай байв.
+  // Фокусын дотор шууд `select()` дуудвал Base UI-ийн дараах re-render оролтын
+  // `value`-г дахин бичиж курсорыг эцэст нь буцаадаг тул commit-ийн дараа
+  // ажиллах effect дотор хийнэ.
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (focused) inputRef.current?.select();
+  }, [focused]);
+
+  // Хулганаар товшиход фокусын дараа mouseup курсорыг байрлуулж тэмдэглэлтийг
+  // арилгадаг тул click дээр дахин тэмдэглэнэ. Аль хэдийн фокустай байсан бол
+  // хэрэглэгч курсороо зориуд зөөж байгаа тул хөндөхгүй.
+  const selectOnClickRef = useRef(false);
+
   // Өгөгдмөл шүүлт нь зөвхөн эхлэлээр тааруулдаг тул "агуулсан"-аар солино.
   // `sensitivity: 'base'` нь том/жижиг үсэг болон аялгууны ялгааг үл тооно.
-  const filter = Combobox.useFilter({ sensitivity: 'base', value: selected });
+  const filter = Combobox.useFilter({ sensitivity: 'base', value: inputValue });
 
   return (
     <Combobox.Root
       items={items}
-      value={selected}
+      value={inputValue}
       disabled={disabled}
       filter={filter.contains}
       onValueChange={(next: SelectOption | null) => onChange(next?.value ?? ALL)}
@@ -92,6 +113,17 @@ export function SearchableSelect({
           placeholder={emptyText}
           aria-label={ariaLabel}
           required={required}
+          ref={inputRef}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onMouseDown={(e) => {
+            selectOnClickRef.current = document.activeElement !== e.currentTarget;
+          }}
+          onClick={() => {
+            if (!selectOnClickRef.current) return;
+            selectOnClickRef.current = false;
+            inputRef.current?.select();
+          }}
           className={`${inputClassName ?? defaultInputCls} pr-9 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
         />
         <Combobox.Trigger

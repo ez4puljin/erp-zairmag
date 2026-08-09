@@ -221,7 +221,7 @@ export default function ExpensesPage() {
             setFilterCategoryId(v);
             setPage(1);
           }}
-          options={[{ value: '', label: 'Бүх ангилал' }, ...categoryOptions]}
+          options={categoryOptions}
           placeholder="Бүх ангилал"
         />
         <SelectField
@@ -231,11 +231,7 @@ export default function ExpensesPage() {
             setFilterAccountId(v);
             setPage(1);
           }}
-          options={[
-            { value: '', label: 'Бүх данс' },
-            ...accountOptions,
-            { value: 'none', label: 'Данс сонгоогүй' },
-          ]}
+          options={[...accountOptions, { value: 'none', label: 'Данс сонгоогүй' }]}
           placeholder="Бүх данс"
         />
         {(dateFrom || dateTo || filterCategoryId || filterAccountId) && (

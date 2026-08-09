@@ -175,14 +175,14 @@ export default function PaymentsPage() {
           label="Харилцагч"
           value={filterCustomerId}
           onChange={(v) => { setFilterCustomerId(v); setPage(1); }}
-          options={[{ value: '', label: 'Бүх харилцагч' }, ...customerOptions]}
+          options={customerOptions}
           placeholder="Бүх харилцагч"
         />
         <SelectField
           label="Төлбөрийн хэлбэр"
           value={filterMethod}
           onChange={(v) => { setFilterMethod(v); setPage(1); }}
-          options={[{ value: '', label: 'Бүх хэлбэр' }, ...PAYMENT_METHODS]}
+          options={PAYMENT_METHODS}
           placeholder="Бүх хэлбэр"
         />
         <SelectField
@@ -190,7 +190,6 @@ export default function PaymentsPage() {
           value={filterType}
           onChange={(v) => { setFilterType(v); setPage(1); }}
           options={[
-            { value: '', label: 'Бүгд' },
             { value: 'RECEIPT', label: 'Төлбөр авсан' },
             { value: 'PAYOUT', label: 'Мөнгө олгосон' },
           ]}
@@ -200,11 +199,7 @@ export default function PaymentsPage() {
           label="Орлого орсон данс"
           value={filterAccountId}
           onChange={(v) => { setFilterAccountId(v); setPage(1); }}
-          options={[
-            { value: '', label: 'Бүх данс' },
-            ...accountOptions,
-            { value: 'none', label: 'Данс сонгоогүй' },
-          ]}
+          options={[...accountOptions, { value: 'none', label: 'Данс сонгоогүй' }]}
           placeholder="Бүх данс"
         />
         {hasFilter && (
@@ -380,7 +375,9 @@ export default function PaymentsPage() {
                 <SearchableSelect
                   value={editForm.bankAccountId}
                   onChange={(v) => setEditForm({ ...editForm, bankAccountId: v })}
-                  options={[{ value: '', label: 'Сонгоогүй' }, ...accountOptions]}
+                  options={accountOptions}
+                  placeholder="Сонгоогүй"
+                  emptyText="Сонгоогүй"
                   inputClassName={inputClass}
                   widthClass="w-full"
                   aria-label="Орлого орсон данс"

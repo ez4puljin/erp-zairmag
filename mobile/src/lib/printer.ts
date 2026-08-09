@@ -41,7 +41,7 @@ export async function ensureBluetoothPermissions(): Promise<boolean> {
       permissions = [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
     }
 
-    const result = await PermissionsAndroid.requestMultiple(permissions);
+    const result: Record<string, string> = await PermissionsAndroid.requestMultiple(permissions);
     const allGranted = permissions.every(
       p => result[p] === PermissionsAndroid.RESULTS.GRANTED,
     );

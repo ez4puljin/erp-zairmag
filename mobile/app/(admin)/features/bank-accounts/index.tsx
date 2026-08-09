@@ -103,7 +103,7 @@ export default function BankAccountsScreen() {
 
   return (
     <View style={s.container}>
-      <ScreenHeader title="Дансны мэдээлэл" rightAction={{ label: '+ Шинэ', onPress: openCreate }} />
+      <ScreenHeader title="Дансны мэдээлэл" rightLabel="+ Шинэ" onRightPress={openCreate} />
       <ScrollView
         contentContainerStyle={{ padding: 12, paddingBottom: 30 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAccounts(); }} />}
