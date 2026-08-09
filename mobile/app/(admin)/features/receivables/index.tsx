@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { ScreenHeader, LoadingState, ErrorState, StatCard, ListCard, FilterChips } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { formatCurrency } from '@/src/lib/format';
@@ -93,7 +94,7 @@ export default function ReceivablesScreen() {
                   subtitle={c.phone || ''}
                   rightText={formatCurrency(c.outstandingDebt)}
                   rightSubtext={`хязгаар: ${formatCurrency(c.creditLimit)}`}
-                  chevron={false}
+                  onPress={() => router.push(`/(admin)/features/receivables/${c.id}` as any)}
                 />
               ))}
             </>

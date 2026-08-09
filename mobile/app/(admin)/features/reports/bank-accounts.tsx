@@ -51,7 +51,7 @@ export default function BankAccountReportScreen() {
         contentContainerStyle={{ padding: 12, paddingBottom: 30 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReport(); }} />}
       >
-        <DateRangePicker from={from} to={to} onFromChange={setFrom} onToChange={setTo} onApply={fetchReport} />
+        <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
 
         {/* Grand totals */}
         <View style={s.statRow}>
