@@ -1,9 +1,22 @@
 import axios from 'axios';
 
+/**
+ * Backend API-ийн үндсэн хаягийг тодорхойлно.
+ *
+ * 1. `NEXT_PUBLIC_API_URL` тохируулсан бол түүнийг шууд ашиглана
+ *    (Vercel + тусдаа байрлуулсан backend-д зориулав).
+ * 2. Admin-ыг шууд 3001 порт дээр үзэж байвал backend нь ижил хост дээр
+ *    3000 порт дээр байна (локал болон LAN-аар хөгжүүлэлт).
+ * 3. Бусад тохиолдолд reverse proxy (Tailscale serve, nginx, Caddy) ижил
+ *    origin доор /api-г дамжуулж байна гэж үзнэ — ингэснээр HTTPS хуудаснаас
+ *    HTTP руу хандах болон CORS-ын асуудал огт үүсэхгүй.
+ */
 function getApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return `http://${window.location.hostname}:3000`;
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname, port, origin } = window.location;
+    if (port === '3001') return `${protocol}//${hostname}:3000`;
+    return origin;
   }
   return 'http://localhost:3000';
 }

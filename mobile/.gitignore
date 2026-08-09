@@ -18,6 +18,13 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Аппын гарын үсгийн түлхүүр — НУУЦ. Алдвал аппыг шинэчилж чадахгүй болно.
+# Заавал тусад нь backup хийнэ (credentials/README.md-г үзнэ үү).
+credentials/
+
+# Локал build-ийн гаралт
+*.apk
+
 # Metro
 .metro-health-check*
 

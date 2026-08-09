@@ -11,7 +11,10 @@
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://puljin.tailb3398e.ts.net"
+      }
     },
     "production": {
       "android": {

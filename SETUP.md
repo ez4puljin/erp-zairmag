@@ -98,6 +98,51 @@ npm install --legacy-peer-deps
 cd ..
 ```
 
+## Алхам 6.5: APK build хийх
+
+Серверийн хаяг нь `mobile\.env` доторх `EXPO_PUBLIC_API_URL`-аас апп дотор
+бэхлэгдэнэ — хаяг өөрчлөгдвөл тэр файлыг засаад дахин build хийнэ.
+
+Гарын үсгийн түлхүүр нь `mobile\credentials\` дотор байгаа бөгөөд git-д
+ороогүй. **Заавал backup хийнэ** — дэлгэрэнгүйг
+`mobile\credentials\README.md`-д бичсэн.
+
+### EAS үүлэн build (одоогоор ажиллаж байгаа арга)
+
+```bat
+cd mobile
+npx eas build --platform android --profile production
+```
+
+~15 минутын дараа татах холбоос гарна.
+
+### Локал build — Windows дээр одоогоор БОЛОМЖГҮЙ
+
+`build-apk.bat` скрипт бэлэн боловч Windows дээр дуустал ажиллахгүй:
+
+```
+ninja: error: Filename longer than 260 characters
+```
+
+React Native-ийн шинэ архитектур C++ кодыг codegen-ээр үүсгэдэг ба CMake нь
+объект файлын нэрэн дотор эх файлын бүтэн замыг давтдаг. Үр дүнгийн зам 390
+тэмдэгт болж, ninja-гийн 260 хязгаараас хэтэрдэг.
+
+Туршиж үзсэн, тус болоогүй аргууд:
+
+| Арга | Үр дүн |
+|---|---|
+| `LongPathsEnabled` бүртгэл | Аль хэдийн асаалттай — ninja үүнийг мөрддөггүй |
+| `CMAKE_OBJECT_PATH_MAX` | RN-ийн Gradle plugin CMake аргументыг дарж бичдэг |
+| Төслийг богино зам руу зөөх | Хамгийн богино зам дээр ч 304 тэмдэгт — хангалтгүй |
+
+Шийдэл нь Linux орчинд build хийх (замын хязгааргүй). WSL2 суулгахад
+процессорын виртуалчлалыг BIOS дээр асаах шаардлагатай.
+
+Локал build хийхээр бол `build-apk.bat` нь JDK 21 (Android Studio доторх
+`jbr`) болон `%LOCALAPPDATA%\Android\Sdk`-г ашиглана. Gradle-ийн кэшийг
+`D:\gradle-home` руу заасан — C: диск дүүрэхээс сэргийлэв.
+
 ## Алхам 7: Firewall port нээх
 
 Admin cmd-ээр:
