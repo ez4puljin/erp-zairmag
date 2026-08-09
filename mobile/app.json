@@ -32,7 +32,8 @@
         "BLUETOOTH_CONNECT",
         "BLUETOOTH_SCAN",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
       ]
     },
     "web": {
@@ -43,6 +44,12 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Зураасан код уншихад камер ашиглана."
+        }
+      ],
       [
         "expo-build-properties",
         {
