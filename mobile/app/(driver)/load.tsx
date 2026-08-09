@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode,
+  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode, hasBarcode,
   type PickerProduct, type QuantityResult,
 } from '../../src/components/admin';
 import {
@@ -18,10 +18,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/lib/api';
+import { useAuth } from '../../src/hooks/use-auth';
 
 interface TruckLoadItem {
   id: string;
-  product: { id: string; name: string; sku: string; sellingPrice: number | string };
+  product: { id: string; name: string; barcodes?: { code: string }[]; sellingPrice: number | string };
   loadedQty: number;
   soldQty: number;
   returnedQty?: number;
@@ -48,6 +49,7 @@ interface TruckLoad {
 }
 
 export default function LoadScreen() {
+  const { user } = useAuth();
   const [truckLoad, setTruckLoad] = useState<TruckLoad | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,9 +58,15 @@ export default function LoadScreen() {
   const [products, setProducts] = useState<PickerProduct[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  /** Нэг баркодод олон бараа таарсан үед жагсаалтыг шүүх утга. */
+  const [scanQuery, setScanQuery] = useState('');
   const [pendingProduct, setPendingProduct] = useState<PickerProduct | null>(null);
   const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+  /** Модалыг "шинэ ачилт үүсгэх" горимд ажиллуулж байгаа эсэх. */
+  const [creatingLoad, setCreatingLoad] = useState(false);
+  /** Шинэ ачилтын үнийн бүс — борлуулалтын үнэ үүнээс хамаарна. */
+  const [locationType, setLocationType] = useState<'URBAN' | 'RURAL'>('URBAN');
   const [salesOpen, setSalesOpen] = useState(false);
   const [completing, setCompleting] = useState(false);
 
@@ -131,17 +139,51 @@ export default function LoadScreen() {
   const handleScanned = (code: string) => {
     setScannerOpen(false);
     const target = normalizeCode(code);
-    const found = products.find(p => normalizeCode(p.sku ?? '') === target);
-    if (!found) {
+    // Нэг баркодыг хэд хэдэн бараа хуваалцаж болно — бүх таарцыг цуглуулна.
+    const matches = products.filter(p => hasBarcode(p, code));
+    if (matches.length === 0) {
       Alert.alert('Олдсонгүй', `"${code}" кодтой бараа бүртгэлгүй байна.`);
       return;
     }
+    if (matches.length > 1) {
+      // Олон бараанд ижил код бүртгэлтэй — жагсаалтаас сонгуулна.
+      setScanQuery(code.trim());
+      setPickerOpen(true);
+      return;
+    }
     setPickerOpen(false);
-    setPendingProduct(found);
+    setPendingProduct(matches[0]);
   };
 
   const handleSubmitAdditional = async () => {
-    if (!truckLoad || addLines.length === 0) return;
+    if (addLines.length === 0) return;
+
+    // Шинэ ачилт: үүсгээд шууд илгээнэ (илгээж байж POS дээр зарах боломжтой).
+    if (creatingLoad) {
+      setSubmittingAdd(true);
+      try {
+        const { data: created } = await api.post('/api/truck-loads', {
+          // driverId-г сервер өөрөө нэвтэрсэн жолоочоор тавина.
+          driverId: user?.id,
+          loadDate: new Date().toISOString().slice(0, 10),
+          locationType,
+          items: addLines.map(l => ({ productId: l.productId, loadedQty: l.qty })),
+        });
+        await api.post(`/api/truck-loads/${created.id}/dispatch`);
+        setAddLines([]);
+        setModalVisible(false);
+        setCreatingLoad(false);
+        await fetchData();
+        Alert.alert('Амжилттай', `Ачилт #${created.loadNumber} үүсч, илгээгдлээ.`);
+      } catch (e: any) {
+        Alert.alert('Алдаа', e?.response?.data?.message || 'Алдаа гарлаа');
+      } finally {
+        setSubmittingAdd(false);
+      }
+      return;
+    }
+
+    if (!truckLoad) return;
     setSubmittingAdd(true);
     try {
       await api.post(`/api/truck-loads/${truckLoad.id}/add-items`, {
@@ -187,6 +229,101 @@ export default function LoadScreen() {
 
   const isCompletionRequested = truckLoad?.status === 'COMPLETION_REQUESTED';
 
+  // Ачилт нэмэх/үүсгэх модалууд — идэвхтэй ачилттай ба ачилтгүй хоёр дэлгэцэд хоёуланд нь хэрэгтэй.
+  const loadModals = (
+    <>
+  {/* Нэмэлт ачилт */}
+  <Modal visible={modalVisible} animationType="slide" transparent>
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>{creatingLoad ? 'Шинэ ачилт' : 'Нэмэлт ачилт'}</Text>
+
+        {creatingLoad && (
+          <View style={styles.locRow}>
+            {(['URBAN', 'RURAL'] as const).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.locBtn, locationType === t && styles.locBtnActive]}
+                onPress={() => setLocationType(t)}
+              >
+                <Text style={[styles.locText, locationType === t && styles.locTextActive]}>
+                  {t === 'URBAN' ? 'Мөрөн' : 'Орон нутаг'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {addLines.length === 0 ? (
+          <Text style={styles.addHint}>Агуулахаас нэмж авах барааг сонгоно уу</Text>
+        ) : (
+          addLines.map((l) => (
+            <View key={l.productId} style={styles.addRow}>
+              <Text style={styles.addName} numberOfLines={1}>{l.name}</Text>
+              <Text style={styles.addQty}>{l.qty}ш</Text>
+              <TouchableOpacity onPress={() => setAddLines(p => p.filter(x => x.productId !== l.productId))}>
+                <Text style={styles.addRemove}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+
+        <View style={styles.addActions}>
+          <TouchableOpacity style={styles.addSearchBtn} onPress={() => setPickerOpen(true)}>
+            <Text style={styles.addSearchText}>🔍  Бараа хайх</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addScanBtn} onPress={() => setScannerOpen(true)}>
+            <Text style={styles.addScanText}>▥</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={styles.modalCancelBtn}
+            onPress={() => { setModalVisible(false); setAddLines([]); setCreatingLoad(false); }}
+          >
+            <Text style={styles.modalCancelText}>Болих</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalSubmitBtn, (addLines.length === 0 || submittingAdd) && { opacity: 0.4 }]}
+            onPress={handleSubmitAdditional}
+            disabled={addLines.length === 0 || submittingAdd}
+          >
+            <Text style={styles.modalSubmitText}>
+              {submittingAdd
+                ? (creatingLoad ? 'Үүсгэж байна...' : 'Нэмж байна...')
+                : `${creatingLoad ? 'Ачилт үүсгэх' : 'Ачилтад нэмэх'}${addLines.length ? ` (${addLines.reduce((s, l) => s + l.qty, 0)}ш)` : ''}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+
+  <ProductPicker
+    visible={pickerOpen}
+    products={products}
+    onClose={() => setPickerOpen(false)}
+    initialQuery={scanQuery}
+    onSelect={p => setPendingProduct(p)}
+    onScanRequest={() => setScannerOpen(true)}
+  />
+
+  <QuantitySheet
+    product={pendingProduct}
+    onCancel={() => setPendingProduct(null)}
+    onConfirm={handlePickQty}
+    confirmLabel="Жагсаалтад нэмэх"
+  />
+
+  <BarcodeScannerModal
+    visible={scannerOpen}
+    onClose={() => setScannerOpen(false)}
+    onScanned={handleScanned}
+  />
+    </>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -200,10 +337,21 @@ export default function LoadScreen() {
       <SafeAreaView style={styles.centered}>
         <Text style={styles.emptyIcon}>🚚</Text>
         <Text style={styles.emptyTitle}>Идэвхтэй ачилт байхгүй</Text>
-        <Text style={styles.emptySubtitle}>Агуулахаас ачилт хүлээн авна уу</Text>
+        <Text style={styles.emptySubtitle}>Агуулахаас ачилт хүлээн авах эсвэл өөрөө үүсгэнэ үү</Text>
+
+        <TouchableOpacity
+          style={styles.createBtn}
+          onPress={() => { setCreatingLoad(true); setAddLines([]); setModalVisible(true); }}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#fff" />
+          <Text style={styles.createBtnText}>Шинэ ачилт үүсгэх</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.refreshBtn} onPress={() => { setLoading(true); fetchData(); }}>
           <Text style={styles.refreshBtnText}>Шинэчлэх</Text>
         </TouchableOpacity>
+
+        {loadModals}
       </SafeAreaView>
     );
   }
@@ -404,76 +552,7 @@ export default function LoadScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Нэмэлт ачилт */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Нэмэлт ачилт</Text>
-
-            {addLines.length === 0 ? (
-              <Text style={styles.addHint}>Агуулахаас нэмж авах барааг сонгоно уу</Text>
-            ) : (
-              addLines.map((l) => (
-                <View key={l.productId} style={styles.addRow}>
-                  <Text style={styles.addName} numberOfLines={1}>{l.name}</Text>
-                  <Text style={styles.addQty}>{l.qty}ш</Text>
-                  <TouchableOpacity onPress={() => setAddLines(p => p.filter(x => x.productId !== l.productId))}>
-                    <Text style={styles.addRemove}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-
-            <View style={styles.addActions}>
-              <TouchableOpacity style={styles.addSearchBtn} onPress={() => setPickerOpen(true)}>
-                <Text style={styles.addSearchText}>🔍  Бараа хайх</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.addScanBtn} onPress={() => setScannerOpen(true)}>
-                <Text style={styles.addScanText}>▥</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => { setModalVisible(false); setAddLines([]); }}
-              >
-                <Text style={styles.modalCancelText}>Болих</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSubmitBtn, (addLines.length === 0 || submittingAdd) && { opacity: 0.4 }]}
-                onPress={handleSubmitAdditional}
-                disabled={addLines.length === 0 || submittingAdd}
-              >
-                <Text style={styles.modalSubmitText}>
-                  {submittingAdd ? 'Нэмж байна...' : `Ачилтад нэмэх${addLines.length ? ` (${addLines.reduce((s, l) => s + l.qty, 0)}ш)` : ''}`}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <ProductPicker
-        visible={pickerOpen}
-        products={products}
-        onClose={() => setPickerOpen(false)}
-        onSelect={p => setPendingProduct(p)}
-        onScanRequest={() => setScannerOpen(true)}
-      />
-
-      <QuantitySheet
-        product={pendingProduct}
-        onCancel={() => setPendingProduct(null)}
-        onConfirm={handlePickQty}
-        confirmLabel="Жагсаалтад нэмэх"
-      />
-
-      <BarcodeScannerModal
-        visible={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onScanned={handleScanned}
-      />
+      {loadModals}
     </SafeAreaView>
   );
 }
@@ -483,6 +562,13 @@ const styles = StyleSheet.create({
   salesToggleText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
   salesToggleChevron: { fontSize: 15, color: '#007AFF', lineHeight: 16 },
 
+  locRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  locBtn: { flex: 1, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA' },
+  locBtnActive: { backgroundColor: '#5856D6', borderColor: '#5856D6' },
+  locText: { fontSize: 15, fontWeight: '600', color: '#8E8E93' },
+  locTextActive: { color: '#fff' },
+  createBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingHorizontal: 22, height: 48, borderRadius: 12, backgroundColor: '#5856D6' },
+  createBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   addHint: { fontSize: 14, color: '#8E8E93', textAlign: 'center', paddingVertical: 18 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0F2F5' },
   addName: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1C1C1E' },

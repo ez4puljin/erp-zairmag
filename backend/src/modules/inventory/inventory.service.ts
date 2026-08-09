@@ -18,7 +18,7 @@ export class InventoryService {
       select: {
         id: true,
         name: true,
-        sku: true,
+        barcodes: { select: { code: true } },
         unit: true,
         stockAvailable: true,
         stockReserved: true,
@@ -159,7 +159,7 @@ export class InventoryService {
       this.prisma.stockMovement.findMany({
         where,
         include: {
-          product: { select: { name: true, sku: true } },
+          product: { select: { name: true, barcodes: { select: { code: true } } } },
           createdBy: { select: { firstName: true, lastName: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -184,7 +184,7 @@ export class InventoryService {
       select: {
         id: true,
         name: true,
-        sku: true,
+        barcodes: { select: { code: true } },
         stockAvailable: true,
         stockReserved: true,
         reorderLevel: true,

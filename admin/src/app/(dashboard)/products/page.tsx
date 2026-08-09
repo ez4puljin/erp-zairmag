@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import Link from 'next/link';
 import { Package, Plus, ChevronRight, ChevronLeft, AlertTriangle, Pencil, Trash2, Upload, TrendingUp } from 'lucide-react';
 import { ErrorBanner } from '@/components/shared/error-banner';
@@ -196,7 +197,7 @@ export default function ProductsPage() {
                       )}
                     </div>
                     <p className="text-[12px] text-[#8C8FA3] truncate mt-0.5">
-                      <span className="font-mono text-[#AEAEB2]">{product.sku}</span>
+                      <span className="font-mono text-[#AEAEB2]">{primaryBarcode(product) ?? "—"}</span>
                       {product.supplier && <span> · {product.supplier.name}</span>}
                       {product.unitsPerBox > 1 && <span className="text-[#007AFF]"> · {product.unitsPerBox}ш/хайрцаг</span>}
                     </p>

@@ -26,7 +26,7 @@ export interface Category {
 export interface Product {
   id: string;
   name: string;
-  sku: string;
+  barcodes?: { code: string }[];
   description?: string;
   category: Category;
   costPrice: number;

@@ -676,7 +676,7 @@ export class OrdersService {
       this.prisma.order.findMany({
         where,
         include: {
-          items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+          items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } } } } } },
           customer: { select: { id: true, storeName: true, contactName: true } },
           createdBy: { select: { id: true, firstName: true, lastName: true } },
           deliveryRoute: { include: { driver: { select: { id: true, firstName: true, lastName: true, phone: true } } } },
@@ -712,7 +712,7 @@ export class OrdersService {
               select: {
                 id: true,
                 name: true,
-                sku: true,
+                barcodes: { select: { code: true } },
                 unit: true,
                 imageUrl: true,
               },

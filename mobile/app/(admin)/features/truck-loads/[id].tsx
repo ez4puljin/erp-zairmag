@@ -3,7 +3,7 @@ import { View, ScrollView, Text, StyleSheet, Alert, TouchableOpacity, ActivityIn
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState, confirm, notify,
-  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode,
+  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode, hasBarcode,
   type PickerProduct, type QuantityResult } from '@/src/components/admin';
 import { useItemQuery, invalidateItemCache } from '@/src/hooks/use-item-query';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
@@ -25,6 +25,8 @@ export default function TruckLoadDetailScreen() {
   // Нэмэлт ачилт
   const [addOpen, setAddOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  /** Нэг баркодод олон бараа таарсан үед жагсаалтыг шүүх утга. */
+  const [scanQuery, setScanQuery] = useState('');
   const [products, setProducts] = useState<PickerProduct[]>([]);
   const [pending, setPending] = useState<PickerProduct | null>(null);
   const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
@@ -119,13 +121,20 @@ export default function TruckLoadDetailScreen() {
   const handleScanned = (code: string) => {
     setScannerOpen(false);
     const target = normalizeCode(code);
-    const found = products.find(p => normalizeCode(p.sku ?? '') === target);
-    if (!found) {
+    // Нэг баркодыг хэд хэдэн бараа хуваалцаж болно — бүх таарцыг цуглуулна.
+    const matches = products.filter(p => hasBarcode(p, code));
+    if (matches.length === 0) {
       notify('Олдсонгүй', `"${code}" кодтой бараа бүртгэлгүй байна.`);
       return;
     }
+    if (matches.length > 1) {
+      // Олон бараанд ижил код бүртгэлтэй — жагсаалтаас сонгуулна.
+      setScanQuery(code.trim());
+      setAddOpen(true);
+      return;
+    }
     setAddOpen(false);
-    setPending(found);
+    setPending(matches[0]);
   };
 
   const handleAddQty = (result: QuantityResult) => {
@@ -506,6 +515,7 @@ export default function TruckLoadDetailScreen() {
         visible={addOpen}
         products={products}
         onClose={() => setAddOpen(false)}
+        initialQuery={scanQuery}
         onSelect={p => setPending(p)}
         onScanRequest={() => setScannerOpen(true)}
       />

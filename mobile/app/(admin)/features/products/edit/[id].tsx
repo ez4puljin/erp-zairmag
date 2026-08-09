@@ -3,7 +3,7 @@ import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { FormModal, FormField, confirm } from '@/src/components/admin';
+import { FormModal, FormField, confirm, BarcodeFields, cleanBarcodes } from '@/src/components/admin';
 import { router, useLocalSearchParams } from 'expo-router';
 import api from '@/src/lib/api';
 import { getImageUrl } from '@/src/lib/image-url';
@@ -16,8 +16,9 @@ export default function EditProductScreen() {
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [barcodes, setBarcodes] = useState<string[]>(['']);
   const [form, setForm] = useState({
-    name: '', sku: '', categoryId: '', supplierId: '', unit: 'PIECE',
+    name: '', categoryId: '', supplierId: '', unit: 'PIECE',
     costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '', unitsPerBox: '1',
   });
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
@@ -34,7 +35,6 @@ export default function EditProductScreen() {
       const p = pRes.data?.data ?? pRes.data;
       setForm({
         name: p.name ?? '',
-        sku: p.sku ?? '',
         categoryId: p.categoryId ?? p.category?.id ?? '',
         supplierId: p.supplierId ?? '',
         unit: p.unit ?? 'PIECE',
@@ -44,6 +44,8 @@ export default function EditProductScreen() {
         reorderLevel: String(Number(p.reorderLevel ?? 0)),
         unitsPerBox: String(Number(p.unitsPerBox ?? 1)),
       });
+      const codes = (p.barcodes ?? []).map((b: any) => b.code).filter(Boolean);
+      setBarcodes(codes.length > 0 ? codes : ['']);
       setExistingImageUrl(p.imageUrl ?? null);
     }).catch(e => setError(e?.response?.data?.message || 'Алдаа'))
       .finally(() => setLoading(false));
@@ -78,7 +80,7 @@ export default function EditProductScreen() {
     try {
       await api.patch(`/api/products/${id}`, {
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        barcodes: cleanBarcodes(barcodes),
         categoryId: form.categoryId,
         supplierId: form.supplierId || undefined,
         unit: form.unit,
@@ -129,7 +131,7 @@ export default function EditProductScreen() {
         </TouchableOpacity>
       </View>
       <FormField label="Нэр" value={form.name} onChange={v => update('name', v)} required />
-      <FormField label="Баркод" value={form.sku} onChange={v => update('sku', v)} required />
+      <BarcodeFields value={barcodes} onChange={setBarcodes} />
       <FormField label="Ангилал" value={form.categoryId} onChange={v => update('categoryId', v)} type="select" options={categories.map((c: any) => ({ label: c.name, value: c.id }))} />
       <FormField label="Нийлүүлэгч" value={form.supplierId} onChange={v => update('supplierId', v)} type="select" options={[{label: 'Сонгох...', value: ''}, ...suppliers.map((s: any) => ({ label: s.name, value: s.id }))]} />
       <FormField label="Нэгж" value={form.unit} onChange={v => update('unit', v)} type="select" options={[{label:'Ширхэг',value:'PIECE'},{label:'Хайрцаг',value:'BOX'},{label:'Кг',value:'KG'},{label:'Литр',value:'LITER'},{label:'Баглаа',value:'PACK'}]} />

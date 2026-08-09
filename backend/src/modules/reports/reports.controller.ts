@@ -160,7 +160,7 @@ export class ReportsController {
         name: 'Бүтээгдэхүүнээр',
         columns: [
           { header: 'Бүтээгдэхүүн', key: 'name', width: 28 },
-          { header: 'Код', key: 'sku', width: 14 },
+          { header: 'Баркод', key: 'barcode', width: 16 },
           { header: 'Тоо', key: 'qty', width: 10 },
           { header: 'Орлого', key: 'revenue', width: 16 },
         ],

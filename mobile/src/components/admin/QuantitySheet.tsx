@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/src/lib/format';
 import type { PickerProduct } from './ProductPicker';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 export interface QuantityResult {
   /** Нийт ширхэг = хайрцаг × хайрцагт байх тоо + үлдэгдэл ширхэг. */
@@ -68,7 +69,7 @@ export function QuantitySheet({
 
           <Text style={s.name} numberOfLines={2}>{product.name}</Text>
           <Text style={s.sku}>
-            {product.sku}
+            {primaryBarcode(product) ?? '—'}
             {perBox > 1 ? ` · хайрцагт ${perBox}ш` : ' · ширхэгээр'}
           </Text>
 

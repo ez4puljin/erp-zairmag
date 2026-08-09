@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { BarcodeListInput, cleanBarcodes } from '@/components/shared/barcode-list-input';
 import { ChevronLeft, Upload, X, RefreshCw, Package, DollarSign, Boxes, FileText, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { PRODUCT_UNITS } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
 
 export default function EditProductPage() {
   const params = useParams();
@@ -20,8 +22,9 @@ export default function EditProductPage() {
   const [submitting, setSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [barcodes, setBarcodes] = useState<string[]>(['']);
   const [form, setForm] = useState({
-    name: '', sku: '', description: '', categoryId: '', supplierId: '',
+    name: '', description: '', categoryId: '', supplierId: '',
     unit: '', unitsPerBox: '1', weightGrams: '', costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '',
   });
 
@@ -30,7 +33,7 @@ export default function EditProductPage() {
       api.get(`/api/products/${id}`).then(res => {
         const p = res.data;
         setForm({
-          name: p.name ?? '', sku: p.sku ?? '', description: p.description ?? '',
+          name: p.name ?? '', description: p.description ?? '',
           categoryId: p.categoryId ?? '', supplierId: p.supplierId ?? '',
           unit: p.unit ?? '', unitsPerBox: String(p.unitsPerBox ?? '1'), weightGrams: String(p.weightGrams ?? ''),
           costPrice: String(p.costPrice ?? ''),
@@ -38,6 +41,8 @@ export default function EditProductPage() {
           sellingPriceRural: String(p.sellingPriceRural ?? ''),
           reorderLevel: String(p.reorderLevel ?? ''),
         });
+        const codes = (p.barcodes ?? []).map((b: any) => b.code).filter(Boolean);
+        setBarcodes(codes.length > 0 ? codes : ['']);
         if (p.imageUrl) setImagePreview(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${p.imageUrl}`);
       }),
       api.get('/api/categories').then(res => setCategories(res.data?.data ?? res.data ?? [])),
@@ -65,7 +70,7 @@ export default function EditProductPage() {
     try {
       await api.patch(`/api/products/${id}`, {
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        barcodes: cleanBarcodes(barcodes),
         description: form.description?.trim() || undefined,
         categoryId: form.categoryId,
         supplierId: form.supplierId || null,
@@ -179,11 +184,13 @@ export default function EditProductPage() {
                   <label className={labelClass}>Нэр *</label>
                   <input type="text" value={form.name} onChange={e => handleChange('name', e.target.value)} required className={inputClass} />
                 </div>
+                <BarcodeListInput
+                  value={barcodes}
+                  onChange={setBarcodes}
+                  inputClass={inputClass}
+                  labelClass={labelClass}
+                />
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Баркод *</label>
-                    <input type="text" value={form.sku} onChange={e => handleChange('sku', e.target.value)} required className={inputClass} />
-                  </div>
                   <div>
                     <label className={labelClass}>Хэмжих нэгж *</label>
                     <SearchableSelect
@@ -237,16 +244,16 @@ export default function EditProductPage() {
               <div className="space-y-4">
                 <div>
                   <label className={labelClass}>Өртөг (₮) *</label>
-                  <input type="number" value={form.costPrice} onChange={e => handleChange('costPrice', e.target.value)} required className={inputClass} />
+                  <MoneyInput value={form.costPrice} onChange={(v: string) => handleChange('costPrice', v)} required className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>🏙️ Мөрөн үнэ (₮) *</label>
-                  <input type="number" value={form.sellingPrice} onChange={e => handleChange('sellingPrice', e.target.value)} required className={inputClass} />
+                  <MoneyInput value={form.sellingPrice} onChange={(v: string) => handleChange('sellingPrice', v)} required className={inputClass} />
                   <p className="text-[10px] text-[#8C8FA3] mt-1">Мөрөн хот дахь зарах үнэ</p>
                 </div>
                 <div>
                   <label className={labelClass}>🏞️ Орон нутгийн үнэ (₮)</label>
-                  <input type="number" value={form.sellingPriceRural} onChange={e => handleChange('sellingPriceRural', e.target.value)} className={inputClass} />
+                  <MoneyInput value={form.sellingPriceRural} onChange={(v: string) => handleChange('sellingPriceRural', v)} className={inputClass} />
                   <p className="text-[10px] text-[#8C8FA3] mt-1">Хоосон бол Мөрөн үнэтэй ижил</p>
                 </div>
 

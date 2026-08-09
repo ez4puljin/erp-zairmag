@@ -8,6 +8,7 @@ import { getImageUrl } from '@/src/lib/image-url';
 import { formatCurrency } from '@/src/lib/format';
 import api from '@/src/lib/api';
 import type { Product } from '@/src/types';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 export default function ProductsListScreen() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -74,7 +75,7 @@ export default function ProductsListScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={s.name} numberOfLines={1}>{p.name}</Text>
                     <Text style={s.meta} numberOfLines={1}>
-                      {p.sku} {p.category?.name ? `· ${p.category.name}` : ''}
+                      {primaryBarcode(p) ?? '—'} {p.category?.name ? `· ${p.category.name}` : ''}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader, FormField, LoadingState, ErrorState, DateRangePicker, EmptyState } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { formatCurrency, formatDate } from '@/src/lib/format';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 const UNIT_LABELS: Record<string, string> = { PIECE: 'ш', BOX: 'хайрцаг', KG: 'кг', LITER: 'л', PACK: 'баглаа' };
 
@@ -57,7 +58,7 @@ export default function ProductLedgerScreen() {
 
   const productOptions = [
     { label: 'Бүх бараа', value: '' },
-    ...products.map((p: any) => ({ label: `${p.sku} - ${p.name}`, value: p.id })),
+    ...products.map((p: any) => ({ label: `${primaryBarcode(p) ?? '—'} - ${p.name}`, value: p.id })),
   ];
   const categoryOptions = [
     { label: 'Бүх ангилал', value: '' },
@@ -140,7 +141,7 @@ export default function ProductLedgerScreen() {
                 <TouchableOpacity onPress={() => hasTx && toggle(item.product.id)} activeOpacity={0.7}>
                   <View style={st.prodHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={st.prodSku}>{item.product.sku}</Text>
+                      <Text style={st.prodSku}>{primaryBarcode(item.product) ?? '—'}</Text>
                       <Text style={st.prodName}>{item.product.name}</Text>
                       <Text style={st.prodUnit}>Нэгж: {UNIT_LABELS[item.product.unit] || item.product.unit} · Өртөг: {formatCurrency(item.unitCost)}</Text>
                     </View>

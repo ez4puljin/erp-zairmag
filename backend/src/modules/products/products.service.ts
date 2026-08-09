@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,18 +13,23 @@ import { PaginatedResponse } from '../../common/dto/pagination.dto';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateProductDto) {
-    const existing = await this.prisma.product.findUnique({
-      where: { sku: dto.sku },
-    });
-    if (existing) {
-      throw new ConflictException(`Product with SKU "${dto.sku}" already exists`);
+  /** Нэг бараанд давхардсан код бичихээс сэргийлж цэвэрлэнэ. */
+  private static normalizeBarcodes(codes?: string[]): string[] {
+    if (!codes) return [];
+    const seen = new Set<string>();
+    for (const raw of codes) {
+      const code = String(raw ?? '').trim();
+      if (code) seen.add(code);
     }
+    return [...seen];
+  }
+
+  async create(dto: CreateProductDto) {
+    const codes = ProductsService.normalizeBarcodes(dto.barcodes);
 
     return this.prisma.product.create({
       data: {
         name: dto.name,
-        sku: dto.sku,
         description: dto.description,
         categoryId: dto.categoryId,
         unit: dto.unit,
@@ -35,14 +39,14 @@ export class ProductsService {
         reorderLevel: dto.reorderLevel,
         imageUrl: dto.imageUrl,
         supplierId: dto.supplierId,
+        barcodes: { create: codes.map((code) => ({ code })) },
       },
-      include: { category: true, supplier: true },
+      include: { category: true, supplier: true, barcodes: true },
     });
   }
 
   private static readonly VALID_SORT_FIELDS = [
     'name',
-    'sku',
     'createdAt',
     'updatedAt',
     'sellingPrice',
@@ -72,7 +76,7 @@ export class ProductsService {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
+        { barcodes: { some: { code: { contains: search, mode: 'insensitive' } } } },
         { description: { contains: search, mode: 'insensitive' } },
       ];
     }
@@ -86,7 +90,7 @@ export class ProductsService {
         skip,
         take: limit,
         orderBy,
-        include: { category: true, tierPrices: true, supplier: true },
+        include: { category: true, tierPrices: true, supplier: true, barcodes: true },
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -109,6 +113,7 @@ export class ProductsService {
         category: true,
         tierPrices: true,
         supplier: true,
+        barcodes: true,
         batches: {
           where: { quantityRemaining: { gt: 0 } },
           orderBy: { expiryDate: 'asc' },
@@ -126,22 +131,24 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto) {
     await this.findOne(id);
 
-    if (dto.sku) {
-      const existing = await this.prisma.product.findFirst({
-        where: { sku: dto.sku, id: { not: id }, deletedAt: null },
-      });
-      if (existing) {
-        throw new ConflictException(`Product with SKU "${dto.sku}" already exists`);
-      }
-    }
+    const { barcodes, ...rest } = dto;
 
     return this.prisma.product.update({
       where: { id },
       data: {
-        ...dto,
+        ...rest,
         version: { increment: 1 },
+        // barcodes өгсөн үед л бүхэлд нь солино; өгөөгүй бол хэвээр үлдэнэ.
+        ...(barcodes
+          ? {
+              barcodes: {
+                deleteMany: {},
+                create: ProductsService.normalizeBarcodes(barcodes).map((code) => ({ code })),
+              },
+            }
+          : {}),
       },
-      include: { category: true, supplier: true },
+      include: { category: true, supplier: true, barcodes: true },
     });
   }
 
@@ -196,6 +203,25 @@ export class ProductsService {
     return { price: product.sellingPrice, source: 'product' };
   }
 
+  /**
+   * Уншуулсан баркодоор бараа хайна.
+   * Нэг код хэд хэдэн бараанд харьяалагдаж болох тул үргэлж жагсаалт буцаана —
+   * дуудаж буй тал олон таарвал хэрэглэгчээс сонгуулна.
+   */
+  async findByBarcode(code: string) {
+    const trimmed = String(code ?? '').trim();
+    if (!trimmed) return [];
+
+    return this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        barcodes: { some: { code: trimmed } },
+      },
+      include: { category: true, barcodes: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async bulkImport(buffer: Buffer) {
     const XLSX = require('xlsx');
     const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -214,16 +240,20 @@ export class ProductsService {
 
       try {
         const name = String(row['name'] || row['Нэр'] || '').trim();
-        const sku = String(row['sku'] || row['Баркод'] || '').trim();
+        // Нэг нүдэнд олон баркодыг таслал/цэг таслал/зайгаар тусгаарлан бичиж болно.
+        const barcodeRaw = String(row['barcodes'] || row['Баркод'] || '').trim();
+        const codes = ProductsService.normalizeBarcodes(barcodeRaw.split(/[,;\s]+/));
         const categoryName = String(row['category'] || row['Ангилал'] || '').trim();
         const unit = String(row['unit'] || row['Нэгж'] || 'PIECE').toUpperCase();
         const costPrice = Number(row['costPrice'] || row['Өртөг'] || 0);
         const sellingPrice = Number(row['sellingPrice'] || row['Зарах үнэ'] || 0);
+        const ruralRaw = row['sellingPriceRural'] ?? row['Орон нутгийн үнэ'];
+        const sellingPriceRural = ruralRaw === undefined || ruralRaw === '' ? sellingPrice : Number(ruralRaw);
         const reorderLevel = Number(row['reorderLevel'] || row['Доод хэмжээ'] || 0);
         const unitsPerBox = Number(row['unitsPerBox'] || row['Хайрцагт'] || 1);
 
-        if (!name || !sku) {
-          results.errors.push({ row: rowNum, message: 'Нэр болон баркод заавал шаардлагатай' });
+        if (!name) {
+          results.errors.push({ row: rowNum, message: 'Нэр заавал шаардлагатай' });
           continue;
         }
 
@@ -233,12 +263,24 @@ export class ProductsService {
           continue;
         }
 
-        const existing = await this.prisma.product.findUnique({ where: { sku } });
+        // Баркод давхардаж болох тул нэрээр тулгана.
+        const existing = await this.prisma.product.findFirst({
+          where: { name, deletedAt: null },
+        });
+
+        const barcodeWrite = codes.length
+          ? { barcodes: { deleteMany: {}, create: codes.map((code) => ({ code })) } }
+          : {};
 
         if (existing) {
           await this.prisma.product.update({
-            where: { sku },
-            data: { name, unit: unit as any, costPrice, sellingPrice, reorderLevel, unitsPerBox, ...(categoryId ? { categoryId } : {}) },
+            where: { id: existing.id },
+            data: {
+              unit: unit as any, costPrice, sellingPrice, sellingPriceRural,
+              reorderLevel, unitsPerBox,
+              ...(categoryId ? { categoryId } : {}),
+              ...barcodeWrite,
+            },
           });
           results.updated++;
         } else {
@@ -247,7 +289,11 @@ export class ProductsService {
             continue;
           }
           await this.prisma.product.create({
-            data: { name, sku, unit: unit as any, costPrice, sellingPrice, reorderLevel, unitsPerBox, categoryId },
+            data: {
+              name, unit: unit as any, costPrice, sellingPrice, sellingPriceRural,
+              reorderLevel, unitsPerBox, categoryId,
+              ...(codes.length ? { barcodes: { create: codes.map((code) => ({ code })) } } : {}),
+            },
           });
           results.created++;
         }
@@ -262,7 +308,17 @@ export class ProductsService {
   generateImportTemplate() {
     const XLSX = require('xlsx');
     const data = [
-      { 'Нэр': 'Жишээ бараа', 'Баркод': 'IC-001', 'Ангилал': 'Зайрмаг', 'Нэгж': 'PIECE', 'Өртөг': 10000, 'Зарах үнэ': 15000, 'Доод хэмжээ': 10, 'Хайрцагт': 24 },
+      {
+        'Нэр': 'Жишээ бараа',
+        'Баркод': '8656021315078, 8656021315079', // олон бол таслалаар
+        'Ангилал': 'Зайрмаг',
+        'Нэгж': 'PIECE',
+        'Өртөг': 10000,
+        'Зарах үнэ': 15000,
+        'Орон нутгийн үнэ': 15500,
+        'Доод хэмжээ': 10,
+        'Хайрцагт': 24,
+      },
     ];
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();

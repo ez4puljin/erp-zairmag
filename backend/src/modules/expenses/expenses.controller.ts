@@ -13,7 +13,7 @@ import { Role } from '@prisma/client';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { CreateExpenseCategoryDto } from './dto/create-expense-category.dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
+import { QueryExpenseDto } from './dto/query-expense.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -34,13 +34,14 @@ export class ExpensesController {
 
   @Get('expenses')
   @Roles(Role.ADMIN)
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-    @Query('categoryId') categoryId?: string,
-  ) {
-    return this.expensesService.findAll(pagination, dateFrom, dateTo, categoryId);
+  findAll(@Query() query: QueryExpenseDto) {
+    return this.expensesService.findAll(
+      query,
+      query.dateFrom,
+      query.dateTo,
+      query.categoryId,
+      query.bankAccountId,
+    );
   }
 
   @Get('expenses/:id')

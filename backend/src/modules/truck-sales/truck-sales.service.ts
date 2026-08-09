@@ -36,16 +36,27 @@ export class TruckSalesService {
     });
     if (!customer) throw new NotFoundException('Харилцагч олдсонгүй.');
 
-    // Validate quantities against truck inventory
+    // Validate quantities against truck inventory.
+    // Алдааны мэдэгдэлд барааны нэрийг харуулна — ID харуулбал жолоочид ойлгомжгүй.
+    const validationNames = new Map(
+      (
+        await this.prisma.product.findMany({
+          where: { id: { in: dto.items.map((i) => i.productId) } },
+          select: { id: true, name: true },
+        })
+      ).map((p) => [p.id, p.name]),
+    );
+    const nameOf = (id: string) => validationNames.get(id) ?? id;
+
     for (const saleItem of dto.items) {
       const loadItem = truckLoad.items.find(i => i.productId === saleItem.productId);
       if (!loadItem) {
-        throw new BadRequestException(`Бараа ${saleItem.productId} машинд байхгүй.`);
+        throw new BadRequestException(`"${nameOf(saleItem.productId)}" бараа машинд байхгүй.`);
       }
       const availableOnTruck = loadItem.loadedQty - loadItem.soldQty - loadItem.returnedQty - loadItem.damagedQty;
       if (saleItem.quantity > availableOnTruck) {
         throw new BadRequestException(
-          `"${saleItem.productId}" бараа хүрэлцэхгүй. Машинд: ${availableOnTruck}, Хүссэн: ${saleItem.quantity}`
+          `"${nameOf(saleItem.productId)}" бараа хүрэлцэхгүй. Машинд: ${availableOnTruck}, Хүссэн: ${saleItem.quantity}`
         );
       }
     }
@@ -112,6 +123,15 @@ export class TruckSalesService {
       saleNotes = saleNotes ? `${saleNotes} | COMBINED:${detail}` : `COMBINED:${detail}`;
     }
 
+    // Нөхөж бүртгэх огноо. Заагаагүй бол одоо. Ирээдүйн огноо зөвшөөрөхгүй.
+    const saleAt = dto.saleDate ? new Date(dto.saleDate) : new Date();
+    if (Number.isNaN(saleAt.getTime())) {
+      throw new BadRequestException('Борлуулалтын огноо буруу байна.');
+    }
+    if (saleAt.getTime() > Date.now() + 60_000) {
+      throw new BadRequestException('Ирээдүйн огноогоор борлуулалт бүртгэх боломжгүй.');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // Create the sale
       const sale = await tx.truckSale.create({
@@ -122,6 +142,7 @@ export class TruckSalesService {
           subtotal,
           totalAmount,
           notes: saleNotes || null,
+          createdAt: saleAt,
           items: {
             create: itemsData.map(item => ({
               productId: item.productId,
@@ -132,7 +153,7 @@ export class TruckSalesService {
           },
         },
         include: {
-          items: { include: { product: { select: { id: true, name: true, sku: true, unit: true } } } },
+          items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true } } } },
           customer: { select: { id: true, storeName: true, contactName: true, phone: true, address: true } },
         },
       });
@@ -160,6 +181,7 @@ export class TruckSalesService {
             createdById: userId,
             locationCode: `TRUCK-${truckLoad.loadNumber}`,
             notes: `Түгээлтийн борлуулалт #${sale.saleNumber} - ${customer.storeName}`,
+            createdAt: saleAt,
           },
         });
       }
@@ -184,6 +206,7 @@ export class TruckSalesService {
             amount: totalAmount,
             balanceAfter: newDebt,
             description: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
+            createdAt: saleAt,
           },
         });
       } else if (dto.paymentMethod === 'COMBINED' && dto.combinedPayments) {
@@ -201,6 +224,7 @@ export class TruckSalesService {
             amount: totalAmount,
             balanceAfter: afterSaleDebt,
             description: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
+            createdAt: saleAt,
           },
         });
 
@@ -212,7 +236,8 @@ export class TruckSalesService {
               amount: paidPortion,
               method: 'CASH', // primary method for combined
               status: 'COMPLETED',
-              paidAt: new Date(),
+              paidAt: saleAt,
+              createdAt: saleAt,
               notes: `Түгээлтийн хосолсон төлбөр #${sale.saleNumber}`,
             },
           });
@@ -229,6 +254,7 @@ export class TruckSalesService {
               balanceAfter: afterPaymentDebt,
               description: `Түгээлтийн төлбөр #${sale.saleNumber} (хосолсон)`,
               paymentId: payment.id,
+              createdAt: saleAt,
             },
           });
         } else {
@@ -246,7 +272,8 @@ export class TruckSalesService {
             amount: totalAmount,
             method: dto.paymentMethod,
             status: 'COMPLETED',
-            paidAt: new Date(),
+            paidAt: saleAt,
+            createdAt: saleAt,
             notes: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
           },
         });
@@ -258,6 +285,7 @@ export class TruckSalesService {
             amount: totalAmount,
             balanceAfter: afterSaleDebt,
             description: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
+            createdAt: saleAt,
           },
         });
 
@@ -273,6 +301,7 @@ export class TruckSalesService {
             balanceAfter: afterPaymentDebt,
             description: `Түгээлтийн төлбөр #${sale.saleNumber} (${dto.paymentMethod})`,
             paymentId: payment.id,
+            createdAt: saleAt,
           },
         });
       }
@@ -286,7 +315,7 @@ export class TruckSalesService {
     const sale = await this.prisma.truckSale.findUnique({
       where: { id },
       include: {
-        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true } } } },
+        items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true } } } },
         customer: { select: { id: true, storeName: true, contactName: true, phone: true, address: true } },
         truckLoad: {
           select: { loadNumber: true, driver: { select: { firstName: true, lastName: true, phone: true } } },
@@ -302,7 +331,7 @@ export class TruckSalesService {
     return this.prisma.truckSale.findMany({
       where: { truckLoadId },
       include: {
-        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true, sellingPrice: true } } } },
+        items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, sellingPrice: true } } } },
         customer: { select: { id: true, storeName: true, contactName: true, phone: true, address: true } },
       },
       orderBy: { createdAt: 'desc' },

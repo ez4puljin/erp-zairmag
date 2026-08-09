@@ -4,16 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   FormModal, FormField, ProductPicker, QuantitySheet, BarcodeScannerModal, notify,
-  normalizeCode, type PickerProduct, type QuantityResult,
+  normalizeCode, hasBarcode, type PickerProduct, type QuantityResult,
 } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
 import { formatCurrency, formatWeight, formatQty } from '@/src/lib/format';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 interface Line {
   productId: string;
   name: string;
-  sku?: string;
+  barcodes?: { code: string }[];
   quantity: number;
   unitPrice: number;
   boxes: number;
@@ -33,6 +34,8 @@ export default function NewPurchaseReceiptScreen() {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  /** Нэг баркодод олон бараа таарсан үед жагсаалтыг шүүх утга. */
+  const [scanQuery, setScanQuery] = useState('');
   const [pending, setPending] = useState<PickerProduct | null>(null);
 
   useEffect(() => {
@@ -56,13 +59,20 @@ export default function NewPurchaseReceiptScreen() {
   const handleScanned = (code: string) => {
     setScannerOpen(false);
     const target = normalizeCode(code);
-    const found = products.find(p => normalizeCode(p.sku ?? '') === target);
-    if (!found) {
+    // Нэг баркодыг хэд хэдэн бараа хуваалцаж болно — бүх таарцыг цуглуулна.
+    const matches = products.filter(p => hasBarcode(p, code));
+    if (matches.length === 0) {
       notify('Олдсонгүй', `"${code}" кодтой бараа бүртгэлгүй байна.`);
       return;
     }
+    if (matches.length > 1) {
+      // Олон бараанд ижил код бүртгэлтэй — жагсаалтаас сонгуулна.
+      setScanQuery(code.trim());
+      setPickerOpen(true);
+      return;
+    }
     setPickerOpen(false);
-    setPending(found);
+    setPending(matches[0]);
   };
 
   const handleAdd = (result: QuantityResult) => {
@@ -85,7 +95,7 @@ export default function NewPurchaseReceiptScreen() {
       return [...prev, {
         productId: pending.id,
         name: pending.name,
-        sku: pending.sku,
+        barcode: primaryBarcode(pending),
         quantity: result.quantity,
         unitPrice: result.unitPrice,
         boxes: result.boxes,
@@ -198,6 +208,7 @@ export default function NewPurchaseReceiptScreen() {
         visible={pickerOpen}
         products={products}
         onClose={() => setPickerOpen(false)}
+        initialQuery={scanQuery}
         onSelect={p => setPending(p)}
         onScanRequest={() => setScannerOpen(true)}
       />

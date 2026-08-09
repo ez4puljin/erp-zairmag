@@ -166,8 +166,16 @@ export default function AdminTruckLoadsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Ачилтууд</Text>
-        <Text style={styles.headerSub}>{truckLoads.length} ачилт</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Ачилтууд</Text>
+          <Text style={styles.headerSub}>{truckLoads.length} ачилт</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.newBtn}
+          onPress={() => router.push('/(admin)/features/truck-loads/new' as any)}
+        >
+          <Ionicons name="add" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {/* Status Filter */}
@@ -221,7 +229,8 @@ export default function AdminTruckLoadsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { paddingHorizontal: 16, paddingBottom: 8, backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E8ECF0' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8, backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E8ECF0' },
+  newBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#5856D6', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: '#1C1C1E' },
   headerSub: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
 

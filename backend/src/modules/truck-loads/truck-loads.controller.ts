@@ -20,9 +20,12 @@ export class TruckLoadsController {
   constructor(private readonly service: TruckLoadsService) {}
 
   @Post()
-  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.DRIVER)
   create(@Body() dto: CreateTruckLoadDto, @Req() req: any) {
-    return this.service.create(dto, req.user.id);
+    // Жолооч зөвхөн ӨӨРТӨӨ ачилт үүсгэнэ — өөр жолоочийн нэр дээр үүсгэхийг зөвшөөрөхгүй.
+    const payload =
+      req.user.role === Role.DRIVER ? { ...dto, driverId: req.user.id } : dto;
+    return this.service.create(payload, req.user.id);
   }
 
   @Patch(':id')
@@ -32,9 +35,11 @@ export class TruckLoadsController {
   }
 
   @Post(':id/dispatch')
-  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.DRIVER)
   dispatch(@Param('id') id: string, @Req() req: any) {
-    return this.service.dispatch(id, req.user.id);
+    // Жолооч зөвхөн өөрийн ачилтыг илгээнэ.
+    const onlyDriverId = req.user.role === Role.DRIVER ? req.user.id : undefined;
+    return this.service.dispatch(id, req.user.id, onlyDriverId);
   }
 
   // Жолооч өдрийн дундуур агуулахад эргэж ирээд өөрөө нэмэлт ачилт

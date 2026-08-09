@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   Package, Truck, RefreshCw, Plus, X, AlertTriangle,
   DollarSign, ShoppingBag, TrendingUp,
@@ -206,7 +207,7 @@ export default function DriverLoadPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex-1 mr-2 min-w-0">
                         <p className="text-[13px] font-semibold text-[#1A1D26] truncate">{p.name}</p>
-                        <p className="text-[10px] text-[#8C8FA3]">{p.sku} · {formatMnt(p.sellingPrice)}</p>
+                        <p className="text-[10px] text-[#8C8FA3]">{primaryBarcode(p) ?? "—"} · {formatMnt(p.sellingPrice)}</p>
                       </div>
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg shrink-0 ${stock > 0 ? 'bg-[#ECFDF5] text-[#10B981]' : 'bg-[#FEF2F2] text-[#EF4444]'}`}>
                         {stock} нөөц

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '@/lib/api';
+import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import { PackagePlus, Plus, ChevronDown, ChevronUp, Search, X, Printer } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
@@ -66,7 +67,7 @@ export default function PurchaseReceiptsPage() {
     if (!productSearch.trim()) return products.slice(0, 20);
     const q = productSearch.toLowerCase();
     return products.filter((p: any) =>
-      (p.name ?? '').toLowerCase().includes(q) || (p.sku ?? '').toLowerCase().includes(q)
+      matchesSearch(p, q)
     );
   }, [products, productSearch]);
 
@@ -79,7 +80,7 @@ export default function PurchaseReceiptsPage() {
       setFormItems(prev => [...prev, {
         productId: product.id,
         name: product.name,
-        barcode: product.sku ?? '',
+        barcode: primaryBarcode(product) ?? '',
         quantity: 1,
         unitPrice: Number(product.costPrice ?? 0),
       }]);
@@ -281,7 +282,7 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="text-[13px] font-semibold text-[#1A1D26]">{p.name}</span>
-                            <span className="ml-2 text-[11px] text-[#8C8FA3] bg-[#F5F6FA] px-1.5 py-0.5 rounded">{p.sku}</span>
+                            <span className="ml-2 text-[11px] text-[#8C8FA3] bg-[#F5F6FA] px-1.5 py-0.5 rounded">{primaryBarcode(p) ?? "—"}</span>
                           </div>
                           <span className="text-[11px] text-[#8C8FA3]">Нөөц: {p.stockAvailable ?? 0}</span>
                         </div>
@@ -404,7 +405,7 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
                         {r.items.map((i: any) => (
                           <tr key={i.id} className="border-b border-[#F2F4F7] last:border-0">
                             <td className="py-1.5 text-[#1A1D26] font-medium">{i.product?.name}</td>
-                            <td className="py-1.5 text-[#8C8FA3]">{i.product?.sku ?? '-'}</td>
+                            <td className="py-1.5 text-[#8C8FA3]">{primaryBarcode(i.product) ?? '-'}</td>
                             <td className="py-1.5 text-right text-[#4A4D5C]">{i.quantity} {UNIT_LABELS[i.product?.unit] || ''}</td>
                             <td className="py-1.5 text-right text-[#4A4D5C] tabular-nums">{formatMnt(i.unitPrice)}</td>
                             <td className="py-1.5 text-right font-bold text-[#1A1D26] tabular-nums">{formatMnt(i.lineTotal)}</td>

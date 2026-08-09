@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { BarcodeListInput, cleanBarcodes } from '@/components/shared/barcode-list-input';
 import { ChevronLeft, Upload, X, Image as ImageIcon, Package, DollarSign, Boxes, FileText, CheckCircle } from 'lucide-react';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { PRODUCT_UNITS } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -17,8 +19,9 @@ export default function NewProductPage() {
   const [submitting, setSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [barcodes, setBarcodes] = useState<string[]>(['']);
   const [form, setForm] = useState({
-    name: '', sku: '', description: '', categoryId: '', supplierId: '',
+    name: '', description: '', categoryId: '', supplierId: '',
     unit: '', unitsPerBox: '1', weightGrams: '', costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '',
     initialStock: '',
   });
@@ -45,7 +48,7 @@ export default function NewProductPage() {
     try {
       const res = await api.post('/api/products', {
         name: form.name.trim(),
-        sku: form.sku.trim(),
+        barcodes: cleanBarcodes(barcodes),
         description: form.description?.trim() || undefined,
         categoryId: form.categoryId,
         supplierId: form.supplierId || undefined,
@@ -164,11 +167,13 @@ export default function NewProductPage() {
                   <label className={labelClass}>Нэр *</label>
                   <input type="text" value={form.name} onChange={e => handleChange('name', e.target.value)} required placeholder="Бүтээгдэхүүний нэр" className={inputClass} />
                 </div>
+                <BarcodeListInput
+                  value={barcodes}
+                  onChange={setBarcodes}
+                  inputClass={inputClass}
+                  labelClass={labelClass}
+                />
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Баркод *</label>
-                    <input type="text" value={form.sku} onChange={e => handleChange('sku', e.target.value)} required placeholder="IC-VAN-5L" className={inputClass} />
-                  </div>
                   <div>
                     <label className={labelClass}>Хэмжих нэгж *</label>
                     <SearchableSelect
@@ -235,16 +240,16 @@ export default function NewProductPage() {
               <div className="space-y-4">
                 <div>
                   <label className={labelClass}>Өртөг (₮) *</label>
-                  <input type="number" value={form.costPrice} onChange={e => handleChange('costPrice', e.target.value)} required placeholder="0" className={inputClass} />
+                  <MoneyInput value={form.costPrice} onChange={(v: string) => handleChange('costPrice', v)} required placeholder="0" className={inputClass} />
                 </div>
                 <div>
                   <label className={labelClass}>🏙️ Мөрөн үнэ (₮) *</label>
-                  <input type="number" value={form.sellingPrice} onChange={e => handleChange('sellingPrice', e.target.value)} required placeholder="0" className={inputClass} />
+                  <MoneyInput value={form.sellingPrice} onChange={(v: string) => handleChange('sellingPrice', v)} required placeholder="0" className={inputClass} />
                   <p className="text-[10px] text-[#8C8FA3] mt-1">Мөрөн хот дахь зарах үнэ</p>
                 </div>
                 <div>
                   <label className={labelClass}>🏞️ Орон нутгийн үнэ (₮)</label>
-                  <input type="number" value={form.sellingPriceRural} onChange={e => handleChange('sellingPriceRural', e.target.value)} placeholder="0" className={inputClass} />
+                  <MoneyInput value={form.sellingPriceRural} onChange={(v: string) => handleChange('sellingPriceRural', v)} placeholder="0" className={inputClass} />
                   <p className="text-[10px] text-[#8C8FA3] mt-1">Хоосон бол Мөрөн үнэтэй ижил</p>
                 </div>
 

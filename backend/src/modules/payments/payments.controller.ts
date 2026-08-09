@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -11,6 +13,8 @@ import {
 import { Role } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { QueryPaymentDto } from './dto/query-payment.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -30,13 +34,24 @@ export class PaymentsController {
 
   @Get('payments')
   @Roles(Role.ADMIN)
-  findAll(
-    @Query() pagination: PaginationDto,
-    @Query('customerId') customerId?: string,
-    @Query('status') status?: string,
-    @Query('method') method?: string,
+  findAll(@Query() query: QueryPaymentDto) {
+    return this.paymentsService.findAll(query);
+  }
+
+  // Засах/устгах нь өр болон дансны үлдэгдлийг хөдөлгөдөг тул зөвхөн админ.
+  @Patch('payments/:id')
+  @Roles(Role.ADMIN)
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePaymentDto,
   ) {
-    return this.paymentsService.findAll(pagination, customerId, status, method);
+    return this.paymentsService.update(id, dto);
+  }
+
+  @Delete('payments/:id')
+  @Roles(Role.ADMIN)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.paymentsService.remove(id);
   }
 
   @Get('customers/:id/payments')

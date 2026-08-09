@@ -22,16 +22,6 @@ export const PAYMENT_METHODS: SelectOption[] = [
   { value: 'CHECK', label: 'Чек' },
 ];
 
-/**
- * Зардлын төлбөрийн хэлбэр. Харилцагчийн төлбөрөөс өөр жагсаалттай —
- * зардалд карт ордог бол харилцагчийн төлбөрт мобайл, чек ордог.
- */
-export const EXPENSE_PAYMENT_METHODS: SelectOption[] = [
-  { value: 'CASH', label: 'Бэлэн' },
-  { value: 'BANK_TRANSFER', label: 'Шилжүүлэг' },
-  { value: 'CARD', label: 'Карт' },
-];
-
 /** Нийлүүлэгчид төлөх төлбөрийн хэлбэр. */
 export const SUPPLIER_PAYMENT_METHODS: SelectOption[] = [
   { value: 'CASH', label: 'Бэлэн' },

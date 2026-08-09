@@ -1,7 +1,9 @@
 /**
- * Regenerate 13-digit fictitious barcodes for all products.
- * Prefix "200" = internal/private use (like EAN-13 restricted range).
- * Followed by 10 random digits, last digit is EAN-13 checksum.
+ * Дотоод хэрэглээний 13 оронтой баркод үүсгэнэ (EAN-13, "200" угтвар = дотоод хэрэглээ).
+ *
+ * ЗӨВХӨН баркодгүй бараанд нэмнэ — бодит баркодыг хэзээ ч дарж бичихгүй.
+ * (Өмнө нь энэ скрипт бүх барааны sku-г дарж бичдэг байсан. Бараа материалын
+ *  жинхэнэ баркод орж ирсэн тул тэр зан үйл нь дата устгах эрсдэлтэй болсон.)
  *
  * Run: npx ts-node scripts/regenerate-barcodes.ts
  */
@@ -32,28 +34,37 @@ function generateBarcode(): string {
 }
 
 async function main() {
-  const products = await prisma.product.findMany({ select: { id: true, name: true, sku: true } });
-  console.log(`Found ${products.length} products`);
+  const products = await prisma.product.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, barcodes: { select: { code: true } } },
+  });
+  const missing = products.filter((p) => p.barcodes.length === 0);
+  console.log(`Бараа: ${products.length}, баркодгүй: ${missing.length}`);
 
-  const used = new Set<string>();
-  let updated = 0;
+  if (missing.length === 0) {
+    console.log('Бүх бараа баркодтой — өөрчлөх зүйл алга.');
+    return;
+  }
 
-  for (const p of products) {
+  // Аль хэдийн ашиглагдаж буй кодуудыг давхардуулахгүйн тулд цуглуулна.
+  const used = new Set<string>(
+    (await prisma.productBarcode.findMany({ select: { code: true } })).map((b) => b.code),
+  );
+
+  let added = 0;
+  for (const p of missing) {
     let code: string;
     do {
       code = generateBarcode();
     } while (used.has(code));
     used.add(code);
 
-    await prisma.product.update({
-      where: { id: p.id },
-      data: { sku: code },
-    });
-    updated++;
-    console.log(`  [${updated}/${products.length}] ${p.name} → ${code}`);
+    await prisma.productBarcode.create({ data: { productId: p.id, code } });
+    added++;
+    console.log(`  [${added}/${missing.length}] ${p.name} → ${code}`);
   }
 
-  console.log(`\n✓ Updated ${updated} products with new 13-digit barcodes`);
+  console.log(`\n✓ ${added} бараанд шинэ баркод нэмэв (бусдыг хөндөөгүй)`);
 }
 
 main()

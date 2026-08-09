@@ -83,7 +83,7 @@ export class PurchaseReceiptsService {
         orderBy: { receivedAt: 'desc' },
         include: {
           supplier: { select: { id: true, name: true } },
-          items: { include: { product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true } } } },
+          items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true, unitsPerBox: true, weightGrams: true } } } },
           createdBy: { select: { firstName: true, lastName: true } },
         },
       }),

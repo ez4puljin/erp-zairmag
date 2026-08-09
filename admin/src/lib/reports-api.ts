@@ -26,7 +26,7 @@ function qs(params: Record<string, unknown>): string {
 export interface SalesRegisterLine {
   productId: string;
   productName: string;
-  sku: string | null;
+  barcode: string | null;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
@@ -50,7 +50,7 @@ export interface SalesRegister {
   to: string;
   truncated: boolean;
   totals: { count: number; revenue: number; itemCount: number; byMethod: Record<string, { count: number; amount: number }> };
-  byProduct: { productId: string; name: string; sku: string | null; qty: number; revenue: number }[];
+  byProduct: { productId: string; name: string; barcode: string | null; qty: number; revenue: number }[];
   byCustomer: { customerId: string; storeName: string; count: number; amount: number }[];
   items: SalesRegisterRow[];
 }

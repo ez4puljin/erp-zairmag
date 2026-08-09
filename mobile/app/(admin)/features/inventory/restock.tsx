@@ -3,6 +3,7 @@ import { FormModal, FormField } from '@/src/components/admin';
 import { router } from 'expo-router';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
+import { primaryBarcode } from '@/src/lib/barcode';
 
 export default function RestockScreen() {
   const [submitting, setSubmitting] = useState(false);
@@ -43,7 +44,7 @@ export default function RestockScreen() {
         onChange={v => update('productId', v)}
         type="select"
         required
-        options={products.map(p => ({ label: `${p.name} (${p.sku})`, value: p.id }))}
+        options={products.map(p => ({ label: `${p.name} (${primaryBarcode(p) ?? '—'})`, value: p.id }))}
       />
       <FormField label="Тоо ширхэг" value={form.quantity} onChange={v => update('quantity', v)} type="number" required />
       <FormField label="Тайлбар" value={form.note} onChange={v => update('note', v)} type="textarea" />

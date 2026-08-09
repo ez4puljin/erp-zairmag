@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, FlatList, Platform,
 } from 'react-native';
@@ -9,23 +9,21 @@ import { formatCurrency } from '@/src/lib/format';
 export interface PickerProduct {
   id: string;
   name: string;
-  sku?: string;
+  barcodes?: { code: string }[];
   unitsPerBox?: number;
   costPrice?: number | string;
   sellingPrice?: number | string;
   stockAvailable?: number;
 }
 
-/** Зураасан кодыг харьцуулахад тоо болон үсгээс бусдыг хаяна. */
-export function normalizeCode(code: string): string {
-  return (code || '').replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
-}
+// Нормчлолыг нэг эх сурвалжаас авна — скан болон хайлт ижил дүрэмтэй байх ёстой.
+import { normalizeCode, primaryBarcode, allBarcodes } from '@/src/lib/barcode';
+export { normalizeCode, primaryBarcode, allBarcodes, hasBarcode } from '@/src/lib/barcode';
 
 /**
  * Барааг хайж эсвэл зураасан кодоор олж сонгох цонх.
  *
- * Энэ системд барааны SKU нь зураасан кодын үүрэг гүйцэтгэдэг (POS ч мөн
- * түүгээр тааруулдаг), тиймээс сканнердсан кодыг SKU-тай харьцуулна.
+ * Нэг бараа олон баркодтой байж болох тул бүх кодтой нь тулгана.
  */
 export function ProductPicker({
   visible,
@@ -33,6 +31,7 @@ export function ProductPicker({
   onClose,
   onSelect,
   onScanRequest,
+  initialQuery,
 }: {
   visible: boolean;
   products: PickerProduct[];
@@ -40,9 +39,16 @@ export function ProductPicker({
   onSelect: (product: PickerProduct) => void;
   /** Камераар сканнердах товч. Заагаагүй бол товч харагдахгүй. */
   onScanRequest?: () => void;
+  /** Нээхэд хайлтын талбарт урьдчилан тавих утга (нэг баркодод олон бараа таарсан үед). */
+  initialQuery?: string;
 }) {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+
+  // Цонх нээгдэх бүрд гаднаас өгсөн хайлтыг тавина.
+  useEffect(() => {
+    if (visible) setQuery(initialQuery ?? '');
+  }, [visible, initialQuery]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,8 +56,8 @@ export function ProductPicker({
     const code = normalizeCode(q);
     return products.filter(p =>
       p.name.toLowerCase().includes(q) ||
-      (p.sku ?? '').toLowerCase().includes(q) ||
-      (code.length >= 4 && normalizeCode(p.sku ?? '').includes(code)),
+      allBarcodes(p).some(c => c.toLowerCase().includes(q)) ||
+      (code.length >= 4 && allBarcodes(p).some(c => normalizeCode(c).includes(code))),
     );
   }, [products, query]);
 
@@ -106,7 +112,7 @@ export function ProductPicker({
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.rowName} numberOfLines={1}>{item.name}</Text>
                 <Text style={s.rowMeta} numberOfLines={1}>
-                  {item.sku}
+                  {primaryBarcode(item) ?? '—'}
                   {(item.unitsPerBox ?? 1) > 1 ? ` · хайрцагт ${item.unitsPerBox}ш` : ''}
                 </Text>
               </View>

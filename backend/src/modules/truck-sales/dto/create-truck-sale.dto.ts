@@ -1,4 +1,4 @@
-import { IsUUID, IsNotEmpty, IsOptional, IsString, IsArray, ValidateNested, IsInt, Min, IsEnum, IsNumber } from 'class-validator';
+import { IsUUID, IsNotEmpty, IsOptional, IsString, IsArray, ValidateNested, IsInt, Min, IsEnum, IsNumber, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
 
@@ -49,6 +49,15 @@ export class CreateTruckSaleDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /**
+   * Борлуулалт хийгдсэн огноо (нөхөж бүртгэхэд).
+   * Заагаагүй бол одоогийн цаг. Зөвхөн ADMIN / WAREHOUSE_MANAGER заана —
+   * жолоочийн илгээсэн утгыг сервер үл тоомсорлоно.
+   */
+  @IsOptional()
+  @IsDateString()
+  saleDate?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

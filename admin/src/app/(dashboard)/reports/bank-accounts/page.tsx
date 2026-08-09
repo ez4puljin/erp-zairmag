@@ -9,6 +9,11 @@ import { SectionCard } from '@/components/shared/section-card';
 import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { PAYMENT_METHODS } from '@/lib/options';
+
+/** Төлбөрийн хэлбэрийн монгол шошго. */
+const methodLabel = (m?: string) =>
+  PAYMENT_METHODS.find((o) => o.value === m)?.label ?? m ?? '';
 
 interface ReportItem {
   account: {
@@ -172,7 +177,13 @@ export default function BankAccountReportPage() {
                       <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
                         <div className="min-w-0">
                           <p className="font-semibold text-[#1A1D26] truncate">{p.customer?.storeName || '-'}</p>
-                          <p className="text-[10px] text-[#8C8FA3]">{new Date(p.createdAt).toLocaleString('mn-MN')}</p>
+                          <p className="text-[10px] text-[#8C8FA3] truncate">
+                            {[
+                              new Date(p.createdAt).toLocaleString('mn-MN'),
+                              methodLabel(p.method),
+                              p.notes || p.externalRef,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
                         </div>
                         <span className="font-bold text-[#34C759] tabular-nums shrink-0">+{formatMnt(p.amount)}</span>
                       </div>
@@ -192,7 +203,13 @@ export default function BankAccountReportPage() {
                       <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
                         <div className="min-w-0">
                           <p className="font-semibold text-[#1A1D26] truncate">{p.supplier?.name || '-'}</p>
-                          <p className="text-[10px] text-[#8C8FA3]">{new Date(p.date).toLocaleDateString('mn-MN')} · {p.description || ''}</p>
+                          <p className="text-[10px] text-[#8C8FA3] truncate">
+                            {[
+                              new Date(p.date).toLocaleDateString('mn-MN'),
+                              methodLabel(p.method),
+                              p.description || p.referenceNo,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
                         </div>
                         <span className="font-bold text-[#FF3B30] tabular-nums shrink-0">-{formatMnt(p.amount)}</span>
                       </div>
@@ -201,7 +218,35 @@ export default function BankAccountReportPage() {
                 </div>
               )}
 
-              {detailData[item.account.id].payments?.length === 0 && detailData[item.account.id].supplierPayments?.length === 0 && (
+              {/* Зардал — данснаас гарсан зарлага */}
+              {detailData[item.account.id].expenses?.length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-bold text-[#FF3B30] uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5" /> Зардал
+                  </h4>
+                  <div className="space-y-1.5">
+                    {detailData[item.account.id].expenses.map((e: any) => (
+                      <div key={e.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[#1A1D26] truncate">{e.category?.name || 'Зардал'}</p>
+                          <p className="text-[10px] text-[#8C8FA3] truncate">
+                            {[
+                              new Date(e.date).toLocaleDateString('mn-MN'),
+                              e.description,
+                              e.referenceNo,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <span className="font-bold text-[#FF3B30] tabular-nums shrink-0">-{formatMnt(e.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {detailData[item.account.id].payments?.length === 0 &&
+                detailData[item.account.id].supplierPayments?.length === 0 &&
+                detailData[item.account.id].expenses?.length === 0 && (
                 <p className="text-center text-[12px] text-[#8C8FA3] py-4">Энэ хугацаанд гүйлгээ байхгүй</p>
               )}
             </div>
