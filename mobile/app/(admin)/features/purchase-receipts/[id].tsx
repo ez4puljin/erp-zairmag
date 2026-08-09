@@ -3,7 +3,7 @@ import { View, ScrollView, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState } from '@/src/components/admin';
 import { useItemQuery } from '@/src/hooks/use-item-query';
-import { formatCurrency, formatDate } from '@/src/lib/format';
+import { formatCurrency, formatDate, formatQty } from '@/src/lib/format';
 
 export default function PurchaseReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,7 +31,7 @@ export default function PurchaseReceiptDetailScreen() {
             <View key={it.id || idx} style={[s.row, idx < items.length - 1 && s.border]}>
               <View style={{ flex: 1 }}>
                 <Text style={s.name}>{it.product?.name || '-'}</Text>
-                <Text style={s.meta}>{it.quantity} × {formatCurrency(it.unitPrice)}</Text>
+                <Text style={s.meta}>{formatQty(it.quantity, it.product?.unitsPerBox)} × {formatCurrency(it.unitPrice)}</Text>
               </View>
               <Text style={s.total}>{formatCurrency(it.lineTotal)}</Text>
             </View>

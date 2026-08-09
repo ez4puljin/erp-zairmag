@@ -47,6 +47,52 @@ function printReceipt(title: string, content: string) {
   win.document.close();
 }
 
+/**
+ * Түгээлтийн борлуулалтын баримтыг нөхөж хэвлэнэ.
+ *
+ * Ачилтын хүлээлцэх баримттай ижил монospace хэлбэрийг ашиглав —
+ * дулааны принтерт зориулсан 32 тэмдэгтийн өргөнтэй.
+ */
+function buildSaleReceipt(sale: any, load: any, copyLabel: string) {
+  const driverName = `${load?.driver?.lastName ?? ''} ${load?.driver?.firstName ?? ''}`.trim();
+  const date = sale.createdAt ? new Date(sale.createdAt).toLocaleString('mn-MN') : '';
+  const items = sale.items ?? [];
+
+  let lines = `====================================
+      ЗАЙРМАГ ТҮГЭЭЛТ
+     БОРЛУУЛАЛТЫН БАРИМТ
+       ${copyLabel}
+====================================
+Баримт №: ${sale.saleNumber}
+Огноо:   ${date}
+Ачилт №: ${load?.loadNumber ?? '-'}
+Жолооч:  ${driverName}
+------------------------------------
+ХАРИЛЦАГЧ
+  ${sale.customer?.storeName ?? '-'}
+  ${sale.customer?.phone ?? ''}
+------------------------------------
+БАРАА                    Тоо    Дүн`;
+
+  for (const it of items) {
+    const name = (it.product?.name ?? '').substring(0, 22).padEnd(22);
+    const qty = String(it.quantity ?? 0).padStart(5);
+    const total = Number(it.lineTotal ?? 0).toLocaleString().padStart(8);
+    lines += `
+${name}${qty}${total}`;
+  }
+
+  lines += `
+------------------------------------
+НИЙТ ДҮН: ${Number(sale.totalAmount ?? 0).toLocaleString()}₮
+Төлбөр: ${PAYMENT_LABELS[sale.paymentMethod] ?? sale.paymentMethod}
+====================================
+       Баярлалаа!
+====================================`;
+
+  return lines;
+}
+
 function buildHandoverReceipt(load: any, type: 'dispatch' | 'additional' | 'return', copyLabel: string) {
   const driverName = `${load.driver?.lastName ?? ''} ${load.driver?.firstName ?? ''}`.trim();
   const date = new Date().toLocaleString('mn-MN');
@@ -265,6 +311,12 @@ export default function TruckLoadDetailPage() {
       alert('Алдаа: ' + (err.response?.data?.message || err.message));
     }
     setActionLoading(false);
+  }
+
+  function printSaleReceipt(sale: any) {
+    const a = buildSaleReceipt(sale, load, 'ХАРИЛЦАГЧИЙН ХУВЬ');
+    const b = buildSaleReceipt(sale, load, 'ЖОЛООЧИЙН ХУВЬ');
+    printReceipt(`Борлуулалт #${sale.saleNumber}`, `${a}\n\n${b}`);
   }
 
   async function handleCancel() {
@@ -714,13 +766,23 @@ export default function TruckLoadDetailPage() {
                             {sale.items.map((si: any, idx: number) => (
                               <tr key={idx}>
                                 <td className="px-4 py-2 text-[13px]">{si.product?.name ?? '—'}</td>
-                                <td className="px-4 py-2 text-center text-[13px]">{si.quantity ?? 0}</td>
+                                <td className="px-4 py-2 text-center text-[13px]">
+                                  {formatQty(si.quantity ?? 0, si.product?.unitsPerBox)}
+                                </td>
                                 <td className="px-4 py-2 text-right text-[13px] text-[#8C8FA3]">{formatMnt(si.unitPrice)}</td>
                                 <td className="px-4 py-2 text-right text-[13px] font-semibold">{formatMnt(si.lineTotal)}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                        <div className="flex justify-end mt-3">
+                          <button
+                            onClick={() => printSaleReceipt(sale)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[13px] font-semibold text-[#007AFF] bg-[#007AFF]/10 border border-[#007AFF]/20 hover:bg-[#007AFF]/15 transition-all active:scale-[0.97]"
+                          >
+                            <Printer className="w-4 h-4" /> Баримт хэвлэх
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}

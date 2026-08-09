@@ -8,7 +8,7 @@ import {
 } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
-import { formatCurrency, formatWeight } from '@/src/lib/format';
+import { formatCurrency, formatWeight, formatQty } from '@/src/lib/format';
 
 interface Line {
   productId: string;
@@ -176,9 +176,8 @@ export default function NewPurchaseReceiptScreen() {
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={st.lineName} numberOfLines={1}>{l.name}</Text>
                   <Text style={st.lineMeta}>
-                    {l.unitsPerBox > 1 && l.boxes > 0
-                      ? `${l.boxes} хайрцаг${l.pieces ? ` + ${l.pieces}ш` : ''} = ${l.quantity}ш`
-                      : `${l.quantity}ш`}
+                    {formatQty(l.quantity, l.unitsPerBox)}
+                    {l.unitsPerBox > 1 && l.quantity >= l.unitsPerBox ? ` · ${l.quantity}ш` : ''}
                     {' · '}{formatCurrency(l.unitPrice)}
                     {l.weightGrams > 0 ? ` · ${formatWeight(l.quantity * l.weightGrams)}` : ''}
                   </Text>

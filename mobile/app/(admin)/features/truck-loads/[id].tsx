@@ -72,7 +72,8 @@ export default function TruckLoadDetailScreen() {
   const openApproveModal = () => {
     const init: Record<string, { returned: string; damaged: string }> = {};
     for (const it of items) {
-      const remaining = (it.loadedQty ?? 0) - (it.soldQty ?? 0);
+      // Backend-тэй ижил: өмнө нь буцаасан, гэмтсэнийг хасна.
+      const remaining = (it.loadedQty ?? 0) - (it.soldQty ?? 0) - (it.returnedQty ?? 0) - (it.damagedQty ?? 0);
       if (remaining > 0) {
         init[it.productId] = { returned: String(remaining), damaged: '0' };
       }
@@ -85,7 +86,7 @@ export default function TruckLoadDetailScreen() {
     // Validate: each item with remaining must sum to remaining
     const itemsPayload: any[] = [];
     for (const it of items) {
-      const remaining = (it.loadedQty ?? 0) - (it.soldQty ?? 0);
+      const remaining = (it.loadedQty ?? 0) - (it.soldQty ?? 0) - (it.returnedQty ?? 0) - (it.damagedQty ?? 0);
       if (remaining <= 0) continue;
       const r = returnQty[it.productId] || { returned: '0', damaged: '0' };
       const returned = Number(r.returned) || 0;
@@ -420,9 +421,12 @@ export default function TruckLoadDetailScreen() {
         </View>
       )}
 
-      {data.status === 'COMPLETION_REQUESTED' && (
+      {(data.status === 'COMPLETION_REQUESTED' || data.status === 'DISPATCHED') && (
         <View style={s.bottomBar}>
-          <TouchableOpacity style={[s.dispatchBtn, { backgroundColor: '#FF3B30' }]} onPress={openApproveModal}>
+          <TouchableOpacity
+            style={[s.dispatchBtn, { backgroundColor: data.status === 'COMPLETION_REQUESTED' ? '#FF3B30' : '#34C759' }]}
+            onPress={openApproveModal}
+          >
             <Ionicons name="checkmark-done" size={18} color="#fff" />
             <Text style={s.dispatchText}>Дуусгахыг баталгаажуулах</Text>
           </TouchableOpacity>
