@@ -63,12 +63,17 @@ export class PurchaseReceiptsService {
     });
   }
 
-  async findAll(pagination: PaginationDto, filters?: { supplierId?: string; dateFrom?: string; dateTo?: string }) {
+  async findAll(
+    pagination: PaginationDto,
+    filters?: { supplierId?: string; productId?: string; dateFrom?: string; dateTo?: string },
+  ) {
     const { page = 1, limit = 20 } = pagination;
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (filters?.supplierId) where.supplierId = filters.supplierId;
+    // Тухайн барааг агуулсан баримтуудыг шүүнэ.
+    if (filters?.productId) where.items = { some: { productId: filters.productId } };
     if (filters?.dateFrom || filters?.dateTo) {
       where.receivedAt = {};
       if (filters.dateFrom) where.receivedAt.gte = new Date(filters.dateFrom);

@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import api from '@/lib/api';
 import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
-import { PackagePlus, Plus, ChevronDown, ChevronUp, Search, X, Printer } from 'lucide-react';
+import { PackagePlus, Plus, ChevronDown, ChevronUp, Search, X, Printer, ScanLine } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
-import { ActionButton } from '@/components/shared/filter-bar';
+import { ActionButton, FilterBar, DateField, SelectField } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
+import { QtyStepper } from '@/components/shared/qty-stepper';
+import { BarcodeScanner, type BarcodeScanFeedback } from '@/components/shared/barcode-scanner';
 
 const UNIT_LABELS: Record<string, string> = { PIECE: 'ширхэг', BOX: 'хайрцаг', KG: 'кг', LITER: 'литр', PACK: 'баглаа' };
 
@@ -27,7 +29,7 @@ export default function PurchaseReceiptsPage() {
   const [supplierId, setSupplierId] = useState('');
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-  const [formItems, setFormItems] = useState<{ productId: string; name: string; barcode: string; quantity: number; unitPrice: number }[]>([]);
+  const [formItems, setFormItems] = useState<{ productId: string; name: string; barcode: string; quantity: number; unitPrice: number; unitsPerBox: number }[]>([]);
 
   // Product search
   const [productSearch, setProductSearch] = useState('');
@@ -35,6 +37,18 @@ export default function PurchaseReceiptsPage() {
   const [highlightIdx, setHighlightIdx] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Камерын зураасан код уншигч
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<BarcodeScanFeedback>(null);
+  /** Нэг код хэд хэдэн бараанд харьяалагдвал алийг нь болохыг сонгуулна. */
+  const [scanChoices, setScanChoices] = useState<any[] | null>(null);
+
+  // Жагсаалтын шүүлтүүр
+  const [fDateFrom, setFDateFrom] = useState('');
+  const [fDateTo, setFDateTo] = useState('');
+  const [fSupplierId, setFSupplierId] = useState('');
+  const [fProductId, setFProductId] = useState('');
 
   useEffect(() => { load(); }, []);
 
@@ -51,7 +65,7 @@ export default function PurchaseReceiptsPage() {
     setLoading(true);
     try {
       const [rRes, sRes, pRes] = await Promise.all([
-        api.get('/api/purchase-receipts'),
+        api.get('/api/purchase-receipts', { params: buildFilterParams() }),
         api.get('/api/suppliers?limit=100'),
         api.get('/api/products?limit=100'),
       ]);
@@ -61,6 +75,39 @@ export default function PurchaseReceiptsPage() {
     } catch { }
     setLoading(false);
   }
+
+  function buildFilterParams() {
+    // Хоосон утга илгээвэл сервер шүүлт гэж ойлгох тул зөвхөн бөглөснийг өгнө.
+    const params: Record<string, string> = {};
+    if (fDateFrom) params.dateFrom = fDateFrom;
+    if (fDateTo) params.dateTo = fDateTo;
+    if (fSupplierId) params.supplierId = fSupplierId;
+    if (fProductId) params.productId = fProductId;
+    return params;
+  }
+
+  /** Зөвхөн баримтын жагсаалтыг дахин татна — сонголтын жагсаалт хэвээр. */
+  const loadReceipts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/api/purchase-receipts', { params: buildFilterParams() });
+      setReceipts(Array.isArray(r.data) ? r.data : r.data?.data ?? []);
+    } catch { }
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fDateFrom, fDateTo, fSupplierId, fProductId]);
+
+  // Шүүлтүүр өөрчлөгдөх бүрд жагсаалтыг шинэчилнэ.
+  const filtersReady = useRef(false);
+  useEffect(() => {
+    if (!filtersReady.current) {
+      filtersReady.current = true;
+      return;
+    }
+    void loadReceipts();
+  }, [loadReceipts]);
+
+  const hasFilter = !!(fDateFrom || fDateTo || fSupplierId || fProductId);
 
   // Filtered products by search (name or barcode)
   const filteredProducts = useMemo(() => {
@@ -73,24 +120,47 @@ export default function PurchaseReceiptsPage() {
 
   // Add product to form
   function addProduct(product: any) {
-    const existing = formItems.find(fi => fi.productId === product.id);
-    if (existing) {
-      setFormItems(prev => prev.map(fi => fi.productId === product.id ? { ...fi, quantity: fi.quantity + 1 } : fi));
-    } else {
-      setFormItems(prev => [...prev, {
+    const perBox = Math.max(1, Number(product.unitsPerBox ?? 1));
+    setFormItems(prev => {
+      const existing = prev.find(fi => fi.productId === product.id);
+      if (existing) {
+        // Давхар сонгосон бол шинэ мөр биш — нэг хайрцаг (эсвэл ширхэг) нэмнэ.
+        return prev.map(fi =>
+          fi.productId === product.id ? { ...fi, quantity: fi.quantity + perBox } : fi,
+        );
+      }
+      return [...prev, {
         productId: product.id,
         name: product.name,
         barcode: primaryBarcode(product) ?? '',
-        quantity: 1,
+        quantity: perBox,
         unitPrice: Number(product.costPrice ?? 0),
-      }]);
-    }
+        unitsPerBox: perBox,
+      }];
+    });
     setProductSearch('');
     setShowProductDropdown(false);
   }
 
   function updateFormItem(idx: number, field: string, value: number) {
     setFormItems(prev => prev.map((fi, i) => i === idx ? { ...fi, [field]: value } : fi));
+  }
+
+  /** Зураасан кодоор бараа хайж сагсанд нэмнэ. */
+  function handleBarcode(code: string) {
+    const matches = products.filter((p: any) => hasBarcode(p, code));
+    if (matches.length === 0) {
+      setScanFeedback({ type: 'error', text: `"${code}" олдсонгүй` });
+      return;
+    }
+    if (matches.length > 1) {
+      // Нэг кодыг хэд хэдэн бараа хуваалцаж болно — аль нь болохыг сонгуулна.
+      setScanChoices(matches);
+      setScannerOpen(false);
+      return;
+    }
+    addProduct(matches[0]);
+    setScanFeedback({ type: 'success', text: `${matches[0].name} нэмэгдлээ` });
   }
 
   function removeFormItem(idx: number) {
@@ -105,6 +175,12 @@ export default function PurchaseReceiptsPage() {
     e.preventDefault();
     if (!supplierId || formItems.length === 0) {
       alert('Нийлүүлэгч болон бараа сонгоно уу.');
+      return;
+    }
+    // Stepper тэг болтол буурч чадна — тэг тоотой мөр сервер рүү явахгүй.
+    const empty = formItems.find(i => i.quantity < 1);
+    if (empty) {
+      alert(`"${empty.name}" барааны тоо 0 байна.`);
       return;
     }
     setSubmitting(true);
@@ -240,7 +316,8 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
                   {formItems.length > 0 && <span className="ml-2 text-[#007AFF]">{formItems.length} бараа</span>}
                 </label>
               </div>
-              <div ref={searchRef} className="relative mb-3">
+              <div className="flex items-center gap-2 mb-3">
+              <div ref={searchRef} className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C8FA3]" />
                 <input
                   type="text"
@@ -294,44 +371,87 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
                   </div>
                 )}
               </div>
+                {/* Камер ажиллахгүй төхөөрөмж дээр ч товч харагдана — уншигч
+                    дотроо гараас код оруулах боломжийг санал болгоно. */}
+                <button
+                  type="button"
+                  onClick={() => { setScanFeedback(null); setScannerOpen(true); }}
+                  className="h-[42px] px-4 rounded-xl bg-[#10B981] text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-[#059669] transition-colors shrink-0"
+                >
+                  <ScanLine className="w-4 h-4" /> Скан
+                </button>
+              </div>
             </div>
 
             {/* Added Items */}
             {formItems.length > 0 && (
               <div className="space-y-2">
-                {formItems.map((item, idx) => (
-                  <div key={item.productId} className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB] border border-[#E8ECF0]">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-[#1A1D26] truncate">{item.name}</p>
-                      <p className="text-[10px] text-[#8C8FA3]">Баркод: {item.barcode}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-center">
-                        <label className="text-[9px] text-[#8C8FA3] block">Тоо</label>
-                        <input
-                          type="number" min={1} value={item.quantity}
-                          onChange={e => updateFormItem(idx, 'quantity', Math.max(1, +e.target.value))}
-                          className="w-16 px-2 py-1.5 rounded-lg bg-white border border-[#E8ECF0] text-[13px] text-center font-bold text-[#1A1D26] outline-none focus:border-[#007AFF]"
-                        />
+                {formItems.map((item, idx) => {
+                  const perBox = Math.max(1, item.unitsPerBox);
+                  const byBox = perBox > 1;
+                  const boxes = byBox ? Math.floor(item.quantity / perBox) : 0;
+                  const pieces = byBox ? item.quantity % perBox : item.quantity;
+                  return (
+                  <div key={item.productId} className="p-3 rounded-xl bg-[#F9FAFB] border border-[#E8ECF0]">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-[#1A1D26] truncate">{item.name}</p>
+                        <p className="text-[10px] text-[#8C8FA3]">
+                          Баркод: {item.barcode || '—'}
+                          {byBox && <span className="ml-2">· {perBox}ш/хайрцаг</span>}
+                        </p>
                       </div>
-                      <div className="text-center">
-                        <label className="text-[9px] text-[#8C8FA3] block">Нэгж үнэ</label>
-                        <input
-                          type="number" min={0} value={item.unitPrice}
-                          onChange={e => updateFormItem(idx, 'unitPrice', Math.max(0, +e.target.value))}
-                          className="w-24 px-2 py-1.5 rounded-lg bg-white border border-[#E8ECF0] text-[13px] text-center font-bold text-[#1A1D26] outline-none focus:border-[#007AFF]"
-                        />
-                      </div>
-                      <div className="text-right w-24">
-                        <label className="text-[9px] text-[#8C8FA3] block">Нийт</label>
-                        <p className="text-[13px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(item.quantity * item.unitPrice)}</p>
-                      </div>
-                      <button type="button" onClick={() => removeFormItem(idx)} className="p-1.5 rounded-lg hover:bg-[#FF3B30]/10 text-[#FF3B30]">
+                      <button type="button" onClick={() => removeFormItem(idx)} className="p-1.5 rounded-lg hover:bg-[#FF3B30]/10 text-[#FF3B30] shrink-0">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
+
+                    <div className="flex flex-wrap items-end gap-2 mt-2.5">
+                      {byBox ? (
+                        <>
+                          <QtyStepper
+                            label="Хайрцаг"
+                            value={boxes}
+                            accent="#007AFF"
+                            onChange={(nextBoxes) => updateFormItem(idx, 'quantity', nextBoxes * perBox + pieces)}
+                          />
+                          <QtyStepper
+                            label="Ширхэг"
+                            value={pieces}
+                            max={perBox - 1}
+                            accent="#FF9500"
+                            onChange={(nextPieces) => updateFormItem(idx, 'quantity', boxes * perBox + nextPieces)}
+                          />
+                        </>
+                      ) : (
+                        <QtyStepper
+                          label="Тоо ширхэг"
+                          value={item.quantity}
+                          accent="#34C759"
+                          onChange={(next) => updateFormItem(idx, 'quantity', next)}
+                        />
+                      )}
+                      <div className="flex-1 min-w-[110px]">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.06em] text-[#AEAEB2] mb-1">Нэгж үнэ</span>
+                        <input
+                          type="number" min={0} value={item.unitPrice}
+                          onChange={e => updateFormItem(idx, 'unitPrice', Math.max(0, +e.target.value))}
+                          className="w-full h-11 px-3 rounded-xl bg-white border border-[#E8ECF0] text-[15px] text-center font-bold text-[#1A1D26] tabular-nums outline-none focus:border-[#007AFF]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#E8ECF0]">
+                      <span className="text-[12px] font-semibold text-[#8C8FA3] tabular-nums">
+                        {byBox
+                          ? `${boxes}х${pieces > 0 ? ` + ${pieces}ш` : ''} = ${item.quantity}ш`
+                          : `${item.quantity}ш`}
+                      </span>
+                      <span className="text-[15px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(item.quantity * item.unitPrice)}</span>
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 {/* Grand total */}
                 <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#007AFF]/[0.06] border border-[#007AFF]/20">
@@ -351,12 +471,45 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
         </SectionCard>
       )}
 
+      {/* Шүүлтүүр */}
+      <FilterBar>
+        <DateField label="Эхлэх огноо" value={fDateFrom} onChange={setFDateFrom} />
+        <DateField label="Дуусах огноо" value={fDateTo} onChange={setFDateTo} />
+        <SelectField
+          label="Нийлүүлэгч"
+          value={fSupplierId}
+          onChange={setFSupplierId}
+          options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+          placeholder="Бүх нийлүүлэгч"
+        />
+        <SelectField
+          label="Бараа"
+          value={fProductId}
+          onChange={setFProductId}
+          options={products.map((p: any) => ({ value: p.id, label: p.name }))}
+          placeholder="Бүх бараа"
+          widthClass="min-w-[210px]"
+        />
+        {hasFilter && (
+          <ActionButton
+            variant="ghost"
+            onClick={() => { setFDateFrom(''); setFDateTo(''); setFSupplierId(''); setFProductId(''); }}
+          >
+            <X className="w-4 h-4" /> Цэвэрлэх
+          </ActionButton>
+        )}
+      </FilterBar>
+
       {/* Receipts List */}
       <SectionCard title="Орлогын баримтууд" noPadding>
         {loading ? (
           <div className="p-8 text-center text-[#8C8FA3]">Ачааллаж байна...</div>
         ) : receipts.length === 0 ? (
-          <EmptyState icon={PackagePlus} title="Орлого бүртгэл байхгүй" hint="Шинэ орлого бүртгэхийн тулд дээрх “Шинэ орлого” товчийг дарна уу" />
+          <EmptyState
+            icon={PackagePlus}
+            title={hasFilter ? 'Шүүлтэд тохирох баримт алга' : 'Орлого бүртгэл байхгүй'}
+            hint={hasFilter ? 'Шүүлтүүрээ өөрчилж үзнэ үү' : 'Шинэ орлого бүртгэхийн тулд дээрх “Шинэ орлого” товчийг дарна уу'}
+          />
         ) : (
           <div className="divide-y divide-[#F2F4F7]">
             {receipts.map((r: any) => (
@@ -421,6 +574,56 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
           </div>
         )}
       </SectionCard>
+
+      {/* Камерын зураасан код уншигч */}
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => { setScannerOpen(false); setScanFeedback(null); }}
+        onDetected={handleBarcode}
+        feedback={scanFeedback}
+        title="Бараа скан хийх"
+        hint="Барааны зураасан кодыг хүрээн дотор барина уу"
+      />
+
+      {/* Нэг код хэд хэдэн бараанд харьяалагдах үед аль нь болохыг сонгуулна. */}
+      {scanChoices && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setScanChoices(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-[#E8ECF0]">
+              <p className="text-[15px] font-bold text-[#1A1D26]">Аль бараа вэ?</p>
+              <p className="text-[12px] text-[#8C8FA3]">Энэ код хэд хэдэн бараанд бүртгэлтэй байна.</p>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto">
+              {scanChoices.map((p: any) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => { addProduct(p); setScanChoices(null); }}
+                  className="w-full text-left px-4 py-3 border-b border-[#F2F4F7] last:border-0 hover:bg-[#F5F6FA]"
+                >
+                  <p className="text-[14px] font-semibold text-[#1A1D26]">{p.name}</p>
+                  <p className="text-[12px] text-[#8C8FA3]">
+                    {primaryBarcode(p) ?? '—'} · {formatMnt(p.costPrice ?? 0)}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanChoices(null)}
+              className="w-full py-3 text-[14px] font-semibold text-[#8C8FA3] hover:bg-[#F5F6FA]"
+            >
+              Болих
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

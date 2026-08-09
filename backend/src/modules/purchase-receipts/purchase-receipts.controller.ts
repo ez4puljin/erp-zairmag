@@ -2,7 +2,7 @@ import { Controller, Get, Post, Param, Body, Query, ParseUUIDPipe } from '@nestj
 import { Role } from '@prisma/client';
 import { PurchaseReceiptsService } from './purchase-receipts.service';
 import { CreatePurchaseReceiptDto } from './dto/create-purchase-receipt.dto';
-import { PaginationDto } from '../../common/dto/pagination.dto';
+import { QueryPurchaseReceiptDto } from './dto/query-purchase-receipt.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -21,13 +21,9 @@ export class PurchaseReceiptsController {
 
   @Get()
   @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
-  async findAll(
-    @Query() pagination: PaginationDto,
-    @Query('supplierId') supplierId?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-  ) {
-    return this.service.findAll(pagination, { supplierId, dateFrom, dateTo });
+  async findAll(@Query() query: QueryPurchaseReceiptDto) {
+    const { supplierId, productId, dateFrom, dateTo } = query;
+    return this.service.findAll(query, { supplierId, productId, dateFrom, dateTo });
   }
 
   @Get(':id')
