@@ -1,26 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Landmark, Zap } from 'lucide-react';
+import { Landmark, Zap, Check, Undo2 } from 'lucide-react';
 import { Money } from '@/components/shared/money';
 import { SearchableSelect, type SelectOption } from '@/components/shared/searchable-select';
-import { ACTION_OPTIONS, type BankTxn, type CrossAccount } from './types';
+import type { BankTxn } from './types';
 
 const cellInput =
   'h-8 w-full px-2 rounded-lg bg-[#F5F6FA] border border-transparent text-[13px] text-[#1A1D26] ' +
   'placeholder-[#B0B3C0] outline-none focus:border-[#007AFF]/40 focus:bg-white transition-all';
 
 /**
- * Товшиж засах нүд. Утгыг фокус алдах эсвэл Enter дарахад л хадгална —
- * товшилт бүрд сервер рүү хүсэлт явуулахгүй.
+ * Товшиж засах нүд. Фокус алдах эсвэл Enter дарахад л хадгална — товшилт
+ * бүрд сервер рүү хүсэлт явуулахгүй.
  */
 function EditCell({
   value,
   placeholder,
+  disabled,
   onSave,
 }: {
   value: string;
   placeholder?: string;
+  disabled?: boolean;
   onSave: (v: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
@@ -28,9 +30,9 @@ function EditCell({
   // Гаднаас (жишээ нь "утга нөхөх"-өөр) утга солигдвол оролтыг шинэчилнэ.
   useEffect(() => setDraft(value), [value]);
 
-  const commit = () => {
-    if (draft !== value) onSave(draft);
-  };
+  if (disabled) {
+    return <span className="text-[13px] text-[#4A4D5C]">{value || '—'}</span>;
+  }
 
   return (
     <input
@@ -38,7 +40,9 @@ function EditCell({
       value={draft}
       placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onBlur={() => {
+        if (draft !== value) onSave(draft);
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
         if (e.key === 'Escape') {
@@ -50,56 +54,22 @@ function EditCell({
   );
 }
 
-/**
- * Харьцсан данс — бэлэн жагсаалтаас сонгох боловч гараас шинэ код бичих
- * боломжтой байх ёстой тул энгийн оролт + бэлэн сонголтын хослол.
- */
-function CrossAccountCell({
-  value,
-  presets,
-  onSave,
-}: {
-  value: string;
-  presets: CrossAccount[];
-  onSave: (v: string) => void;
-}) {
-  const options: SelectOption[] = presets.map((p) => ({
-    value: p.code,
-    label: p.label ? `${p.code} · ${p.label}` : p.code,
-  }));
-  // Бэлэн жагсаалтад байхгүй кодыг гараар бичсэн бол сонголт болгон нэмнэ.
-  if (value && !options.some((o) => o.value === value)) {
-    options.unshift({ value, label: value });
-  }
-
-  if (presets.length === 0) {
-    return <EditCell value={value} placeholder="Код" onSave={onSave} />;
-  }
-
-  return (
-    <SearchableSelect
-      value={value}
-      onChange={onSave}
-      options={options}
-      placeholder="Сонгоогүй"
-      emptyText="Сонгоогүй"
-      inputClassName={cellInput}
-      widthClass="w-full"
-      aria-label="Харьцсан данс"
-    />
-  );
-}
-
 export function TxnTable({
   transactions,
   customers,
-  crossAccounts,
+  expenseCategories,
   onChange,
+  onPost,
+  onUnpost,
+  busyId,
 }: {
   transactions: BankTxn[];
   customers: SelectOption[];
-  crossAccounts: CrossAccount[];
+  expenseCategories: SelectOption[];
   onChange: (txnId: string, patch: Partial<BankTxn>) => void;
+  onPost: (txnId: string) => void;
+  onUnpost: (txnId: string) => void;
+  busyId: string | null;
 }) {
   if (transactions.length === 0) {
     return <p className="py-10 text-center text-[13px] text-[#8C8FA3]">Гүйлгээ алга</p>;
@@ -110,33 +80,40 @@ export function TxnTable({
       <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-[#F0F2F5]">
-            {['Огноо', 'Дүн', 'Банкны утга', 'Харилцагч', 'Харьцсан данс', 'Гүйлгээний утга', 'Үйлдэл'].map((h) => (
-              <th
-                key={h}
-                className="px-3 py-2.5 text-left font-semibold text-[11px] uppercase tracking-wide text-[#8C8FA3] whitespace-nowrap"
-              >
-                {h}
-              </th>
-            ))}
+            {['Огноо', 'Дүн', 'Банкны утга', 'Харилцагч / Зардлын ангилал', 'Тайлбар', ''].map(
+              (h, i) => (
+                <th
+                  key={i}
+                  className="px-3 py-2.5 text-left font-semibold text-[11px] uppercase tracking-wide text-[#8C8FA3] whitespace-nowrap"
+                >
+                  {h}
+                </th>
+              ),
+            )}
           </tr>
         </thead>
         <tbody>
           {transactions.map((t) => {
-            const isIncome = t.credit > 0;
+            const posted = !!t.postedAt;
+            const busy = busyId === t.id;
+            // Орлого бол харилцагч, зарлага бол зардлын ангилал сонгоно.
+            const ready = t.isIncome ? !!t.customerId : !!t.expenseCategoryId;
             return (
               <tr
                 key={t.id}
-                className={`border-b border-[#F7F8FA] align-top ${t.isFee ? 'bg-[#FFFBEB]/60' : ''}`}
+                className={`border-b border-[#F7F8FA] align-top ${
+                  posted ? 'bg-[#F0FDF4]/70' : t.isFee ? 'bg-[#FFFBEB]/60' : ''
+                }`}
               >
                 <td className="px-3 py-2 whitespace-nowrap text-[#4A4D5C]">
                   {t.txnDate ? t.txnDate.slice(0, 10) : '—'}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <Money
-                    value={isIncome ? t.credit : t.debit}
-                    className={isIncome ? 'text-[#34C759] font-semibold' : 'text-[#FF3B30] font-semibold'}
+                    value={t.isIncome ? t.credit : t.debit}
+                    className={t.isIncome ? 'text-[#34C759] font-semibold' : 'text-[#FF3B30] font-semibold'}
                   />
-                  <div className="text-[11px] text-[#8C8FA3]">{isIncome ? 'Орлого' : 'Зарлага'}</div>
+                  <div className="text-[11px] text-[#8C8FA3]">{t.isIncome ? 'Орлого' : 'Зарлага'}</div>
                 </td>
                 <td className="px-3 py-2 min-w-[220px] max-w-[320px]">
                   <div className="text-[#1A1D26] break-words">{t.bankDescription || '—'}</div>
@@ -153,47 +130,74 @@ export function TxnTable({
                       </span>
                     )}
                     {t.isFee && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] font-medium">Шимтгэл</span>
+                      <span className="px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] font-medium">
+                        Шимтгэл
+                      </span>
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2 min-w-[190px]">
-                  <SearchableSelect
-                    value={t.partnerName}
-                    onChange={(v) => onChange(t.id, { partnerName: v })}
-                    options={customers}
-                    placeholder="Сонгоогүй"
-                    emptyText="Сонгоогүй"
-                    inputClassName={cellInput}
-                    widthClass="w-full"
-                    aria-label="Харилцагч"
-                  />
+                <td className="px-3 py-2 min-w-[200px]">
+                  {posted ? (
+                    <span className="text-[13px] text-[#4A4D5C]">
+                      {t.isIncome ? t.customerName : t.expenseCategoryName}
+                    </span>
+                  ) : t.isIncome ? (
+                    <SearchableSelect
+                      value={t.customerId ?? ''}
+                      onChange={(v) => onChange(t.id, { customerId: v || null })}
+                      options={customers}
+                      placeholder="Сонгоогүй"
+                      emptyText="Харилцагч сонгох"
+                      inputClassName={cellInput}
+                      widthClass="w-full"
+                      aria-label="Харилцагч"
+                    />
+                  ) : (
+                    <SearchableSelect
+                      value={t.expenseCategoryId ?? ''}
+                      onChange={(v) => onChange(t.id, { expenseCategoryId: v || null })}
+                      options={expenseCategories}
+                      placeholder="Сонгоогүй"
+                      emptyText="Ангилал сонгох"
+                      inputClassName={cellInput}
+                      widthClass="w-full"
+                      aria-label="Зардлын ангилал"
+                    />
+                  )}
                 </td>
-                <td className="px-3 py-2 min-w-[160px]">
-                  <CrossAccountCell
-                    value={t.partnerAccount}
-                    presets={crossAccounts}
-                    onSave={(v) => onChange(t.id, { partnerAccount: v })}
-                  />
-                </td>
-                <td className="px-3 py-2 min-w-[220px]">
+                <td className="px-3 py-2 min-w-[210px]">
                   <EditCell
-                    value={t.customDescription}
-                    placeholder="Гүйлгээний утга"
-                    onSave={(v) => onChange(t.id, { customDescription: v })}
+                    value={t.description}
+                    placeholder="Тайлбар"
+                    disabled={posted}
+                    onSave={(v) => onChange(t.id, { description: v })}
                   />
                 </td>
-                <td className="px-3 py-2 min-w-[150px]">
-                  <SearchableSelect
-                    value={t.action}
-                    onChange={(v) => onChange(t.id, { action: v })}
-                    options={ACTION_OPTIONS}
-                    placeholder="Сонгоогүй"
-                    emptyText="Сонгоогүй"
-                    inputClassName={cellInput}
-                    widthClass="w-full"
-                    aria-label="Үйлдэл"
-                  />
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {posted ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DCFCE7] text-[#15803D] text-[12px] font-semibold">
+                        <Check className="w-3.5 h-3.5" /> Бүртгэсэн
+                      </span>
+                      <button
+                        onClick={() => onUnpost(t.id)}
+                        disabled={busy}
+                        className="p-1.5 rounded-lg text-[#8C8FA3] hover:bg-[#F2F4F7] disabled:opacity-40"
+                        title="Буцаах"
+                      >
+                        <Undo2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onPost(t.id)}
+                      disabled={!ready || busy}
+                      className="h-8 px-3 rounded-lg text-[12px] font-semibold bg-[#007AFF] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:brightness-105"
+                      title={ready ? 'Бүртгэх' : 'Эхлээд харилцагч/ангилал сонгоно уу'}
+                    >
+                      Бүртгэх
+                    </button>
+                  )}
                 </td>
               </tr>
             );

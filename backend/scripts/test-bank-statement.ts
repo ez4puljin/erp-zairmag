@@ -1,6 +1,8 @@
 /**
- * Банкны хуулгын урсгалыг бодит сервисээр туршина: файл оруулах → гүйлгээ засах
- * → статистик шалгах → цэвэрлэх. Туршилтын өгөгдлөө өөрөө устгана.
+ * Банкны хуулгын бүтэн урсгалыг бодит сервисээр туршина:
+ *   оруулах → данс холбох → харилцагч/ангилал сонгох → бүртгэх →
+ *   харилцагчийн өр, дансны үлдэгдэл өөрчлөгдсөнийг шалгах → буцаах →
+ *   бүх зүйл сэргэсэнийг шалгах → цэвэрлэх.
  *
  *   npx ts-node -T scripts/test-bank-statement.ts <хуулгын-файл>
  */
@@ -9,6 +11,9 @@ import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { BankStatementsService } from '../src/modules/bank-statements/bank-statements.service';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+const n = (v: unknown) => Number(v);
 
 async function main() {
   const file = process.argv[2];
@@ -16,82 +21,116 @@ async function main() {
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error'] });
   const service = app.get(BankStatementsService);
+  const prisma = app.get(PrismaService);
   let statementId: string | undefined;
+  let tempCategoryId: string | undefined;
+  const TEMP_CATEGORY = '__туршилт__';
 
   try {
-    const buffer = fs.readFileSync(file);
-    const stmt = await service.upload(buffer, path.basename(file));
+    const admin = await prisma.user.findFirstOrThrow({ where: { role: 'ADMIN' } });
+    const account = await prisma.bankAccount.findFirstOrThrow();
+    const customer = await prisma.customer.findFirstOrThrow();
+    // Зардлын ангилал байхгүй бол туршилтын хугацаанд түр үүсгэнэ.
+    let category = await prisma.expenseCategory.findFirst();
+    if (!category) {
+      category = await prisma.expenseCategory.create({ data: { name: TEMP_CATEGORY } });
+      tempCategoryId = category.id;
+    }
+
+    const before = {
+      debt: n(customer.outstandingDebt),
+      balance: n(account.currentBalance),
+    };
+    console.log('── Эхний төлөв ──', {
+      харилцагч: customer.storeName,
+      өр: before.debt,
+      данс: account.accountNumber,
+      үлдэгдэл: before.balance,
+    });
+
+    const stmt = await service.upload(fs.readFileSync(file), path.basename(file), admin.id);
     statementId = stmt.id;
-
-    console.log('── Оруулсан хуулга ──');
-    console.log({
-      accountNumber: stmt.accountNumber,
-      currency: stmt.currency,
-      dateFrom: stmt.dateFrom,
-      dateTo: stmt.dateTo,
-      txnCount: stmt.txnCount,
-      feeCount: stmt.feeCount,
-      totalCredit: stmt.totalCredit,
-      totalDebit: stmt.totalDebit,
-      filledCount: stmt.filledCount,
-      missing: stmt.missing,
+    console.log('\n── Оруулсан ──', {
+      данс: stmt.accountNumber,
+      холбогдсонДанс: stmt.bankAccountId ? 'тийм' : 'үгүй',
+      гүйлгээ: stmt.txnCount,
+      орлого: stmt.totalCredit,
+      зарлага: stmt.totalDebit,
     });
 
-    const settlement = stmt.transactions.find((t) => t.isSettlement);
-    const fee = stmt.transactions.find((t) => t.isFee);
-    console.log('\n── Автомат бөглөлт ──');
-    console.log('ПОС:', settlement && {
-      desc: settlement.customDescription,
-      action: settlement.action,
-      partner: settlement.partnerName,
-    });
-    console.log('Шимтгэл:', fee && {
-      desc: fee.customDescription,
-      action: fee.action,
-    });
+    // Хуулгын данс автоматаар олдоогүй бол гараар холбоно.
+    if (!stmt.bankAccountId) await service.setBankAccount(stmt.id, account.id);
 
-    // Гүйлгээ засах
-    const target = stmt.transactions.find((t) => t.credit > 0 && !t.isSettlement)!;
-    await service.updateTransaction(stmt.id, target.id, {
-      partnerName: 'Сүх Маркет',
-      partnerAccount: '120101',
-      customDescription: 'Дэлгүүрийн төлбөр',
-      action: 'close',
+    // Тайлбар нөхөж, мөр бүрд харилцагч/ангилал онооно.
+    await service.fillDescriptions(stmt.id);
+    let current = await service.findOne(stmt.id);
+    for (const t of current.transactions) {
+      await service.updateTransaction(
+        stmt.id,
+        t.id,
+        t.isIncome ? { customerId: customer.id } : { expenseCategoryId: category.id },
+      );
+    }
+
+    current = await service.findOne(stmt.id);
+    console.log('\n── Бөглөсний дараа ──', {
+      бэлэн: current.readyCount,
+      дутуу: current.missing,
     });
 
-    // Утга нөхөх
-    const filled = await service.fillDescriptions(stmt.id);
-    console.log('\n── Утга нөхсөн мөр ──', filled);
-
-    const after = await service.findOne(stmt.id);
-    console.log('── Нөхсөний дараа ──', {
-      filledCount: after.filledCount,
-      missing: after.missing,
+    // Бүгдийг бүртгэнэ.
+    const result = await service.postAll(stmt.id, admin.id);
+    console.log('\n── Бүртгэсэн ──', {
+      бүртгэсэн: result.posted,
+      алгассан: result.skipped,
+      төлөв: `${result.postedCount}/${result.txnCount}`,
     });
 
-    // Дебит/кредит солих, дараа нь буцаах
-    await service.swapDebitCredit(stmt.id);
-    const swapped = await service.findOne(stmt.id);
-    await service.swapDebitCredit(stmt.id);
-    const restored = await service.findOne(stmt.id);
-    console.log('\n── Дебит/Кредит солих ──', {
-      эх: { credit: stmt.totalCredit, debit: stmt.totalDebit },
-      солисон: { credit: swapped.totalCredit, debit: swapped.totalDebit },
-      буцаасан: { credit: restored.totalCredit, debit: restored.totalDebit },
+    const afterPost = {
+      debt: n((await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } })).outstandingDebt),
+      balance: n((await prisma.bankAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance),
+    };
+    const expectedDebt = before.debt - current.totalCredit;
+    const expectedBalance = before.balance + current.totalCredit - current.totalDebit;
+    console.log('── Нөлөө ──', {
+      өр: `${before.debt} → ${afterPost.debt} (хүлээсэн ${expectedDebt})`,
+      үлдэгдэл: `${before.balance} → ${afterPost.balance} (хүлээсэн ${expectedBalance})`,
+      тулгалт:
+        afterPost.debt === expectedDebt && afterPost.balance === expectedBalance ? 'ТААРСАН' : 'ЗӨРҮҮТЭЙ',
     });
 
-    // Хуанли
-    const [y, m] = (stmt.dateFrom ?? '2026-08-01').split('-').map(Number);
-    const cal = await service.calendar(y, m);
-    console.log('\n── Хуанли ──', JSON.stringify(cal.days));
+    // Үүссэн бичилтүүд.
+    const posted = await service.findOne(stmt.id);
+    console.log('\n── Үүссэн бичилт ──', {
+      төлбөр: posted.transactions.filter((t) => t.paymentId).length,
+      зардал: posted.transactions.filter((t) => t.expenseId).length,
+    });
 
-    // Харилцагч хайх
-    console.log('\n── Харилцагч хайлт "марк" ──',
-      (await service.searchCustomers('марк')).map((c) => c.storeName));
+    // Бүгдийг буцаана.
+    for (const t of posted.transactions.filter((x) => x.postedAt)) {
+      await service.unpostTransaction(stmt.id, t.id);
+    }
+    const afterUnpost = {
+      debt: n((await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } })).outstandingDebt),
+      balance: n((await prisma.bankAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance),
+    };
+    console.log('\n── Буцаасны дараа ──', {
+      өр: `${afterUnpost.debt} (эх ${before.debt})`,
+      үлдэгдэл: `${afterUnpost.balance} (эх ${before.balance})`,
+      сэргэсэн:
+        afterUnpost.debt === before.debt && afterUnpost.balance === before.balance ? 'ТИЙМ' : 'ҮГҮЙ',
+    });
+
+    const leftovers = await prisma.payment.count({ where: { bankTransaction: { isNot: null } } });
+    console.log('Эзэнгүй үлдсэн төлбөр:', leftovers);
   } finally {
     if (statementId) {
       await service.remove(statementId);
       console.log('\nТуршилтын хуулгыг устгав.');
+    }
+    if (tempCategoryId) {
+      await prisma.expenseCategory.delete({ where: { id: tempCategoryId } });
+      console.log('Түр ангиллыг устгав.');
     }
     await app.close();
   }

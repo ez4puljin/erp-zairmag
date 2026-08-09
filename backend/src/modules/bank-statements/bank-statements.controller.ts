@@ -20,9 +20,7 @@ import {
   CalendarQueryDto,
   UpdateTransactionDto,
   UpdateConfigDto,
-  CrossAccountDto,
-  UpdateCrossAccountDto,
-  SearchCustomersDto,
+  SetBankAccountDto,
 } from './dto/bank-statement.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -32,8 +30,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class BankStatementsController {
   constructor(private readonly service: BankStatementsService) {}
 
-  // --- Тохиргоо ---
-  // Тодорхой замууд нь :id-аас өмнө бүртгэгдэх ёстой, эс бөгөөс "config"
+  // Тодорхой замууд нь :id-аас өмнө бүртгэгдэх ёстой — эс бөгөөс "config"
   // гэдгийг ID гэж үзэж ParseUUIDPipe алдаа өгнө.
 
   @Get('config')
@@ -46,51 +43,14 @@ export class BankStatementsController {
     return this.service.updateConfig(dto);
   }
 
-  @Get('config/cross-accounts')
-  listCrossAccounts() {
-    return this.service.listCrossAccounts();
-  }
-
-  @Post('config/cross-accounts')
-  createCrossAccount(@Body() dto: CrossAccountDto) {
-    return this.service.createCrossAccount(dto);
-  }
-
-  @Patch('config/cross-accounts/:id')
-  updateCrossAccount(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateCrossAccountDto,
-  ) {
-    return this.service.updateCrossAccount(id, dto);
-  }
-
-  @Delete('config/cross-accounts/:id')
-  deleteCrossAccount(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.deleteCrossAccount(id);
-  }
-
-  // --- Харилцагч хайх ---
-
-  @Get('customers/search')
-  searchCustomers(@Query() query: SearchCustomersDto) {
-    return this.service.searchCustomers(query.q ?? '', query.limit);
-  }
-
-  // --- Хуанли ---
-
   @Get('calendar')
   calendar(@Query() query: CalendarQueryDto) {
     return this.service.calendar(query.year, query.month);
   }
 
-  // --- Хуулга ---
-
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  upload(
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser('id') userId: string,
-  ) {
+  upload(@UploadedFile() file: Express.Multer.File, @CurrentUser('id') userId: string) {
     if (!file) throw new BadRequestException('Файл оруулна уу');
     return this.service.upload(file.buffer, file.originalname, userId);
   }
@@ -110,6 +70,11 @@ export class BankStatementsController {
     return this.service.remove(id);
   }
 
+  @Patch(':id/bank-account')
+  setBankAccount(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetBankAccountDto) {
+    return this.service.setBankAccount(id, dto.bankAccountId ?? null);
+  }
+
   @Post(':id/fill-descriptions')
   fillDescriptions(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.fillDescriptions(id);
@@ -120,6 +85,11 @@ export class BankStatementsController {
     return this.service.swapDebitCredit(id);
   }
 
+  @Post(':id/post-all')
+  postAll(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') userId: string) {
+    return this.service.postAll(id, userId);
+  }
+
   @Patch(':id/transactions/:txnId')
   updateTransaction(
     @Param('id', ParseUUIDPipe) id: string,
@@ -127,5 +97,22 @@ export class BankStatementsController {
     @Body() dto: UpdateTransactionDto,
   ) {
     return this.service.updateTransaction(id, txnId, dto);
+  }
+
+  @Post(':id/transactions/:txnId/post')
+  postTransaction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('txnId', ParseUUIDPipe) txnId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.postTransaction(id, txnId, userId);
+  }
+
+  @Post(':id/transactions/:txnId/unpost')
+  unpostTransaction(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('txnId', ParseUUIDPipe) txnId: string,
+  ) {
+    return this.service.unpostTransaction(id, txnId);
   }
 }

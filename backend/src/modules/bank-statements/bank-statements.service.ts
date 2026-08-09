@@ -1,90 +1,93 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PaymentMethod, CustomerPaymentType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  parseStatement,
-  isPosIncome,
-  settlementDescription,
-} from './statement-parser';
+import { PaymentsService } from '../payments/payments.service';
+import { ExpensesService } from '../expenses/expenses.service';
+import { parseStatement, isPosIncome, settlementDescription } from './statement-parser';
 
-/** Гүйлгээний мөр бүрэн бөглөгдсөн эсэхийг шалгах талбарууд. */
-type MissingField = 'partner' | 'account' | 'desc' | 'action';
+/**
+ * Банкны хуулгын гүйлгээг манай бүртгэлд буулгана.
+ *
+ *   Орлого (кредит) → харилцагчийн төлбөр болж өр нь хаагдана
+ *   Зарлага (дебит) → сонгосон ангиллаар зардал болж бүртгэгдэнэ
+ *
+ * Төлбөр/зардлыг өөрсдийнх нь сервисээр үүсгэдэг — ингэснээр дансны
+ * үлдэгдэл, харилцагчийн өр, авлагын дэвтэр бүгд зөв хөдөлнө.
+ */
 
-interface TxnLike {
-  partnerName: string;
-  partnerAccount: string;
-  customDescription: string;
-  action: string;
-}
+/** Мөр бүртгэхэд бэлэн эсэхийг тодорхойлох талбарууд. */
+type MissingField = 'target' | 'desc';
 
-function missingFields(t: TxnLike): MissingField[] {
-  const missing: MissingField[] = [];
-  if (!t.partnerName.trim()) missing.push('partner');
-  if (!t.partnerAccount.trim()) missing.push('account');
-  if (!t.customDescription.trim()) missing.push('desc');
-  if (!t.action.trim()) missing.push('action');
-  return missing;
+interface TxnCore {
+  debit: Prisma.Decimal;
+  credit: Prisma.Decimal;
+  description: string;
+  customerId: string | null;
+  expenseCategoryId: string | null;
+  postedAt: Date | null;
 }
 
 function toNum(v: Prisma.Decimal | number): number {
   return typeof v === 'number' ? v : Number(v);
 }
 
-/** Өдрийн эхлэл/төгсгөлийг UTC-ээр — огноогоор шүүхэд ашиглана. */
+/** Мөрийн дүн ба чиглэл. Хоёул утгатай бол илүү нь голлоно. */
+function amountOf(t: { debit: Prisma.Decimal; credit: Prisma.Decimal }) {
+  const credit = toNum(t.credit);
+  const debit = toNum(t.debit);
+  return credit > 0 ? { amount: credit, income: true } : { amount: debit, income: false };
+}
+
+function missingFields(t: TxnCore): MissingField[] {
+  const missing: MissingField[] = [];
+  const { income } = amountOf(t);
+  if (income ? !t.customerId : !t.expenseCategoryId) missing.push('target');
+  if (!t.description.trim()) missing.push('desc');
+  return missing;
+}
+
+/** Огноогоор шүүхэд ашиглах UTC өдрийн муж. */
 function dayRange(date: string): { gte: Date; lt: Date } {
   const gte = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(gte.getTime())) throw new BadRequestException('Огноо буруу байна');
-  const lt = new Date(gte.getTime() + 24 * 60 * 60 * 1000);
-  return { gte, lt };
+  return { gte, lt: new Date(gte.getTime() + 24 * 60 * 60 * 1000) };
 }
 
 @Injectable()
 export class BankStatementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly payments: PaymentsService,
+    private readonly expenses: ExpensesService,
+  ) {}
 
   // ── Тохиргоо (singleton) ──────────────────────────────────────────
 
   async getConfig() {
     const existing = await this.prisma.bankStatementConfig.findFirst();
     if (existing) return existing;
-    // Анх удаа хандахад анхдагч утгатай мөрийг үүсгэнэ.
     return this.prisma.bankStatementConfig.create({ data: {} });
   }
 
-  async updateConfig(dto: Prisma.BankStatementConfigUpdateInput) {
+  async updateConfig(dto: {
+    settlementCustomerId?: string | null;
+    settlementDescription?: string;
+    feeExpenseCategoryId?: string | null;
+    feeDescription?: string;
+  }) {
     const cfg = await this.getConfig();
-    return this.prisma.bankStatementConfig.update({ where: { id: cfg.id }, data: dto });
-  }
-
-  // ── Харьцсан дансны бэлэн сонголтууд ──────────────────────────────
-
-  listCrossAccounts() {
-    return this.prisma.crossAccountPreset.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    return this.prisma.bankStatementConfig.update({
+      where: { id: cfg.id },
+      data: {
+        // Хоосон мөрийг "сонгоогүй" гэж үзнэ — SET NULL хийнэ.
+        settlementCustomerId: dto.settlementCustomerId || null,
+        feeExpenseCategoryId: dto.feeExpenseCategoryId || null,
+        ...(dto.settlementDescription !== undefined && {
+          settlementDescription: dto.settlementDescription,
+        }),
+        ...(dto.feeDescription !== undefined && { feeDescription: dto.feeDescription }),
+      },
     });
-  }
-
-  createCrossAccount(data: { code: string; label?: string; sortOrder?: number }) {
-    return this.prisma.crossAccountPreset.create({
-      data: { code: data.code.trim(), label: data.label?.trim() ?? '', sortOrder: data.sortOrder ?? 0 },
-    });
-  }
-
-  async updateCrossAccount(id: string, data: { code?: string; label?: string; sortOrder?: number }) {
-    await this.getCrossAccountOrThrow(id);
-    return this.prisma.crossAccountPreset.update({ where: { id }, data });
-  }
-
-  async deleteCrossAccount(id: string) {
-    await this.getCrossAccountOrThrow(id);
-    await this.prisma.crossAccountPreset.delete({ where: { id } });
-    return { success: true };
-  }
-
-  private async getCrossAccountOrThrow(id: string) {
-    const found = await this.prisma.crossAccountPreset.findUnique({ where: { id } });
-    if (!found) throw new NotFoundException('Харьцсан данс олдсонгүй');
-    return found;
   }
 
   // ── Хуулга оруулах ────────────────────────────────────────────────
@@ -93,11 +96,19 @@ export class BankStatementsService {
     const parsed = parseStatement(buffer, filename);
     if (parsed.transactions.length === 0) {
       throw new BadRequestException(
-        'Хуулгаас гүйлгээ олдсонгүй. Хаанбанкны Excel хуулга мөн эсэхийг шалгана уу.',
+        'Хуулгаас гүйлгээ олдсонгүй. Банкны Excel хуулга мөн эсэхийг шалгана уу.',
       );
     }
 
     const cfg = await this.getConfig();
+    // Дансны дугаараар манай данстай холбоно — бүртгэхэд аль данснаас
+    // мөнгө хөдөлснийг мэдэх шаардлагатай.
+    const account = parsed.accountNumber
+      ? await this.prisma.bankAccount.findFirst({
+          where: { accountNumber: parsed.accountNumber },
+          select: { id: true },
+        })
+      : null;
 
     const statement = await this.prisma.bankStatement.create({
       data: {
@@ -107,27 +118,23 @@ export class BankStatementsService {
         dateTo: parsed.dateTo,
         filename: parsed.filename,
         uploadedById: userId ?? null,
+        bankAccountId: account?.id ?? null,
         transactions: {
           create: parsed.transactions.map((t, index) => {
             const isSettlement = t.credit > 0 && isPosIncome(t.bankDescription);
-            // Шимтгэл болон ПОС гүйлгээг тохиргооны дагуу урьдчилж бөглөнө —
-            // хэрэглэгч дараа нь гараар засах боломжтой.
+            // Шимтгэл болон ПОС мөрийг тохиргооны дагуу урьдчилж бөглөнө.
             const auto = t.isFee
               ? {
-                  partnerName: cfg.feePartnerName,
-                  partnerAccount: cfg.feePartnerAccount,
-                  customDescription: cfg.feeDescription,
-                  action: cfg.feeAction,
+                  expenseCategoryId: cfg.feeExpenseCategoryId,
+                  description: cfg.feeDescription,
                 }
               : isSettlement
                 ? {
-                    partnerName: cfg.settlementPartnerName,
-                    partnerAccount: cfg.settlementPartnerAccount,
-                    customDescription: settlementDescription(
+                    customerId: cfg.settlementCustomerId,
+                    description: settlementDescription(
                       cfg.settlementDescription,
                       t.bankDescription,
                     ),
-                    action: cfg.settlementAction,
                   }
                 : {};
             return {
@@ -137,7 +144,6 @@ export class BankStatementsService {
               bankDescription: t.bankDescription,
               bankCounterpart: t.bankCounterpart,
               isFee: t.isFee,
-              action: t.action,
               sortOrder: index,
               ...auto,
             };
@@ -165,15 +171,12 @@ export class BankStatementsService {
     const statements = await this.prisma.bankStatement.findMany({
       where,
       orderBy: [{ dateFrom: 'desc' }, { uploadedAt: 'desc' }],
-      include: { transactions: true },
+      include: { transactions: true, bankAccount: { select: { bankName: true } } },
     });
     return statements.map((s) => this.serializeStatement(s));
   }
 
-  /**
-   * Сар бүрийн өдрүүдэд хэдэн хуулга байгааг тоолж хуанлид харуулна.
-   * Түлхүүр нь "YYYY-MM-DD".
-   */
+  /** Сарын өдөр бүрд хэдэн хуулга, хэр бүртгэгдсэнийг тоолж хуанлид өгнө. */
   async calendar(year: number, month: number) {
     const from = new Date(Date.UTC(year, month - 1, 1));
     const to = new Date(Date.UTC(year, month, 1));
@@ -182,14 +185,14 @@ export class BankStatementsService {
       include: { transactions: true },
     });
 
-    const days: Record<string, { count: number; filled: number; total: number }> = {};
+    const days: Record<string, { count: number; posted: number; total: number }> = {};
     for (const s of statements) {
       const key = s.dateFrom ? s.dateFrom.toISOString().slice(0, 10) : '';
       if (!key) continue;
       const stats = this.serializeStatement(s);
-      const entry = (days[key] ??= { count: 0, filled: 0, total: 0 });
+      const entry = (days[key] ??= { count: 0, posted: 0, total: 0 });
       entry.count += 1;
-      entry.filled += stats.filledCount;
+      entry.posted += stats.postedCount;
       entry.total += stats.txnCount;
     }
     return { year, month, days };
@@ -199,19 +202,59 @@ export class BankStatementsService {
     const statement = await this.prisma.bankStatement.findUnique({
       where: { id },
       include: {
-        transactions: { orderBy: [{ sortOrder: 'asc' }, { txnDate: 'asc' }] },
-        uploadedBy: { select: { firstName: true, lastName: true } },
+        transactions: {
+          orderBy: [{ sortOrder: 'asc' }, { txnDate: 'asc' }],
+          include: {
+            customer: { select: { id: true, storeName: true } },
+            expenseCategory: { select: { id: true, name: true } },
+          },
+        },
+        bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
       },
     });
     if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
-    return { ...this.serializeStatement(statement), transactions: statement.transactions.map(serializeTxn) };
+    return {
+      ...this.serializeStatement(statement),
+      transactions: statement.transactions.map(serializeTxn),
+    };
   }
 
   async remove(id: string) {
-    const found = await this.prisma.bankStatement.findUnique({ where: { id } });
-    if (!found) throw new NotFoundException('Хуулга олдсонгүй');
+    const statement = await this.prisma.bankStatement.findUnique({
+      where: { id },
+      include: { transactions: { select: { postedAt: true } } },
+    });
+    if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
+
+    // Бүртгэсэн мөр байвал устгахаас өмнө буцаах ёстой — эс бөгөөс төлбөр,
+    // зардал нь эзэнгүй үлдэж, дансны үлдэгдэл буруу болно.
+    const posted = statement.transactions.filter((t) => t.postedAt).length;
+    if (posted > 0) {
+      throw new BadRequestException(
+        `${posted} мөр бүртгэгдсэн байна. Эхлээд буцаана уу.`,
+      );
+    }
+
     await this.prisma.bankStatement.delete({ where: { id } });
     return { success: true };
+  }
+
+  /** Хуулгыг манай аль данстай холбохыг гараар зааж өгнө. */
+  async setBankAccount(id: string, bankAccountId: string | null) {
+    const statement = await this.prisma.bankStatement.findUnique({
+      where: { id },
+      include: { transactions: { select: { postedAt: true } } },
+    });
+    if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
+    if (statement.transactions.some((t) => t.postedAt)) {
+      throw new BadRequestException('Бүртгэсэн мөртэй хуулгын дансыг солих боломжгүй.');
+    }
+    if (bankAccountId) {
+      const acc = await this.prisma.bankAccount.findUnique({ where: { id: bankAccountId } });
+      if (!acc) throw new NotFoundException('Данс олдсонгүй');
+    }
+    await this.prisma.bankStatement.update({ where: { id }, data: { bankAccountId } });
+    return this.findOne(id);
   }
 
   // ── Гүйлгээ засах ─────────────────────────────────────────────────
@@ -219,47 +262,60 @@ export class BankStatementsService {
   async updateTransaction(
     statementId: string,
     txnId: string,
-    dto: Partial<{
-      partnerName: string;
-      partnerCode: string;
-      partnerAccount: string;
-      customDescription: string;
-      action: string;
-    }>,
+    dto: {
+      description?: string;
+      customerId?: string | null;
+      expenseCategoryId?: string | null;
+    },
   ) {
     const txn = await this.prisma.bankTransaction.findUnique({ where: { id: txnId } });
     if (!txn || txn.statementId !== statementId) throw new NotFoundException('Гүйлгээ олдсонгүй');
-    const updated = await this.prisma.bankTransaction.update({ where: { id: txnId }, data: dto });
-    return serializeTxn(updated);
+    if (txn.postedAt) {
+      throw new BadRequestException('Бүртгэсэн гүйлгээг засахын тулд эхлээд буцаана уу.');
+    }
+
+    await this.prisma.bankTransaction.update({
+      where: { id: txnId },
+      data: {
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.customerId !== undefined && { customerId: dto.customerId || null }),
+        ...(dto.expenseCategoryId !== undefined && {
+          expenseCategoryId: dto.expenseCategoryId || null,
+        }),
+      },
+    });
+    return this.findOne(statementId);
   }
 
-  /**
-   * Гүйлгээний утга хоосон мөрүүдийг банкны утгаар нөхөж бөглөнө.
-   * Аль хэдийн бөглөсөн мөрүүдийг хөндөхгүй.
-   */
+  /** Гүйлгээний утга хоосон мөрүүдийг банкны утгаар нөхнө. */
   async fillDescriptions(statementId: string) {
     const txns = await this.prisma.bankTransaction.findMany({ where: { statementId } });
     if (txns.length === 0) throw new NotFoundException('Хуулга олдсонгүй');
 
-    const targets = txns.filter((t) => !t.customDescription.trim() && t.bankDescription.trim());
+    const targets = txns.filter(
+      (t) => !t.postedAt && !t.description.trim() && t.bankDescription.trim(),
+    );
     await this.prisma.$transaction(
       targets.map((t) =>
         this.prisma.bankTransaction.update({
           where: { id: t.id },
-          data: { customDescription: t.bankDescription },
+          data: { description: t.bankDescription },
         }),
       ),
     );
-    return { updated: targets.length };
+    return this.findOne(statementId);
   }
 
   /**
-   * Дебит/Кредит баганыг солино. Зарим банкны хуулгад багана солигдож ирдэг
-   * бөгөөд импортын дараа л мэдэгддэг.
+   * Дебит/Кредит баганыг солино. Зарим хуулгад багана солигдож ирдэг ба
+   * оруулсны дараа л мэдэгддэг.
    */
   async swapDebitCredit(statementId: string) {
     const txns = await this.prisma.bankTransaction.findMany({ where: { statementId } });
     if (txns.length === 0) throw new NotFoundException('Хуулга олдсонгүй');
+    if (txns.some((t) => t.postedAt)) {
+      throw new BadRequestException('Бүртгэсэн мөртэй үед багана солих боломжгүй.');
+    }
 
     await this.prisma.$transaction(
       txns.map((t) =>
@@ -269,29 +325,124 @@ export class BankStatementsService {
         }),
       ),
     );
-    return { updated: txns.length };
+    return this.findOne(statementId);
   }
 
-  // ── Харилцагч хайх ────────────────────────────────────────────────
+  // ── Бүртгэх / буцаах ──────────────────────────────────────────────
 
-  /** Гүйлгээнд харилцагч сонгоход зориулсан хайлт (нэр/утас/РД). */
-  async searchCustomers(query: string, limit = 20) {
-    const q = (query || '').trim();
-    const customers = await this.prisma.customer.findMany({
-      where: q
-        ? {
-            OR: [
-              { storeName: { contains: q, mode: 'insensitive' } },
-              { phone: { contains: q, mode: 'insensitive' } },
-              { registerNo: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {},
-      select: { id: true, storeName: true, phone: true, registerNo: true },
-      orderBy: { storeName: 'asc' },
-      take: Math.min(Math.max(limit, 1), 50),
+  /** Нэг мөрийг төлбөр эсвэл зардал болгож бүртгэнэ. */
+  async postTransaction(statementId: string, txnId: string, userId: string) {
+    const txn = await this.prisma.bankTransaction.findUnique({
+      where: { id: txnId },
+      include: { statement: { select: { id: true, bankAccountId: true } } },
     });
-    return customers;
+    if (!txn || txn.statementId !== statementId) throw new NotFoundException('Гүйлгээ олдсонгүй');
+
+    await this.postOne(txn, userId);
+    return this.findOne(statementId);
+  }
+
+  /** Бэлэн болсон бүх мөрийг нэг дор бүртгэнэ. */
+  async postAll(statementId: string, userId: string) {
+    const txns = await this.prisma.bankTransaction.findMany({
+      where: { statementId, postedAt: null },
+      orderBy: [{ sortOrder: 'asc' }],
+      include: { statement: { select: { id: true, bankAccountId: true } } },
+    });
+
+    let posted = 0;
+    const skipped: Array<{ id: string; reason: string }> = [];
+    for (const txn of txns) {
+      try {
+        await this.postOne(txn, userId);
+        posted += 1;
+      } catch (e) {
+        // Нэг мөр бүтэлгүйтсэн ч бусдыг үргэлжлүүлнэ — шалтгааныг буцаана.
+        skipped.push({ id: txn.id, reason: (e as Error).message });
+      }
+    }
+    return { ...(await this.findOne(statementId)), posted, skipped };
+  }
+
+  private async postOne(
+    txn: {
+      id: string;
+      debit: Prisma.Decimal;
+      credit: Prisma.Decimal;
+      description: string;
+      customerId: string | null;
+      expenseCategoryId: string | null;
+      postedAt: Date | null;
+      txnDate: Date | null;
+      bankDescription: string;
+      statement: { id: string; bankAccountId: string | null };
+    },
+    userId: string,
+  ) {
+    if (txn.postedAt) throw new BadRequestException('Энэ мөр аль хэдийн бүртгэгдсэн байна.');
+
+    const { amount, income } = amountOf(txn);
+    if (amount <= 0) throw new BadRequestException('Дүн тэг байна.');
+    if (!txn.statement.bankAccountId) {
+      throw new BadRequestException('Хуулгын дансыг эхлээд сонгоно уу.');
+    }
+
+    const at = txn.txnDate ?? new Date();
+    const note = txn.description.trim() || txn.bankDescription.trim();
+
+    if (income) {
+      if (!txn.customerId) throw new BadRequestException('Харилцагч сонгоогүй байна.');
+      const payment = await this.payments.recordPayment(
+        {
+          customerId: txn.customerId,
+          amount,
+          type: CustomerPaymentType.RECEIPT,
+          method: PaymentMethod.BANK_TRANSFER,
+          bankAccountId: txn.statement.bankAccountId,
+          paidAt: at.toISOString(),
+          note,
+        },
+        userId,
+      );
+      await this.prisma.bankTransaction.update({
+        where: { id: txn.id },
+        data: { paymentId: payment.id, postedAt: new Date() },
+      });
+      return;
+    }
+
+    if (!txn.expenseCategoryId) throw new BadRequestException('Зардлын ангилал сонгоогүй байна.');
+    const expense = await this.expenses.create(
+      {
+        categoryId: txn.expenseCategoryId,
+        amount,
+        description: note || 'Банкны хуулга',
+        date: at.toISOString().slice(0, 10),
+        bankAccountId: txn.statement.bankAccountId,
+      },
+      userId,
+    );
+    await this.prisma.bankTransaction.update({
+      where: { id: txn.id },
+      data: { expenseId: expense.id, postedAt: new Date() },
+    });
+  }
+
+  /** Бүртгэлийг буцаана — үүссэн төлбөр/зардлыг устгаж нөлөөг сэргээнэ. */
+  async unpostTransaction(statementId: string, txnId: string) {
+    const txn = await this.prisma.bankTransaction.findUnique({ where: { id: txnId } });
+    if (!txn || txn.statementId !== statementId) throw new NotFoundException('Гүйлгээ олдсонгүй');
+    if (!txn.postedAt) throw new BadRequestException('Энэ мөр бүртгэгдээгүй байна.');
+
+    // Холбоосыг эхлээд салгана — эс бөгөөс FK нь устгалыг зогсооно.
+    await this.prisma.bankTransaction.update({
+      where: { id: txn.id },
+      data: { paymentId: null, expenseId: null, postedAt: null },
+    });
+    if (txn.paymentId) await this.payments.remove(txn.paymentId);
+    if (txn.expenseId) await this.expenses.remove(txn.expenseId);
+
+    return this.findOne(statementId);
   }
 
   // ── Хувиргалт ─────────────────────────────────────────────────────
@@ -304,25 +455,22 @@ export class BankStatementsService {
     dateTo: Date | null;
     filename: string;
     uploadedAt: Date;
-    transactions: Array<{
-      isFee: boolean;
-      debit: Prisma.Decimal;
-      credit: Prisma.Decimal;
-      partnerName: string;
-      partnerAccount: string;
-      customDescription: string;
-      action: string;
-    }>;
+    bankAccountId: string | null;
+    bankAccount?: { bankName: string; accountNumber?: string; id?: string } | null;
+    transactions: Array<TxnCore & { isFee: boolean }>;
   }) {
-    // Шимтгэлийн мөрийг үндсэн статистикт оруулахгүй — тэдгээр нь автоматаар
-    // бөглөгддөг тул "дутуу" тоололд саад болно.
-    const main = s.transactions.filter((t) => !t.isFee);
-
-    const missing: Record<MissingField, number> = { partner: 0, account: 0, desc: 0, action: 0 };
-    let filled = 0;
-    for (const t of main) {
+    // Шимтгэлийн мөрийг ч бүртгэдэг тул бүх мөрийг тооцно.
+    const txns = s.transactions;
+    const missing: Record<MissingField, number> = { target: 0, desc: 0 };
+    let ready = 0;
+    let posted = 0;
+    for (const t of txns) {
+      if (t.postedAt) {
+        posted += 1;
+        continue;
+      }
       const miss = missingFields(t);
-      if (miss.length === 0) filled += 1;
+      if (miss.length === 0) ready += 1;
       else for (const k of miss) missing[k] += 1;
     }
 
@@ -334,11 +482,14 @@ export class BankStatementsService {
       dateTo: s.dateTo ? s.dateTo.toISOString().slice(0, 10) : null,
       filename: s.filename,
       uploadedAt: s.uploadedAt.toISOString(),
-      txnCount: main.length,
-      feeCount: s.transactions.length - main.length,
-      totalCredit: main.reduce((sum, t) => sum + toNum(t.credit), 0),
-      totalDebit: main.reduce((sum, t) => sum + toNum(t.debit), 0),
-      filledCount: filled,
+      bankAccountId: s.bankAccountId,
+      bankName: s.bankAccount?.bankName ?? null,
+      txnCount: txns.length,
+      feeCount: txns.filter((t) => t.isFee).length,
+      totalCredit: txns.reduce((sum, t) => sum + toNum(t.credit), 0),
+      totalDebit: txns.reduce((sum, t) => sum + toNum(t.debit), 0),
+      postedCount: posted,
+      readyCount: ready,
       missing,
     };
   }
@@ -352,25 +503,33 @@ function serializeTxn(t: {
   bankDescription: string;
   bankCounterpart: string;
   isFee: boolean;
-  partnerName: string;
-  partnerCode: string;
-  partnerAccount: string;
-  customDescription: string;
-  action: string;
+  description: string;
+  customerId: string | null;
+  expenseCategoryId: string | null;
+  paymentId: string | null;
+  expenseId: string | null;
+  postedAt: Date | null;
+  customer?: { id: string; storeName: string } | null;
+  expenseCategory?: { id: string; name: string } | null;
 }) {
+  const credit = toNum(t.credit);
   return {
     id: t.id,
     txnDate: t.txnDate ? t.txnDate.toISOString() : null,
     debit: toNum(t.debit),
-    credit: toNum(t.credit),
+    credit,
     bankDescription: t.bankDescription,
     bankCounterpart: t.bankCounterpart,
     isFee: t.isFee,
-    partnerName: t.partnerName,
-    partnerCode: t.partnerCode,
-    partnerAccount: t.partnerAccount,
-    customDescription: t.customDescription,
-    action: t.action,
-    isSettlement: toNum(t.credit) > 0 && isPosIncome(t.bankDescription),
+    description: t.description,
+    customerId: t.customerId,
+    customerName: t.customer?.storeName ?? null,
+    expenseCategoryId: t.expenseCategoryId,
+    expenseCategoryName: t.expenseCategory?.name ?? null,
+    paymentId: t.paymentId,
+    expenseId: t.expenseId,
+    postedAt: t.postedAt ? t.postedAt.toISOString() : null,
+    isIncome: credit > 0,
+    isSettlement: credit > 0 && isPosIncome(t.bankDescription),
   };
 }

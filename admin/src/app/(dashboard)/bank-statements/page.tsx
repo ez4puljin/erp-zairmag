@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  CheckCheck,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/shared/page-header';
@@ -19,16 +20,10 @@ import { ActionButton } from '@/components/shared/filter-bar';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { ErrorBanner } from '@/components/shared/error-banner';
 import { Money } from '@/components/shared/money';
-import type { SelectOption } from '@/components/shared/searchable-select';
+import { SearchableSelect, type SelectOption } from '@/components/shared/searchable-select';
 import { TxnTable } from './txn-table';
 import { ConfigModal } from './config-modal';
-import {
-  MISSING_LABEL,
-  type BankStatement,
-  type BankTxn,
-  type CrossAccount,
-  type MissingCounts,
-} from './types';
+import { MISSING_LABEL, type BankStatement, type BankTxn, type MissingCounts } from './types';
 
 const MONTHS = [
   '1-р сар', '2-р сар', '3-р сар', '4-р сар', '5-р сар', '6-р сар',
@@ -38,7 +33,7 @@ const WEEKDAYS = ['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'];
 
 interface DayStat {
   count: number;
-  filled: number;
+  posted: number;
   total: number;
 }
 
@@ -50,7 +45,7 @@ function dateKey(y: number, m: number, d: number) {
   return `${y}-${pad2(m)}-${pad2(d)}`;
 }
 
-/** Даваа гарагаас эхэлсэн хуанлид тухайн сарын 1 хэдэд таарахыг олно. */
+/** Даваа гарагаас эхэлсэн хуанлид сарын 1 хэдэд таарахыг олно. */
 function leadingBlanks(year: number, month: number) {
   const jsDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay(); // 0 = Ням
   return (jsDay + 6) % 7;
@@ -67,17 +62,21 @@ export default function BankStatementsPage() {
   const [statement, setStatement] = useState<BankStatement | null>(null);
 
   const [customers, setCustomers] = useState<SelectOption[]>([]);
-  const [crossAccounts, setCrossAccounts] = useState<CrossAccount[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<SelectOption[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<SelectOption[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BankStatement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const apiError = (e: unknown, fallback: string) => {
-    const msg = (e as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
+    const msg = (e as { response?: { data?: { message?: string | string[] } } })?.response?.data
+      ?.message;
     setError(Array.isArray(msg) ? msg.join(', ') : msg || fallback);
   };
 
@@ -92,19 +91,41 @@ export default function BankStatementsPage() {
 
   useEffect(() => {
     void Promise.all([
-      api
-        .get('/api/customers', { params: { limit: 100 } })
-        .then((r) =>
-          setCustomers(
-            (r.data?.data ?? []).map((c: { storeName: string }) => ({
-              value: c.storeName,
-              label: c.storeName,
-            })),
+      api.get('/api/customers', { params: { limit: 100 } }).then((r) =>
+        setCustomers(
+          (r.data?.data ?? []).map((c: { id: string; storeName: string }) => ({
+            value: c.id,
+            label: c.storeName,
+          })),
+        ),
+      ),
+      api.get('/api/expense-categories').then((r) =>
+        setExpenseCategories(
+          (r.data?.data ?? r.data ?? []).map((c: { id: string; name: string }) => ({
+            value: c.id,
+            label: c.name,
+          })),
+        ),
+      ),
+      api.get('/api/bank-accounts').then((r) =>
+        setBankAccounts(
+          (r.data?.data ?? r.data ?? []).map(
+            (a: { id: string; bankName: string; accountNumber: string }) => ({
+              value: a.id,
+              label: `${a.bankName} · ${a.accountNumber}`,
+            }),
           ),
         ),
-      api.get('/api/bank-statements/config/cross-accounts').then((r) => setCrossAccounts(r.data)),
+      ),
     ]).catch(() => {});
   }, []);
+
+  /** Хуулгын мэдээллийг сервер дээрх төлөвөөр бүрэн шинэчилнэ. */
+  const applyStatement = (data: BankStatement) => {
+    setStatement(data);
+    setDayStatements((list) => list.map((s) => (s.id === data.id ? { ...data, transactions: undefined } : s)));
+    void loadCalendar(year, month).catch(() => {});
+  };
 
   const openDay = async (key: string) => {
     setSelectedDate(key);
@@ -113,8 +134,11 @@ export default function BankStatementsPage() {
     try {
       const r = await api.get('/api/bank-statements', { params: { date: key } });
       setDayStatements(r.data);
-      // Тухайн өдөр ганц хуулгатай бол шууд нээнэ — нэмэлт товшилт хэрэггүй.
-      if (r.data.length === 1) await openStatement(r.data[0].id);
+      // Тухайн өдөр ганц хуулгатай бол шууд нээнэ.
+      if (r.data.length === 1) {
+        const one = await api.get(`/api/bank-statements/${r.data[0].id}`);
+        setStatement(one.data);
+      }
     } catch (e) {
       apiError(e, 'Хуулга ачаалахад алдаа гарлаа');
     } finally {
@@ -134,14 +158,6 @@ export default function BankStatementsPage() {
     }
   };
 
-  /** Хуулгын статистикийг серверээс дахин авалгүй шинэчилнэ. */
-  const refreshStatement = async (id: string) => {
-    const r = await api.get(`/api/bank-statements/${id}`);
-    setStatement(r.data);
-    setDayStatements((list) => list.map((s) => (s.id === id ? { ...r.data, transactions: undefined } : s)));
-    void loadCalendar(year, month).catch(() => {});
-  };
-
   const handleUpload = async (file: File) => {
     setUploading(true);
     setError(null);
@@ -153,6 +169,11 @@ export default function BankStatementsPage() {
       });
       const uploaded: BankStatement = r.data;
       setStatement(uploaded);
+      if (!uploaded.bankAccountId) {
+        setNotice(
+          `"${uploaded.accountNumber || 'дугааргүй'}" данс бүртгэлээс олдсонгүй. Доороос дансаа сонгоно уу.`,
+        );
+      }
       if (uploaded.dateFrom) {
         const [y, m] = uploaded.dateFrom.split('-').map(Number);
         setYear(y);
@@ -172,18 +193,66 @@ export default function BankStatementsPage() {
 
   const updateTxn = async (txnId: string, patch: Partial<BankTxn>) => {
     if (!statement) return;
-    // Хариу ирэхээс өмнө дэлгэц дээр шууд тусгана — хүснэгт "мэдрэмжтэй" байх ёстой.
+    // Хариу ирэхээс өмнө дэлгэц дээр тусгана — хүснэгт мэдрэмжтэй байх ёстой.
     setStatement((s) =>
       s && s.transactions
         ? { ...s, transactions: s.transactions.map((t) => (t.id === txnId ? { ...t, ...patch } : t)) }
         : s,
     );
     try {
-      await api.patch(`/api/bank-statements/${statement.id}/transactions/${txnId}`, patch);
-      await refreshStatement(statement.id);
+      const r = await api.patch(`/api/bank-statements/${statement.id}/transactions/${txnId}`, patch);
+      applyStatement(r.data);
     } catch (e) {
       apiError(e, 'Гүйлгээ хадгалахад алдаа гарлаа');
-      await refreshStatement(statement.id);
+      await openStatement(statement.id);
+    }
+  };
+
+  const postTxn = async (txnId: string) => {
+    if (!statement) return;
+    setBusyId(txnId);
+    setError(null);
+    try {
+      const r = await api.post(`/api/bank-statements/${statement.id}/transactions/${txnId}/post`);
+      applyStatement(r.data);
+    } catch (e) {
+      apiError(e, 'Бүртгэхэд алдаа гарлаа');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const unpostTxn = async (txnId: string) => {
+    if (!statement) return;
+    setBusyId(txnId);
+    setError(null);
+    try {
+      const r = await api.post(`/api/bank-statements/${statement.id}/transactions/${txnId}/unpost`);
+      applyStatement(r.data);
+    } catch (e) {
+      apiError(e, 'Буцаахад алдаа гарлаа');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const postAll = async () => {
+    if (!statement) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await api.post(`/api/bank-statements/${statement.id}/post-all`);
+      applyStatement(r.data);
+      const skipped = r.data.skipped?.length ?? 0;
+      setNotice(
+        skipped > 0
+          ? `${r.data.posted} мөр бүртгэгдэж, ${skipped} мөр үлдлээ.`
+          : `${r.data.posted} мөр бүртгэгдлээ.`,
+      );
+    } catch (e) {
+      apiError(e, 'Бүртгэхэд алдаа гарлаа');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -191,12 +260,25 @@ export default function BankStatementsPage() {
     if (!statement) return;
     setLoading(true);
     try {
-      await api.post(`/api/bank-statements/${statement.id}/${path}`);
-      await refreshStatement(statement.id);
+      const r = await api.post(`/api/bank-statements/${statement.id}/${path}`);
+      applyStatement(r.data);
     } catch (e) {
       apiError(e, fallback);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const setAccount = async (bankAccountId: string) => {
+    if (!statement) return;
+    try {
+      const r = await api.patch(`/api/bank-statements/${statement.id}/bank-account`, {
+        bankAccountId,
+      });
+      applyStatement(r.data);
+      setNotice(null);
+    } catch (e) {
+      apiError(e, 'Данс холбоход алдаа гарлаа');
     }
   };
 
@@ -222,12 +304,13 @@ export default function BankStatementsPage() {
 
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const blanks = leadingBlanks(year, month);
+  const allPosted = !!statement && statement.postedCount >= statement.txnCount;
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
       <PageHeader
         title="Банкны хуулга"
-        subtitle="Хуулга оруулж гүйлгээ бүрт харилцагч, данс, утга бөглөнө"
+        subtitle="Орлогыг харилцагчийн төлбөр, зарлагыг зардал болгож бүртгэнэ"
         icon={Landmark}
         iconColor="#0EA5E9"
         actions={
@@ -243,7 +326,7 @@ export default function BankStatementsPage() {
               }}
             />
             <ActionButton variant="ghost" onClick={() => setConfigOpen(true)}>
-              <Settings className="w-4 h-4" /> Тохиргоо
+              <Settings className="w-4 h-4" /> Автомат бөглөлт
             </ActionButton>
             <ActionButton onClick={() => fileRef.current?.click()} disabled={uploading}>
               <Upload className="w-4 h-4" /> {uploading ? 'Оруулж…' : 'Хуулга оруулах'}
@@ -253,6 +336,17 @@ export default function BankStatementsPage() {
       />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      {notice && (
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-[#EFF6FF] border border-[#007AFF]/20">
+          <p className="flex-1 text-[13px] font-medium text-[#0369A1]">{notice}</p>
+          <button
+            onClick={() => setNotice(null)}
+            className="text-[12px] font-semibold text-[#0369A1] px-2 py-1 rounded-lg hover:bg-white/60"
+          >
+            Хаах
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
         <SectionCard
@@ -290,8 +384,8 @@ export default function BankStatementsPage() {
               const key = dateKey(year, month, day);
               const stat = days[key];
               const isSelected = selectedDate === key;
-              // Бүх мөр бөглөгдсөн өдрийг ногоон, дутуутайг улбар шараар тэмдэглэнэ.
-              const complete = stat && stat.total > 0 && stat.filled >= stat.total;
+              // Бүх мөр бүртгэгдсэн өдрийг ногоон, дутуутайг улбар шараар.
+              const done = stat && stat.total > 0 && stat.posted >= stat.total;
               return (
                 <button
                   key={key}
@@ -308,9 +402,7 @@ export default function BankStatementsPage() {
                   {stat && (
                     <span
                       className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{
-                        background: isSelected ? '#FFFFFF' : complete ? '#34C759' : '#FF9500',
-                      }}
+                      style={{ background: isSelected ? '#FFFFFF' : done ? '#34C759' : '#FF9500' }}
                     />
                   )}
                 </button>
@@ -356,7 +448,7 @@ export default function BankStatementsPage() {
                   {selectedDate ? 'Энэ өдөр хуулга алга' : 'Хуанлиас өдөр сонгоно уу'}
                 </p>
                 <p className="text-[12px] text-[#8C8FA3] mt-1">
-                  Хаанбанкны Excel хуулгыг «Хуулга оруулах» товчоор нэмнэ.
+                  Банкны Excel хуулгыг «Хуулга оруулах» товчоор нэмнэ.
                 </p>
               </div>
             </SectionCard>
@@ -383,9 +475,9 @@ export default function BankStatementsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <ActionButton
                       variant="ghost"
-                      onClick={() => void runAction('fill-descriptions', 'Утга нөхөхөд алдаа гарлаа')}
+                      onClick={() => void runAction('fill-descriptions', 'Тайлбар нөхөхөд алдаа гарлаа')}
                     >
-                      <WrapText className="w-4 h-4" /> Утга нөхөх
+                      <WrapText className="w-4 h-4" /> Тайлбар нөхөх
                     </ActionButton>
                     <ActionButton
                       variant="ghost"
@@ -393,10 +485,36 @@ export default function BankStatementsPage() {
                     >
                       <ArrowLeftRight className="w-4 h-4" /> Дебит/Кредит солих
                     </ActionButton>
+                    <ActionButton
+                      onClick={() => void postAll()}
+                      disabled={statement.readyCount === 0 || loading}
+                    >
+                      <CheckCheck className="w-4 h-4" /> Бэлэн {statement.readyCount}-г бүртгэх
+                    </ActionButton>
                     <ActionButton variant="ghost" onClick={() => setDeleteTarget(statement)}>
                       <Trash2 className="w-4 h-4 text-[#FF3B30]" /> Устгах
                     </ActionButton>
                   </div>
+                </div>
+
+                {/* Бүртгэхийн тулд хуулга ямар данстай холбогдсоныг мэдэх ёстой. */}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] font-medium text-[#8C8FA3]">Мөнгө хөдөлсөн данс:</span>
+                  <SearchableSelect
+                    value={statement.bankAccountId ?? ''}
+                    onChange={(v) => void setAccount(v)}
+                    options={bankAccounts}
+                    placeholder="Сонгоогүй"
+                    emptyText="Данс сонгох"
+                    widthClass="min-w-[230px]"
+                    disabled={statement.postedCount > 0}
+                    aria-label="Мөнгө хөдөлсөн данс"
+                  />
+                  {statement.postedCount > 0 && (
+                    <span className="text-[11px] text-[#8C8FA3]">
+                      (бүртгэсэн мөртэй тул солих боломжгүй)
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
@@ -410,21 +528,24 @@ export default function BankStatementsPage() {
                     value={<Money value={statement.totalDebit} className="text-[#FF3B30]" />}
                   />
                   <Stat
-                    label="Бөглөсөн"
-                    value={`${statement.filledCount} / ${statement.txnCount}`}
-                    highlight={statement.filledCount >= statement.txnCount ? '#34C759' : '#FF9500'}
+                    label="Бүртгэсэн"
+                    value={`${statement.postedCount} / ${statement.txnCount}`}
+                    highlight={allPosted ? '#34C759' : '#FF9500'}
                   />
                 </div>
 
-                <MissingSummary missing={statement.missing} />
+                <MissingSummary missing={statement.missing} allPosted={allPosted} />
               </SectionCard>
 
               <SectionCard title={`Гүйлгээ (${statement.transactions?.length ?? 0})`} noPadding>
                 <TxnTable
                   transactions={statement.transactions ?? []}
                   customers={customers}
-                  crossAccounts={crossAccounts}
+                  expenseCategories={expenseCategories}
                   onChange={(id, patch) => void updateTxn(id, patch)}
+                  onPost={(id) => void postTxn(id)}
+                  onUnpost={(id) => void unpostTxn(id)}
+                  busyId={busyId}
                 />
               </SectionCard>
             </>
@@ -435,13 +556,8 @@ export default function BankStatementsPage() {
       <ConfigModal
         open={configOpen}
         customers={customers}
-        onClose={() => {
-          setConfigOpen(false);
-          void api
-            .get('/api/bank-statements/config/cross-accounts')
-            .then((r) => setCrossAccounts(r.data))
-            .catch(() => {});
-        }}
+        expenseCategories={expenseCategories}
+        onClose={() => setConfigOpen(false)}
       />
 
       <ConfirmDialog
@@ -475,16 +591,17 @@ function Stat({
   );
 }
 
-/** Аль талбар хэдэн мөрд дутуу байгааг товч харуулна. */
-function MissingSummary({ missing }: { missing: MissingCounts }) {
+/** Бүртгэхэд юу дутуу байгааг товч харуулна. */
+function MissingSummary({ missing, allPosted }: { missing: MissingCounts; allPosted: boolean }) {
   const items = (Object.keys(MISSING_LABEL) as Array<keyof MissingCounts>)
     .filter((k) => missing[k] > 0)
     .map((k) => ({ key: k, label: MISSING_LABEL[k], count: missing[k] }));
 
+  if (allPosted) {
+    return <p className="mt-3 text-[12px] text-[#34C759] font-medium">Бүх мөр бүртгэгдсэн.</p>;
+  }
   if (items.length === 0) {
-    return (
-      <p className="mt-3 text-[12px] text-[#34C759] font-medium">Бүх мөр бүрэн бөглөгдсөн байна.</p>
-    );
+    return <p className="mt-3 text-[12px] text-[#34C759] font-medium">Бүх мөр бүртгэхэд бэлэн.</p>;
   }
 
   return (

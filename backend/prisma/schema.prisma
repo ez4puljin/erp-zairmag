@@ -206,6 +206,8 @@ model Customer {
   ledgerEntries  CustomerLedgerEntry[]
   customerPrices CustomerPrice[]
   truckSales     TruckSale[]
+  bankTransactions   BankTransaction[]
+  settlementDefaults BankStatementConfig[] @relation("SettlementDefaultCustomer")
 
   @@index([storeName])
   @@index([pricingTier])
@@ -598,6 +600,7 @@ model Payment {
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   ledgerEntries CustomerLedgerEntry[]
+  bankTransaction BankTransaction?
 
   @@index([customerId])
   @@index([orderId])
@@ -629,6 +632,7 @@ model BankAccount {
   payments         Payment[]
   supplierPayments SupplierPayment[]
   expenses         Expense[]
+  bankStatements   BankStatement[]
 
   @@index([isActive])
   @@map("bank_accounts")
@@ -726,6 +730,8 @@ model ExpenseCategory {
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
   expenses    Expense[]
+  bankTransactions BankTransaction[]
+  feeDefaults      BankStatementConfig[] @relation("FeeDefaultCategory")
 
   @@map("expense_categories")
 }
@@ -747,6 +753,8 @@ model Expense {
   createdBy       User             @relation("ExpenseCreator", fields: [createdById], references: [id])
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  bankTransaction BankTransaction?
 
   @@index([categoryId])
   @@index([date])
@@ -1015,6 +1023,11 @@ model BankStatement {
   uploadedById  String?   @map("uploaded_by_id") @db.Uuid
   uploadedBy    User?     @relation(fields: [uploadedById], references: [id])
 
+  /// Хуулгын данс манай бүртгэл дэх аль данс болох. Дансны дугаараар
+  /// автоматаар холбогдоно; олдохгүй бол хэрэглэгч гараар сонгоно.
+  bankAccountId String?      @map("bank_account_id") @db.Uuid
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
   transactions BankTransaction[]
 
   @@index([accountNumber])
@@ -1035,14 +1048,26 @@ model BankTransaction {
   bankCounterpart String    @default("") @map("bank_counterpart")
   isFee           Boolean   @default(false) @map("is_fee")
 
-  // ── Хэрэглэгчийн гараас оруулах ───────────────────────────────────
-  partnerName       String @default("") @map("partner_name")
-  /** Эрхэт дэх харилцагчийн код. Экспортын "Харилцагч" багана үүнийг агуулна. */
-  partnerCode       String @default("") @map("partner_code")
-  partnerAccount    String @default("") @map("partner_account")
-  customDescription String @default("") @map("custom_description")
-  /** "" | close | create | close_create */
-  action            String @default("")
+  // ── Хэрэглэгчийн бөглөх хэсэг ─────────────────────────────────────
+  description String @default("")
+
+  /// Орлогын мөр: аль харилцагчийн төлбөр болж хаагдах.
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  /// Зарлагын мөр: аль зардлын ангилалд бүртгэгдэх.
+  expenseCategoryId String?          @map("expense_category_id") @db.Uuid
+  expenseCategory   ExpenseCategory? @relation(fields: [expenseCategoryId], references: [id])
+
+  // ── Бүртгэсэн бичилт ──────────────────────────────────────────────
+  // Бүртгэсний дараа үүссэн төлбөр/зардлын холбоос. Буцаахад устгагдана.
+  paymentId String?  @unique @map("payment_id") @db.Uuid
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  expenseId String?  @unique @map("expense_id") @db.Uuid
+  expense   Expense? @relation(fields: [expenseId], references: [id])
+
+  postedAt DateTime? @map("posted_at")
 
   sortOrder Int @default(0) @map("sort_order")
 
@@ -1051,32 +1076,19 @@ model BankTransaction {
   @@map("bank_transactions")
 }
 
-/** Харьцсан дансны бэлэн сонголтууд (310101, 120101 гэх мэт). */
-model CrossAccountPreset {
-  id        String   @id @default(uuid()) @db.Uuid
-  code      String   @default("")
-  label     String   @default("")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("cross_account_presets")
-}
-
-/** Тооцоо хаахын автомат бөглөлтийн тохиргоо. Нэг мөр (singleton). */
+/// Хуулга оруулах үеийн автомат бөглөлтийн тохиргоо. Нэг мөр (singleton).
 model BankStatementConfig {
   id String @id @default(uuid()) @db.Uuid
 
-  // SETTLEMENT (ПОС) гүйлгээг автоматаар бөглөх
-  settlementPartnerName    String @default("") @map("settlement_partner_name")
-  settlementPartnerAccount String @default("") @map("settlement_partner_account")
-  settlementDescription    String @default("Пос орлого") @map("settlement_description")
-  settlementAction         String @default("close") @map("settlement_action")
+  // ПОС (SETTLEMENT) орлогыг автоматаар бөглөх
+  settlementCustomerId String?   @map("settlement_customer_id") @db.Uuid
+  settlementCustomer   Customer? @relation("SettlementDefaultCustomer", fields: [settlementCustomerId], references: [id])
+  settlementDescription String   @default("Пос орлого") @map("settlement_description")
 
   // Банкны шимтгэлийг автоматаар бөглөх
-  feePartnerName    String @default("") @map("fee_partner_name")
-  feePartnerAccount String @default("") @map("fee_partner_account")
-  feeDescription    String @default("Банкны шимтгэл") @map("fee_description")
-  feeAction         String @default("close") @map("fee_action")
+  feeExpenseCategoryId String?          @map("fee_expense_category_id") @db.Uuid
+  feeExpenseCategory   ExpenseCategory? @relation("FeeDefaultCategory", fields: [feeExpenseCategoryId], references: [id])
+  feeDescription       String           @default("Банкны шимтгэл") @map("fee_description")
 
   updatedAt DateTime @updatedAt @map("updated_at")
 

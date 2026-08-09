@@ -8,20 +8,25 @@ export interface BankTxn {
   bankDescription: string;
   bankCounterpart: string;
   isFee: boolean;
-  partnerName: string;
-  partnerCode: string;
-  partnerAccount: string;
-  customDescription: string;
-  action: string;
-  /** ПОС (SETTLEMENT) орлого мөн эсэх — автомат бөглөгддөг. */
+  description: string;
+  /** Орлогын мөрд — төлбөр нь хаагдах харилцагч. */
+  customerId: string | null;
+  customerName: string | null;
+  /** Зарлагын мөрд — зардал бүртгэгдэх ангилал. */
+  expenseCategoryId: string | null;
+  expenseCategoryName: string | null;
+  /** Бүртгэсний дараа үүссэн бичилтүүд. */
+  paymentId: string | null;
+  expenseId: string | null;
+  postedAt: string | null;
+  isIncome: boolean;
   isSettlement: boolean;
 }
 
 export interface MissingCounts {
-  partner: number;
-  account: number;
+  /** Харилцагч (орлого) эсвэл зардлын ангилал (зарлага) сонгоогүй. */
+  target: number;
   desc: number;
-  action: number;
 }
 
 export interface BankStatement {
@@ -32,50 +37,30 @@ export interface BankStatement {
   dateTo: string | null;
   filename: string;
   uploadedAt: string;
+  bankAccountId: string | null;
+  bankName: string | null;
   txnCount: number;
   feeCount: number;
   totalCredit: number;
   totalDebit: number;
-  filledCount: number;
+  postedCount: number;
+  readyCount: number;
   missing: MissingCounts;
   transactions?: BankTxn[];
-}
-
-export interface CrossAccount {
-  id: string;
-  code: string;
-  label: string;
-  sortOrder: number;
+  /** post-all хариунд ирнэ. */
+  posted?: number;
+  skipped?: Array<{ id: string; reason: string }>;
 }
 
 export interface StatementConfig {
   id: string;
-  settlementPartnerName: string;
-  settlementPartnerAccount: string;
+  settlementCustomerId: string | null;
   settlementDescription: string;
-  settlementAction: string;
-  feePartnerName: string;
-  feePartnerAccount: string;
+  feeExpenseCategoryId: string | null;
   feeDescription: string;
-  feeAction: string;
 }
 
-/** Гүйлгээнд сонгож болох үйлдлүүд — backend-ийн TXN_ACTIONS-тэй тэнцүү. */
-export const ACTION_OPTIONS = [
-  { value: 'close', label: 'Хаах' },
-  { value: 'create', label: 'Үүсгэх' },
-  { value: 'close_create', label: 'Хаах + Үүсгэх' },
-];
-
-export const ACTION_LABEL: Record<string, string> = {
-  close: 'Хаах',
-  create: 'Үүсгэх',
-  close_create: 'Хаах + Үүсгэх',
-};
-
 export const MISSING_LABEL: Record<keyof MissingCounts, string> = {
-  partner: 'Харилцагч',
-  account: 'Харьцсан данс',
-  desc: 'Гүйлгээний утга',
-  action: 'Үйлдэл',
+  target: 'Харилцагч / ангилал',
+  desc: 'Тайлбар',
 };
