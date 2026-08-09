@@ -85,6 +85,7 @@ const menuGroups: NavGroup[] = [
     items: [
       { href: '/payments', label: 'Төлбөр', description: 'Төлбөр бүртгэх', icon: CreditCard, color: '#EF4444', bg: '#FEF2F2' },
       { href: '/bank-accounts', label: 'Данс', description: 'Банкны данс', icon: Wallet, color: '#0EA5E9', bg: '#F0F9FF' },
+      { href: '/bank-statements', label: 'Банкны хуулга', description: 'Хуулга оруулж тооцоо хаах', icon: Landmark, color: '#0EA5E9', bg: '#F0F9FF' },
       { href: '/receivables', label: 'Тооцоо', description: 'Харилцагчдын тооцоо', icon: BookOpen, color: '#F472B6', bg: '#FDF2F8' },
       { href: '/supplier-payables', label: 'Нийлүүлэгч тооцоо', description: 'Нийлүүлэгчдийн тооцоо', icon: FileText, color: '#EA580C', bg: '#FFF7ED' },
       { href: '/cash-closings', label: 'Мөнгөн хаалт', description: 'Кассын хаалт', icon: Landmark, color: '#A855F7', bg: '#FAF5FF' },

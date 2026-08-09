@@ -28,6 +28,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { SmsModule } from './modules/sms/sms.module';
 import { ReceiptSettingsModule } from './modules/receipt-settings/receipt-settings.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
+import { BankStatementsModule } from './modules/bank-statements/bank-statements.module';
 import { HealthModule } from './modules/health/health.module';
 import { ExcelModule } from './common/excel/excel.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -71,6 +72,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     SmsModule,
     ReceiptSettingsModule,
     BankAccountsModule,
+    BankStatementsModule,
   ],
   providers: [
     {

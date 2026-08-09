@@ -100,6 +100,10 @@ export function SearchableSelect({
       value={inputValue}
       disabled={disabled}
       filter={filter.contains}
+      // Бичиж шүүх үед эхний тохирохыг идэвхжүүлнэ — ингэснээр хайгаад шууд
+      // Enter дарж сонгоно. Хоосон үед идэвхжүүлэхгүй тул санамсаргүй
+      // сонгогдох эрсдэлгүй.
+      autoHighlight
       onValueChange={(next: SelectOption | null) => onChange(next?.value ?? ALL)}
       isItemEqualToValue={(a: SelectOption, b: SelectOption) => a?.value === b?.value}
     >

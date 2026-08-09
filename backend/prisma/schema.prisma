@@ -149,6 +149,7 @@ model User {
   truckLoadsCreated   TruckLoad[]        @relation("TruckLoadCreator")
   expenses            Expense[]          @relation("ExpenseCreator")
   truckLoadBatches    TruckLoadBatch[]   @relation("BatchCreator")
+  bankStatements      BankStatement[]
 
   @@index([role])
   @@map("users")
@@ -620,6 +621,8 @@ model BankAccount {
   currentBalance Decimal  @default(0) @map("current_balance") @db.Decimal(14, 2)
   notes          String?
   isActive       Boolean  @default(true) @map("is_active")
+  /** Банкны шимтгэлийг энэ данснаас хаах эсэх. */
+  isFeeDefault   Boolean  @default(false) @map("is_fee_default")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -994,4 +997,88 @@ model TruckSaleItem {
   @@index([truckSaleId])
   @@index([productId])
   @@map("truck_sale_items")
+}
+
+// =============================================================================
+// BANK STATEMENT ("Тооцоо хаах") — банкны хуулга импортлож, гүйлгээ бүрт
+// харилцагч/данс/тайлбар оруулаад Эрхэт систем рүү экспортлох Excel бэлдэнэ.
+// =============================================================================
+
+model BankStatement {
+  id            String    @id @default(uuid()) @db.Uuid
+  accountNumber String    @map("account_number")   // Файлын нэрнээс ялгасан дансны дугаар
+  currency      String    @default("MNT")
+  dateFrom      DateTime? @map("date_from") @db.Date
+  dateTo        DateTime? @map("date_to") @db.Date
+  filename      String    @default("")
+  uploadedAt    DateTime  @default(now()) @map("uploaded_at")
+  uploadedById  String?   @map("uploaded_by_id") @db.Uuid
+  uploadedBy    User?     @relation(fields: [uploadedById], references: [id])
+
+  transactions BankTransaction[]
+
+  @@index([accountNumber])
+  @@index([dateFrom])
+  @@map("bank_statements")
+}
+
+model BankTransaction {
+  id          String        @id @default(uuid()) @db.Uuid
+  statementId String        @map("statement_id") @db.Uuid
+  statement   BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  // ── Банкнаас ирсэн өгөгдөл ────────────────────────────────────────
+  txnDate         DateTime? @map("txn_date")
+  debit           Decimal   @default(0) @db.Decimal(14, 2)
+  credit          Decimal   @default(0) @db.Decimal(14, 2)
+  bankDescription String    @default("") @map("bank_description")
+  bankCounterpart String    @default("") @map("bank_counterpart")
+  isFee           Boolean   @default(false) @map("is_fee")
+
+  // ── Хэрэглэгчийн гараас оруулах ───────────────────────────────────
+  partnerName       String @default("") @map("partner_name")
+  /** Эрхэт дэх харилцагчийн код. Экспортын "Харилцагч" багана үүнийг агуулна. */
+  partnerCode       String @default("") @map("partner_code")
+  partnerAccount    String @default("") @map("partner_account")
+  customDescription String @default("") @map("custom_description")
+  /** "" | close | create | close_create */
+  action            String @default("")
+
+  sortOrder Int @default(0) @map("sort_order")
+
+  @@index([statementId])
+  @@index([txnDate])
+  @@map("bank_transactions")
+}
+
+/** Харьцсан дансны бэлэн сонголтууд (310101, 120101 гэх мэт). */
+model CrossAccountPreset {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @default("")
+  label     String   @default("")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("cross_account_presets")
+}
+
+/** Тооцоо хаахын автомат бөглөлтийн тохиргоо. Нэг мөр (singleton). */
+model BankStatementConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  // SETTLEMENT (ПОС) гүйлгээг автоматаар бөглөх
+  settlementPartnerName    String @default("") @map("settlement_partner_name")
+  settlementPartnerAccount String @default("") @map("settlement_partner_account")
+  settlementDescription    String @default("Пос орлого") @map("settlement_description")
+  settlementAction         String @default("close") @map("settlement_action")
+
+  // Банкны шимтгэлийг автоматаар бөглөх
+  feePartnerName    String @default("") @map("fee_partner_name")
+  feePartnerAccount String @default("") @map("fee_partner_account")
+  feeDescription    String @default("Банкны шимтгэл") @map("fee_description")
+  feeAction         String @default("close") @map("fee_action")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bank_statement_config")
 }

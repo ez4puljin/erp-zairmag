@@ -15,6 +15,7 @@ import {
   BarChart3,
   MessageSquare,
   Wallet,
+  Landmark,
   FileText,
   LogOut,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ const mainNavItems = [
   { title: 'Агуулах', href: '/inventory', icon: Warehouse },
   { title: 'Төлбөр', href: '/payments', icon: CreditCard },
   { title: 'Данс', href: '/bank-accounts', icon: Wallet },
+  { title: 'Банкны хуулга', href: '/bank-statements', icon: Landmark },
   { title: 'Зардал', href: '/expenses', icon: Receipt },
   { title: 'Зардлын ангилал', href: '/expense-categories', icon: Tag },
   { title: 'Жолооч', href: '/drivers', icon: Truck },
