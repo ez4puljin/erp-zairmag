@@ -1,13 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, ActivityIndicator } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Platform, ActivityIndicator,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Зураасан код уншигч.
  *
  * `expo-camera` нь зөвхөн төхөөрөмж дээр ажилладаг тул модулийг залхуу
- * ачаална — байхгүй үед (ж нь хөтчөөр урьдчилан харах) апп унахгүй,
- * зүгээр л сканнерын товч харагдахгүй.
+ * ачаална — байхгүй үед (хөтчөөр урьдчилан харах, эсвэл камерын зөвшөөрөл
+ * өгөөгүй) апп унахгүй, оронд нь кодыг гараар оруулах хэсэг гарна.
+ *
+ * Гараар оруулах нь зөвхөн нөөц арга биш: USB/Bluetooth сканнерууд кодыг
+ * гарын оролт болгон бичдэг тул тэдгээртэй шууд ажиллана.
  */
 
 let CameraModule: any = null;
@@ -25,8 +31,13 @@ function getCamera() {
   return CameraModule;
 }
 
-/** Камераар сканнердах боломжтой эсэх. */
-export function isScannerAvailable(): boolean {
+/**
+ * Камераар уншиж чадах эсэх.
+ *
+ * Худал байсан ч сканнерын товчийг нуух хэрэггүй — тэр үед код гараар
+ * оруулах цонх нээгдэнэ.
+ */
+export function isCameraScanAvailable(): boolean {
   if (Platform.OS === 'web') return false;
   const mod = getCamera();
   return !!mod?.CameraView;
@@ -47,26 +58,83 @@ export function BarcodeScannerModal({
   hint?: string;
 }) {
   const mod = getCamera();
-  const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const cameraPossible = isCameraScanAvailable();
+  const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>(
+    cameraPossible ? 'unknown' : 'denied',
+  );
+  const [manualCode, setManualCode] = useState('');
   // Нэг уншилтад олон удаа дуудагдахаас сэргийлнэ.
   const handled = useRef(false);
 
   useEffect(() => {
-    if (!visible || !mod?.Camera?.requestCameraPermissionsAsync) return;
+    if (!visible) return;
     handled.current = false;
+    setManualCode('');
+    if (!cameraPossible || !mod?.Camera?.requestCameraPermissionsAsync) return;
     mod.Camera.requestCameraPermissionsAsync()
       .then((res: any) => setPermission(res?.granted ? 'granted' : 'denied'))
       .catch(() => setPermission('denied'));
-  }, [visible, mod]);
+  }, [visible, mod, cameraPossible]);
 
   if (!visible) return null;
 
   const CameraView = mod?.CameraView;
+  const useCamera = permission === 'granted' && !!CameraView;
+
+  const submitManual = () => {
+    const code = manualCode.trim();
+    if (!code) return;
+    onScanned(code);
+  };
+
+  // Камер ашиглах боломжгүй бол кодыг гараар оруулна.
+  if (!useCamera && permission !== 'unknown') {
+    return (
+      <Modal visible animationType="slide" onRequestClose={onClose} transparent>
+        <KeyboardAvoidingView
+          style={m.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+          <View style={m.sheet}>
+            <View style={m.handle} />
+            <Text style={m.title}>Зураасан код оруулах</Text>
+            <Text style={m.note}>
+              {cameraPossible
+                ? 'Камер ашиглах зөвшөөрөл өгөөгүй байна. Кодыг гараар оруулж болно.'
+                : 'Энэ төхөөрөмж дээр камер ашиглах боломжгүй. Кодыг гараар бичих эсвэл сканнераар уншуулна уу.'}
+            </Text>
+            <TextInput
+              style={m.input}
+              value={manualCode}
+              onChangeText={setManualCode}
+              placeholder="4820123456789"
+              placeholderTextColor="#C7C7CC"
+              keyboardType="numbers-and-punctuation"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              onSubmitEditing={submitManual}
+              returnKeyType="search"
+            />
+            <TouchableOpacity
+              style={[m.btn, !manualCode.trim() && { opacity: 0.4 }]}
+              disabled={!manualCode.trim()}
+              onPress={submitManual}
+            >
+              <Ionicons name="search" size={17} color="#fff" />
+              <Text style={m.btnText}>Хайх</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    );
+  }
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <View style={s.container}>
-        {permission === 'granted' && CameraView ? (
+        {useCamera ? (
           <CameraView
             style={StyleSheet.absoluteFill}
             facing="back"
@@ -78,26 +146,16 @@ export function BarcodeScannerModal({
             }}
           />
         ) : (
+          // Зөвшөөрөл асууж байх хормын төлөв. Татгалзсан бол дээр нь
+          // гараар оруулах цонх руу шилжсэн байна.
           <View style={s.center}>
-            {permission === 'unknown' ? (
-              <>
-                <ActivityIndicator color="#fff" />
-                <Text style={s.msg}>Камер бэлдэж байна...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="camera-outline" size={40} color="#8E8E93" />
-                <Text style={s.msg}>
-                  Камер ашиглах зөвшөөрөл өгөөгүй байна.{'\n'}
-                  Тохиргооноос зөвшөөрөл олгоно уу.
-                </Text>
-              </>
-            )}
+            <ActivityIndicator color="#fff" />
+            <Text style={s.msg}>Камер бэлдэж байна...</Text>
           </View>
         )}
 
         {/* Заагч хүрээ */}
-        {permission === 'granted' ? (
+        {useCamera ? (
           <View style={s.overlay} pointerEvents="none">
             <View style={s.frame} />
             <Text style={s.hint}>{hint}</Text>
@@ -111,6 +169,28 @@ export function BarcodeScannerModal({
     </Modal>
   );
 }
+
+/** Гараар код оруулах цонхны загвар. */
+const m = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingHorizontal: 18, paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 18,
+  },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D8DEE8', alignSelf: 'center', marginBottom: 14 },
+  title: { fontSize: 18, fontWeight: '700', color: '#1C1C1E' },
+  note: { fontSize: 13, color: '#8E8E93', lineHeight: 19, marginTop: 6 },
+  input: {
+    height: 52, borderRadius: 12, backgroundColor: '#F5F6FA', borderWidth: 1, borderColor: '#E8ECF0',
+    paddingHorizontal: 14, fontSize: 18, fontWeight: '600', color: '#1C1C1E', marginTop: 16,
+  },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    height: 50, borderRadius: 14, backgroundColor: '#14B8A6', marginTop: 12,
+  },
+  btnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+});
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },

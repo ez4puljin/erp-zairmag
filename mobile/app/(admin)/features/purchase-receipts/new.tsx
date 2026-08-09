@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   FormModal, FormField, ProductPicker, QuantitySheet, BarcodeScannerModal, notify,
-  normalizeCode, isScannerAvailable, type PickerProduct, type QuantityResult,
+  normalizeCode, type PickerProduct, type QuantityResult,
 } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
@@ -148,12 +148,10 @@ export default function NewPurchaseReceiptScreen() {
               <Ionicons name="search" size={18} color="#14B8A6" />
               <Text style={st.searchBtnText}>Бараа хайх</Text>
             </TouchableOpacity>
-            {isScannerAvailable() ? (
-              <TouchableOpacity style={st.scanBtn} onPress={() => setScannerOpen(true)}>
-                <Ionicons name="barcode-outline" size={20} color="#fff" />
-                <Text style={st.scanBtnText}>Сканнер</Text>
-              </TouchableOpacity>
-            ) : null}
+            <TouchableOpacity style={st.scanBtn} onPress={() => setScannerOpen(true)}>
+              <Ionicons name="barcode-outline" size={20} color="#fff" />
+              <Text style={st.scanBtnText}>Сканнер</Text>
+            </TouchableOpacity>
           </View>
 
           {lines.length === 0 ? (
@@ -190,7 +188,7 @@ export default function NewPurchaseReceiptScreen() {
         products={products}
         onClose={() => setPickerOpen(false)}
         onSelect={p => setPending(p)}
-        onScanRequest={isScannerAvailable() ? () => setScannerOpen(true) : undefined}
+        onScanRequest={() => setScannerOpen(true)}
       />
 
       <QuantitySheet

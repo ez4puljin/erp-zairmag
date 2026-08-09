@@ -12,7 +12,7 @@ export { ProductPicker, normalizeCode } from './ProductPicker';
 export type { PickerProduct } from './ProductPicker';
 export { QuantitySheet } from './QuantitySheet';
 export type { QuantityResult } from './QuantitySheet';
-export { BarcodeScannerModal, isScannerAvailable } from './BarcodeScannerModal';
+export { BarcodeScannerModal, isCameraScanAvailable } from './BarcodeScannerModal';
 export { AdminListScreen } from './AdminListScreen';
 export { FormModal } from './FormModal';
 export { FormField } from './FormField';
