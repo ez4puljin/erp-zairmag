@@ -142,6 +142,7 @@ model User {
   truckLoadVerified   TruckLoad[]        @relation("ReturnVerifier")
   truckLoadsCreated   TruckLoad[]        @relation("TruckLoadCreator")
   expenses            Expense[]          @relation("ExpenseCreator")
+  truckLoadBatches    TruckLoadBatch[]   @relation("BatchCreator")
 
   @@index([role])
   @@map("users")
@@ -263,6 +264,8 @@ model Product {
   @@index([categoryId])
   @@index([supplierId])
   @@index([name])
+  truckLoadBatchItems TruckLoadBatchItem[]
+
   @@map("products")
 }
 
@@ -872,6 +875,7 @@ model TruckLoad {
 
   items           TruckLoadItem[]
   sales           TruckSale[]
+  batches         TruckLoadBatch[]
 
   @@index([driverId, loadDate])
   @@index([status])
@@ -894,6 +898,39 @@ model TruckLoadItem {
   @@index([truckLoadId])
   @@index([productId])
   @@map("truck_load_items")
+}
+
+/// Ачилтын багц: анхны ачилт болон нэмэлт ачилт бүрийг тусад нь хадгална.
+/// TruckLoadItem.loadedQty нь нийлбэрийг л хадгалдаг тул "хэзээ юуг нэмсэн"
+/// гэдэг түүх урьд нь алдагддаг байв.
+model TruckLoadBatch {
+  id          String   @id @default(uuid()) @db.Uuid
+  truckLoadId String   @map("truck_load_id") @db.Uuid
+  truckLoad   TruckLoad @relation(fields: [truckLoadId], references: [id], onDelete: Cascade)
+  sequence    Int       // 1 = анхны ачилт, 2-оос дээш = нэмэлт
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   User?     @relation("BatchCreator", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  items       TruckLoadBatchItem[]
+
+  @@unique([truckLoadId, sequence])
+  @@index([truckLoadId])
+  @@map("truck_load_batches")
+}
+
+model TruckLoadBatchItem {
+  id        String         @id @default(uuid()) @db.Uuid
+  batchId   String         @map("batch_id") @db.Uuid
+  batch     TruckLoadBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  productId String         @map("product_id") @db.Uuid
+  product   Product        @relation(fields: [productId], references: [id])
+  quantity  Int
+
+  @@index([batchId])
+  @@index([productId])
+  @@map("truck_load_batch_items")
 }
 
 model TruckSale {

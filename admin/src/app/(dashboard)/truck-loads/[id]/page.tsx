@@ -7,7 +7,7 @@ import {
   ChevronLeft, Truck, Package, User, Calendar, Phone,
   Clock, RefreshCw, Send, CheckCircle, Ban, ChevronDown,
   ChevronUp, ShoppingCart, CreditCard, FileText, Hash,
-  AlertTriangle, CornerDownLeft, Printer, Plus, X, PackagePlus,
+  AlertTriangle, CornerDownLeft, Printer, Plus, X, PackagePlus, History,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
@@ -138,6 +138,7 @@ export default function TruckLoadDetailPage() {
 
   // Expanded sales
   const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchLoad();
@@ -374,6 +375,7 @@ export default function TruckLoadDetailPage() {
   const totalSold = items.reduce((s: number, i: any) => s + (i.soldQty || 0), 0);
   const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty || 0), 0);
   const totalRemaining = totalLoaded - totalSold - totalReturned;
+  const batches = load?.batches ?? [];
   // Ачилтын нийт жин — жин оруулаагүй бараа 0 гэж тооцогдоно.
   const totalWeightGrams = items.reduce(
     (s: number, i: any) => s + (i.loadedQty || 0) * Number(i.product?.weightGrams ?? 0),
@@ -502,6 +504,62 @@ export default function TruckLoadDetailPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Ачилтын түүх — анхны ачилт болон нэмэлт ачилт бүр тусад нь */}
+      {batches.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-5 py-4 border-b border-[#F0F2F5] hover:bg-[#FAFBFC] transition-colors"
+          >
+            <History className="w-5 h-5 text-[#5856D6]" />
+            <h2 className="text-[17px] font-bold text-[#1A1D26]">Ачилтын түүх</h2>
+            <span className="text-[13px] text-[#8C8FA3]">({batches.length})</span>
+            <span className="flex-1" />
+            {historyOpen
+              ? <ChevronUp className="w-4 h-4 text-[#8C8FA3]" />
+              : <ChevronDown className="w-4 h-4 text-[#8C8FA3]" />}
+          </button>
+
+          {historyOpen && (
+            <div className="divide-y divide-[#F0F2F5]">
+              {batches.map((b: any) => {
+                const qty = (b.items ?? []).reduce((s: number, i: any) => s + (i.quantity ?? 0), 0);
+                const first = b.sequence === 1;
+                return (
+                  <div key={b.id} className="px-5 py-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="text-[11px] font-bold px-2.5 py-1 rounded-lg"
+                        style={{
+                          color: first ? '#34C759' : '#FF9500',
+                          background: first ? '#34C75915' : '#FF950015',
+                        }}
+                      >
+                        {first ? 'Анхны ачилт' : `${b.sequence - 1}-р нэмэлт`}
+                      </span>
+                      <span className="text-[12px] text-[#8C8FA3]">
+                        {new Date(b.createdAt).toLocaleString('mn-MN')}
+                        {b.createdBy ? ` · ${b.createdBy.lastName ?? ''} ${b.createdBy.firstName ?? ''}`.trimEnd() : ''}
+                      </span>
+                      <span className="flex-1" />
+                      <span className="text-[15px] font-bold text-[#1A1D26] tabular-nums">{qty}ш</span>
+                    </div>
+                    <div className="mt-2.5 space-y-1">
+                      {(b.items ?? []).map((bi: any) => (
+                        <div key={bi.id} className="flex items-center justify-between text-[13px]">
+                          <span className="text-[#4A4D5C] truncate pr-3">{bi.product?.name ?? '-'}</span>
+                          <span className="font-semibold text-[#1A1D26] tabular-nums shrink-0">{bi.quantity}ш</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

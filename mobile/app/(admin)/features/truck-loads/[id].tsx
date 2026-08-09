@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState, confirm } from '@/src/components/admin';
+import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState, confirm, notify,
+  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode,
+  type PickerProduct, type QuantityResult } from '@/src/components/admin';
 import { useItemQuery, invalidateItemCache } from '@/src/hooks/use-item-query';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
 import api from '@/src/lib/api';
@@ -20,9 +22,24 @@ export default function TruckLoadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, loading, error, refetch } = useItemQuery<any>(id ? `/api/truck-loads/${id}` : null);
   const [actionLoading, setActionLoading] = React.useState(false);
+  // Нэмэлт ачилт
+  const [addOpen, setAddOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [products, setProducts] = useState<PickerProduct[]>([]);
+  const [pending, setPending] = useState<PickerProduct | null>(null);
+  const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [returnQty, setReturnQty] = useState<Record<string, { returned: string; damaged: string }>>({});
   const [approving, setApproving] = useState(false);
+
+  useEffect(() => {
+    if (!addOpen || products.length > 0) return;
+    // Серверийн pagination нь limit-ийг 100-аар хязгаарладаг.
+    api.get('/api/products?limit=100')
+      .then(r => setProducts(r.data?.data ?? r.data ?? []))
+      .catch(() => {});
+  }, [addOpen, products.length]);
 
   if (loading) return <View style={{ flex: 1 }}><ScreenHeader title="Ачилт" /><LoadingState /></View>;
   if (error || !data) return <View style={{ flex: 1 }}><ScreenHeader title="Ачилт" /><ErrorState message={error || 'Олдсонгүй'} onRetry={refetch} /></View>;
@@ -31,6 +48,7 @@ export default function TruckLoadDetailScreen() {
   const driverName = data.driver ? `${data.driver.lastName ?? ''} ${data.driver.firstName ?? ''}`.trim() : '—';
   const items = data.items ?? [];
   const sales = data.sales ?? [];
+  const batches = data.batches ?? [];
   const totalLoaded = items.reduce((s: number, i: any) => s + (i.loadedQty ?? 0), 0);
   const totalSold = items.reduce((s: number, i: any) => s + (i.soldQty ?? 0), 0);
   const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty ?? 0), 0);
@@ -91,6 +109,57 @@ export default function TruckLoadDetailScreen() {
     } finally {
       setApproving(false);
     }
+  };
+
+
+  /** Зураасан кодыг SKU-тай тааруулна. */
+  const handleScanned = (code: string) => {
+    setScannerOpen(false);
+    const target = normalizeCode(code);
+    const found = products.find(p => normalizeCode(p.sku ?? '') === target);
+    if (!found) {
+      notify('Олдсонгүй', `"${code}" кодтой бараа бүртгэлгүй байна.`);
+      return;
+    }
+    setAddOpen(false);
+    setPending(found);
+  };
+
+  const handleAddQty = (result: QuantityResult) => {
+    if (!pending) return;
+    setAddLines(prev => {
+      const idx = prev.findIndex(l => l.productId === pending.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], qty: next[idx].qty + result.quantity };
+        return next;
+      }
+      return [...prev, { productId: pending.id, name: pending.name, qty: result.quantity }];
+    });
+    setPending(null);
+    setAddOpen(false);
+  };
+
+  const submitAdd = async () => {
+    if (addLines.length === 0) return;
+    const ok = await confirm({
+      title: 'Нэмэлт ачилт',
+      message: `${addLines.length} нэр төрлийн бараа нэмэх үү? Агуулахаас хасагдана.`,
+      confirmLabel: 'Нэмэх',
+    });
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/api/truck-loads/${id}/add-items`, {
+        items: addLines.map(l => ({ productId: l.productId, loadedQty: l.qty })),
+      });
+      setAddLines([]);
+      refetch();
+      invalidateListCache('/api/truck-loads');
+      invalidateListCache('/api/products');
+    } catch (e: any) {
+      notify('Алдаа', e?.response?.data?.message || 'Алдаа');
+    } finally { setActionLoading(false); }
   };
 
   const handleDispatch = async () => {
@@ -205,6 +274,89 @@ export default function TruckLoadDetailScreen() {
           </DetailSection>
         )}
 
+        {/* Ачилтын түүх — анхны ачилт болон нэмэлт ачилт бүр */}
+        {batches.length > 0 && (
+          <DetailSection title={`АЧИЛТЫН ТҮҮХ (${batches.length})`}>
+            <TouchableOpacity
+              style={s.histToggle}
+              activeOpacity={0.6}
+              onPress={() => setHistoryOpen(v => !v)}
+            >
+              <Text style={s.histToggleText}>
+                {historyOpen ? 'Түүхийг хаах' : 'Түүхийг харах'}
+              </Text>
+              <Ionicons name={historyOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#007AFF" />
+            </TouchableOpacity>
+
+            {historyOpen && batches.map((b: any, bi: number) => {
+              const qty = (b.items ?? []).reduce((s: number, i: any) => s + (i.quantity ?? 0), 0);
+              const first = b.sequence === 1;
+              return (
+                <View key={b.id} style={[s.batch, bi < batches.length - 1 && s.borderB]}>
+                  <View style={s.batchHead}>
+                    <View style={[s.batchTag, { backgroundColor: first ? '#34C75915' : '#FF950015' }]}>
+                      <Text style={[s.batchTagText, { color: first ? '#34C759' : '#FF9500' }]}>
+                        {first ? 'Анхны ачилт' : `${b.sequence - 1}-р нэмэлт`}
+                      </Text>
+                    </View>
+                    <Text style={s.batchQty}>{qty}ш</Text>
+                  </View>
+                  <Text style={s.batchDate}>
+                    {formatDateTime(b.createdAt)}
+                    {b.createdBy ? ` · ${b.createdBy.lastName ?? ''} ${b.createdBy.firstName ?? ''}`.trimEnd() : ''}
+                  </Text>
+                  {(b.items ?? []).map((bi2: any) => (
+                    <View key={bi2.id} style={s.batchItem}>
+                      <Text style={s.batchItemName} numberOfLines={1}>{bi2.product?.name ?? '-'}</Text>
+                      <Text style={s.batchItemQty}>{bi2.quantity}ш</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </DetailSection>
+        )}
+
+        {/* Нэмэлт ачилт — зөвхөн дуусаагүй ачилтад */}
+        {(data.status === 'LOADING' || data.status === 'DISPATCHED') && (
+          <DetailSection title="НЭМЭЛТ АЧИЛТ">
+            {addLines.map((l) => (
+              <View key={l.productId} style={s.addRow}>
+                <Text style={s.addName} numberOfLines={1}>{l.name}</Text>
+                <Text style={s.addQty}>{l.qty}ш</Text>
+                <TouchableOpacity onPress={() => setAddLines(p => p.filter(x => x.productId !== l.productId))}>
+                  <Ionicons name="close-circle" size={19} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <View style={s.addActions}>
+              <TouchableOpacity style={s.addSearchBtn} onPress={() => setAddOpen(true)}>
+                <Ionicons name="search" size={17} color="#5856D6" />
+                <Text style={s.addSearchText}>Бараа нэмэх</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.addScanBtn} onPress={() => setScannerOpen(true)}>
+                <Ionicons name="barcode-outline" size={19} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {addLines.length > 0 && (
+              <TouchableOpacity
+                style={[s.addConfirm, actionLoading && { opacity: 0.5 }]}
+                onPress={submitAdd}
+                disabled={actionLoading}
+              >
+                {actionLoading ? <ActivityIndicator color="#fff" /> : (
+                  <>
+                    <Ionicons name="add-circle" size={18} color="#fff" />
+                    <Text style={s.addConfirmText}>
+                      Ачилтад нэмэх ({addLines.reduce((s2, l) => s2 + l.qty, 0)}ш)
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </DetailSection>
+        )}
+
         {items.length > 0 && (
           <DetailSection title={`БАРАА (${items.length})`}>
             {items.map((it: any, idx: number) => {
@@ -311,11 +463,53 @@ export default function TruckLoadDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <ProductPicker
+        visible={addOpen}
+        products={products}
+        onClose={() => setAddOpen(false)}
+        onSelect={p => setPending(p)}
+        onScanRequest={() => setScannerOpen(true)}
+      />
+
+      <QuantitySheet
+        product={pending}
+        onCancel={() => setPending(null)}
+        onConfirm={handleAddQty}
+        confirmLabel="Жагсаалтад нэмэх"
+      />
+
+      <BarcodeScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={handleScanned}
+      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  histToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11 },
+  histToggleText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
+  batch: { paddingVertical: 12 },
+  batchHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  batchTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
+  batchTagText: { fontSize: 11, fontWeight: '800' },
+  batchQty: { fontSize: 14, fontWeight: '800', color: '#1C1C1E' },
+  batchDate: { fontSize: 11, color: '#8E8E93', marginTop: 4, marginBottom: 7 },
+  batchItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  batchItemName: { flex: 1, fontSize: 13, color: '#48484A', paddingRight: 10 },
+  batchItemQty: { fontSize: 13, fontWeight: '700', color: '#1C1C1E' },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  addName: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+  addQty: { fontSize: 14, fontWeight: '700', color: '#5856D6' },
+  addActions: { flexDirection: 'row', gap: 8, paddingVertical: 10 },
+  addSearchBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 12, backgroundColor: '#5856D612', borderWidth: 1, borderColor: '#5856D630' },
+  addSearchText: { fontSize: 15, fontWeight: '600', color: '#5856D6' },
+  addScanBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: '#5856D6', justifyContent: 'center', alignItems: 'center' },
+  addConfirm: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, height: 48, borderRadius: 12, backgroundColor: '#34C759', marginBottom: 4 },
+  addConfirmText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
   weightRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8ECF0' },
   weightLabel: { fontSize: 13, color: '#8E8E93', fontWeight: '600' },
   weightValue: { fontSize: 16, fontWeight: '800', color: '#14B8A6' },

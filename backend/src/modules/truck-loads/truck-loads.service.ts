@@ -59,6 +59,21 @@ export class TruckLoadsService {
             loadedQty: item.loadedQty,
           })),
         },
+        // Анхны ачилтыг багц #1 болгон бүртгэнэ — цаашид нэмэлт ачилт
+        // болгон тусдаа багц болж, "хэзээ юуг ачсан" түүх үлдэнэ.
+        batches: {
+          create: {
+            sequence: 1,
+            note: 'Анхны ачилт',
+            createdById,
+            items: {
+              create: dto.items.map((item) => ({
+                productId: item.productId,
+                quantity: item.loadedQty,
+              })),
+            },
+          },
+        },
       },
       include: {
         items: {
@@ -526,6 +541,7 @@ export class TruckLoadsService {
 
         // Check if product already exists in truck load
         const existingItem = truckLoad.items.find((i) => i.productId === item.productId);
+        // (багц доор нэг мөсөн үүсгэгдэнэ)
         if (existingItem) {
           // Increment existing item's loadedQty
           await tx.truckLoadItem.update({
@@ -543,6 +559,24 @@ export class TruckLoadsService {
           });
         }
       }
+
+      // Энэ нэмэлт ачилтыг тусдаа багц болгон бүртгэнэ.
+      const last = await tx.truckLoadBatch.findFirst({
+        where: { truckLoadId: id },
+        orderBy: { sequence: 'desc' },
+        select: { sequence: true },
+      });
+      await tx.truckLoadBatch.create({
+        data: {
+          truckLoadId: id,
+          sequence: (last?.sequence ?? 0) + 1,
+          note: 'Нэмэлт ачилт',
+          createdById: userId,
+          items: {
+            create: items.map((i) => ({ productId: i.productId, quantity: i.loadedQty })),
+          },
+        },
+      });
 
       return tx.truckLoad.findUnique({
         where: { id },
@@ -622,6 +656,17 @@ export class TruckLoadsService {
         },
         driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true } },
+        batches: {
+          orderBy: { sequence: 'asc' },
+          include: {
+            createdBy: { select: { id: true, firstName: true, lastName: true } },
+            items: {
+              include: {
+                product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true } },
+              },
+            },
+          },
+        },
         returnVerifiedBy: { select: { id: true, firstName: true, lastName: true } },
         sales: {
           include: {
