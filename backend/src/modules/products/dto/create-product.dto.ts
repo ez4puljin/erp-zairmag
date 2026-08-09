@@ -37,6 +37,13 @@ export class CreateProductDto {
   @Min(1)
   unitsPerBox?: number;
 
+  /** Нэг ширхгийн жин граммаар. 0 = оруулаагүй. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  weightGrams?: number;
+
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

@@ -64,7 +64,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+              select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
             },
           },
         },
@@ -106,7 +106,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -176,7 +176,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -244,7 +244,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -324,7 +324,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
+                select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true },
               },
             },
           },
@@ -347,7 +347,7 @@ export class TruckLoadsService {
       where: { id },
       data: { status: 'COMPLETION_REQUESTED' as any },
       include: {
-        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true, sellingPrice: true } } } },
+        items: { include: { product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true } } } },
         driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
       },
     });
@@ -457,7 +457,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true } },
+              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true, costPrice: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },

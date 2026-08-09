@@ -19,7 +19,7 @@ export default function NewProductPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '', sku: '', description: '', categoryId: '', supplierId: '',
-    unit: '', unitsPerBox: '1', costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '',
+    unit: '', unitsPerBox: '1', weightGrams: '', costPrice: '', sellingPrice: '', sellingPriceRural: '', reorderLevel: '',
     initialStock: '',
   });
 
@@ -51,6 +51,7 @@ export default function NewProductPage() {
         supplierId: form.supplierId || undefined,
         unit: form.unit || 'PIECE',
         unitsPerBox: Number(form.unitsPerBox) || 1,
+        weightGrams: Number(form.weightGrams) || 0,
         costPrice: Number(form.costPrice),
         sellingPrice: Number(form.sellingPrice),
         sellingPriceRural: Number(form.sellingPriceRural || form.sellingPrice),
@@ -271,6 +272,16 @@ export default function NewProductPage() {
                   <label className={labelClass}>Хайрцагт (ширхэг)</label>
                   <input type="number" min={1} value={form.unitsPerBox} onChange={e => handleChange('unitsPerBox', e.target.value)} className={inputClass} placeholder="1" />
                   <p className="text-[10px] text-[#8C8FA3] mt-1">Нэг хайрцагт хэдэн ширхэг байх</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Жин (гр)</label>
+                  <input type="number" min={0} value={form.weightGrams} onChange={e => handleChange('weightGrams', e.target.value)} className={inputClass} placeholder="0" />
+                  <p className="text-[10px] text-[#8C8FA3] mt-1">
+                    Нэг ширхгийн жин. Ачилт, орлогын нийт жинг үүгээр тооцно
+                    {Number(form.weightGrams) > 0 && Number(form.unitsPerBox) > 1
+                      ? ` — хайрцаг нь ${((Number(form.weightGrams) * Number(form.unitsPerBox)) / 1000).toFixed(2)} кг`
+                      : ''}
+                  </p>
                 </div>
                 <div>
                   <label className={labelClass}>Доод хэмжээ *</label>

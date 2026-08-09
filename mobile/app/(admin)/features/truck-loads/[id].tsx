@@ -6,7 +6,7 @@ import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState, confi
 import { useItemQuery, invalidateItemCache } from '@/src/hooks/use-item-query';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
 import api from '@/src/lib/api';
-import { formatCurrency, formatDate, formatDateTime, paymentLabel, PAYMENT_COLORS } from '@/src/lib/format';
+import { formatWeight, formatCurrency, formatDate, formatDateTime, paymentLabel, PAYMENT_COLORS } from '@/src/lib/format';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   LOADING:              { label: 'Ачиж буй',          color: '#FF9500', icon: 'cube' },
@@ -36,6 +36,11 @@ export default function TruckLoadDetailScreen() {
   const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty ?? 0), 0);
   const totalDamaged = items.reduce((s: number, i: any) => s + (i.damagedQty ?? 0), 0);
   const totalRevenue = sales.reduce((s: number, sale: any) => s + Number(sale.totalAmount ?? 0), 0);
+  // Ачилтын нийт жин — жин оруулаагүй бараа 0 гэж тооцогдоно.
+  const totalWeightGrams = items.reduce(
+    (s: number, i: any) => s + (i.loadedQty ?? 0) * Number(i.product?.weightGrams ?? 0),
+    0,
+  );
 
   // Payment breakdown by method
   const paymentBreakdown: Record<string, number> = {};
@@ -157,6 +162,12 @@ export default function TruckLoadDetailScreen() {
               <Text style={[s.statValue, { color: '#FF3B30' }]}>{totalDamaged}</Text>
             </View>
           </View>
+          {totalWeightGrams > 0 ? (
+            <View style={s.weightRow}>
+              <Text style={s.weightLabel}>Ачилтын нийт жин</Text>
+              <Text style={s.weightValue}>{formatWeight(totalWeightGrams)}</Text>
+            </View>
+          ) : null}
         </DetailSection>
 
         {sales.length > 0 && (
@@ -305,6 +316,9 @@ export default function TruckLoadDetailScreen() {
 }
 
 const s = StyleSheet.create({
+  weightRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8ECF0' },
+  weightLabel: { fontSize: 13, color: '#8E8E93', fontWeight: '600' },
+  weightValue: { fontSize: 16, fontWeight: '800', color: '#14B8A6' },
   container: { flex: 1, backgroundColor: '#F5F6FA' },
 
   statusBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 12, marginTop: 14, padding: 14, borderRadius: 14, borderWidth: 1 },

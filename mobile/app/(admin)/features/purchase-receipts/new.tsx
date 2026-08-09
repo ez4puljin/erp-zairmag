@@ -8,7 +8,7 @@ import {
 } from '@/src/components/admin';
 import api from '@/src/lib/api';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
-import { formatCurrency } from '@/src/lib/format';
+import { formatCurrency, formatWeight } from '@/src/lib/format';
 
 interface Line {
   productId: string;
@@ -19,6 +19,7 @@ interface Line {
   boxes: number;
   pieces: number;
   unitsPerBox: number;
+  weightGrams: number;
 }
 
 export default function NewPurchaseReceiptScreen() {
@@ -45,6 +46,11 @@ export default function NewPurchaseReceiptScreen() {
     [lines],
   );
   const totalUnits = useMemo(() => lines.reduce((s, l) => s + l.quantity, 0), [lines]);
+  // Нийт жин — жин оруулаагүй бараа 0 гэж тооцогдоно.
+  const totalWeight = useMemo(
+    () => lines.reduce((s, l) => s + l.quantity * (l.weightGrams || 0), 0),
+    [lines],
+  );
 
   /** Зураасан кодыг барааны SKU-тай тааруулна. Энэ системд SKU нь баркод. */
   const handleScanned = (code: string) => {
@@ -85,6 +91,7 @@ export default function NewPurchaseReceiptScreen() {
         boxes: result.boxes,
         pieces: result.pieces,
         unitsPerBox: perBox,
+        weightGrams: Number((pending as any).weightGrams ?? 0),
       }];
     });
     setPending(null);
@@ -121,7 +128,11 @@ export default function NewPurchaseReceiptScreen() {
     <>
       <FormModal
         title="Бараа орлого"
-        subtitle={lines.length > 0 ? `${totalUnits}ш · ${formatCurrency(total)}` : undefined}
+        subtitle={
+          lines.length > 0
+            ? `${totalUnits}ш · ${formatCurrency(total)}${totalWeight > 0 ? ` · ${formatWeight(totalWeight)}` : ''}`
+            : undefined
+        }
         onSubmit={handleSubmit}
         submitting={submitting}
         errorMessage={error}
@@ -169,6 +180,7 @@ export default function NewPurchaseReceiptScreen() {
                       ? `${l.boxes} хайрцаг${l.pieces ? ` + ${l.pieces}ш` : ''} = ${l.quantity}ш`
                       : `${l.quantity}ш`}
                     {' · '}{formatCurrency(l.unitPrice)}
+                    {l.weightGrams > 0 ? ` · ${formatWeight(l.quantity * l.weightGrams)}` : ''}
                   </Text>
                 </View>
                 <Text style={st.lineTotal}>{formatCurrency(l.quantity * l.unitPrice)}</Text>

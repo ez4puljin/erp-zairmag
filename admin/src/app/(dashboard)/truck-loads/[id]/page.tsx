@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
-import { formatMnt } from '@/components/shared/money';
+import { formatMnt, formatWeight } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -374,6 +374,11 @@ export default function TruckLoadDetailPage() {
   const totalSold = items.reduce((s: number, i: any) => s + (i.soldQty || 0), 0);
   const totalReturned = items.reduce((s: number, i: any) => s + (i.returnedQty || 0), 0);
   const totalRemaining = totalLoaded - totalSold - totalReturned;
+  // Ачилтын нийт жин — жин оруулаагүй бараа 0 гэж тооцогдоно.
+  const totalWeightGrams = items.reduce(
+    (s: number, i: any) => s + (i.loadedQty || 0) * Number(i.product?.weightGrams ?? 0),
+    0,
+  );
   const driverSubtitle = [`${load.driver?.lastName ?? ''} ${load.driver?.firstName ?? ''}`.trim(), load.driver?.phone].filter(Boolean).join(' · ');
 
   return (
@@ -440,12 +445,13 @@ export default function TruckLoadDetailPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatCard label="Ачсан" value={totalLoaded} gradient="blue" index={0} />
         <StatCard label="Борлуулсан" value={totalSold} gradient="green" index={1} />
         <StatCard label="Буцаасан" value={totalReturned} gradient="orange" index={2} />
         <StatCard label="Үлдэгдэл" value={totalRemaining} gradient="indigo" index={3} />
         <StatCard label="Борлуулалт" value={sales.length} gradient="purple" index={4} />
+        <StatCard label="Нийт жин" value={formatWeight(totalWeightGrams)} gradient="teal" index={5} />
       </div>
 
       {/* Additional Load Modal */}

@@ -233,6 +233,7 @@ model Product {
   category       Category  @relation(fields: [categoryId], references: [id])
   unit           ProductUnit @default(PIECE)
   unitsPerBox    Int       @default(1) @map("units_per_box") // хайрцагт хэдэн ширхэг
+  weightGrams    Int       @default(0) @map("weight_grams")  // нэг ширхгийн жин (гр). 0 = оруулаагүй
   costPrice           Decimal   @map("cost_price") @db.Decimal(12, 2)
   sellingPrice        Decimal   @map("selling_price") @db.Decimal(12, 2)         // Мөрөн (city) үнэ
   sellingPriceRural   Decimal   @map("selling_price_rural") @db.Decimal(12, 2) @default(0)   // Орон нутгийн үнэ
