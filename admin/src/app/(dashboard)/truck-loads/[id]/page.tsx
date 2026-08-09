@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
-import { formatMnt, formatWeight } from '@/components/shared/money';
+import { formatMnt, formatWeight, formatQty } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -139,6 +139,7 @@ export default function TruckLoadDetailPage() {
   // Expanded sales
   const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [salesOpen, setSalesOpen] = useState(false);
 
   useEffect(() => {
     if (id) fetchLoad();
@@ -551,7 +552,9 @@ export default function TruckLoadDetailPage() {
                       {(b.items ?? []).map((bi: any) => (
                         <div key={bi.id} className="flex items-center justify-between text-[13px]">
                           <span className="text-[#4A4D5C] truncate pr-3">{bi.product?.name ?? '-'}</span>
-                          <span className="font-semibold text-[#1A1D26] tabular-nums shrink-0">{bi.quantity}ш</span>
+                          <span className="font-semibold text-[#1A1D26] tabular-nums shrink-0">
+                            {formatQty(bi.quantity, bi.product?.unitsPerBox)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -592,6 +595,7 @@ export default function TruckLoadDetailPage() {
                   const sold = item.soldQty || 0;
                   const returned = item.returnedQty || 0;
                   const damaged = item.damagedQty || 0;
+                  const perBox = Number(item.product?.unitsPerBox ?? 1);
                   const remaining = Math.max(0, loaded - sold - returned - damaged);
                   const soldPct = loaded > 0 ? (sold / loaded) * 100 : 0;
                   const returnedPct = loaded > 0 ? (returned / loaded) * 100 : 0;
@@ -603,11 +607,26 @@ export default function TruckLoadDetailPage() {
                         <p className="text-[14px] font-medium text-[#1A1D26]">{item.product?.name ?? '—'}</p>
                         {item.product?.sku && <p className="text-[12px] text-[#8C8FA3]">{item.product.sku}</p>}
                       </td>
-                      <td className="px-4 py-3 text-center text-[14px] font-semibold">{loaded}</td>
-                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#34C759]">{sold}</td>
+                      <td className="px-4 py-3 text-center">
+                        <p className="text-[14px] font-semibold text-[#1A1D26] tabular-nums">{loaded}</p>
+                        {perBox > 1 && (
+                          <p className="text-[11px] text-[#8C8FA3]">{formatQty(loaded, perBox)}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <p className="text-[14px] font-semibold text-[#34C759] tabular-nums">{sold}</p>
+                        {perBox > 1 && sold > 0 && (
+                          <p className="text-[11px] text-[#8C8FA3]">{formatQty(sold, perBox)}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#FF9500]">{returned}</td>
                       <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#FF3B30]">{damaged}</td>
-                      <td className="px-4 py-3 text-center text-[14px] font-semibold text-[#8C8FA3]">{remaining}</td>
+                      <td className="px-4 py-3 text-center">
+                        <p className="text-[14px] font-semibold text-[#8C8FA3] tabular-nums">{remaining}</p>
+                        {perBox > 1 && remaining > 0 && (
+                          <p className="text-[11px] text-[#8C8FA3]">{formatQty(remaining, perBox)}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex h-2.5 rounded-full overflow-hidden bg-[#F2F4F7]">
                           {soldPct > 0 && <div className="h-full bg-[#34C759]" style={{ width: `${soldPct}%` }} />}
@@ -627,12 +646,19 @@ export default function TruckLoadDetailPage() {
       {/* Sales History */}
       {sales.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-4 border-b border-[#F0F2F5]">
+          <button
+            onClick={() => setSalesOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-5 py-4 border-b border-[#F0F2F5] hover:bg-[#FAFBFC] transition-colors"
+          >
             <ShoppingCart className="w-5 h-5 text-[#34C759]" />
             <h2 className="text-[17px] font-bold text-[#1A1D26]">Борлуулалтын түүх</h2>
             <span className="text-[13px] text-[#8C8FA3]">({sales.length})</span>
-          </div>
-          <div className="divide-y divide-[#F2F4F7]">
+            <span className="flex-1" />
+            {salesOpen
+              ? <ChevronUp className="w-4 h-4 text-[#8C8FA3]" />
+              : <ChevronDown className="w-4 h-4 text-[#8C8FA3]" />}
+          </button>
+          <div className={salesOpen ? 'divide-y divide-[#F2F4F7]' : 'hidden'}>
             {sales.map((sale: any) => {
               const isExpanded = expandedSales.has(sale.id);
               return (

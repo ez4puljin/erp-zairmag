@@ -8,7 +8,7 @@ import { ScreenHeader, DetailSection, DetailRow, LoadingState, ErrorState, confi
 import { useItemQuery, invalidateItemCache } from '@/src/hooks/use-item-query';
 import { invalidateListCache } from '@/src/hooks/use-list-query';
 import api from '@/src/lib/api';
-import { formatWeight, formatCurrency, formatDate, formatDateTime, paymentLabel, PAYMENT_COLORS } from '@/src/lib/format';
+import { formatWeight, formatCurrency, formatQty, formatDate, formatDateTime, paymentLabel, PAYMENT_COLORS } from '@/src/lib/format';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   LOADING:              { label: 'Ачиж буй',          color: '#FF9500', icon: 'cube' },
@@ -29,6 +29,7 @@ export default function TruckLoadDetailScreen() {
   const [pending, setPending] = useState<PickerProduct | null>(null);
   const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [salesOpen, setSalesOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [returnQty, setReturnQty] = useState<Record<string, { returned: string; damaged: string }>>({});
   const [approving, setApproving] = useState(false);
@@ -241,17 +242,36 @@ export default function TruckLoadDetailScreen() {
 
         {sales.length > 0 && (
           <DetailSection title={`БОРЛУУЛАЛТ (${sales.length})`}>
-            {sales.map((sale: any, idx: number) => (
-              <View key={sale.id} style={[s.saleRow, idx < sales.length - 1 && s.borderB]}>
-                <View style={{ flex: 1 }}>
+            <TouchableOpacity style={s.toggle} activeOpacity={0.6} onPress={() => setSalesOpen(v => !v)}>
+              <Text style={s.toggleText}>{salesOpen ? 'Хураах' : 'Борлуулалтуудыг харах'}</Text>
+              <Ionicons name={salesOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#007AFF" />
+            </TouchableOpacity>
+
+            {salesOpen && sales.map((sale: any) => (
+              <TouchableOpacity
+                key={sale.id}
+                style={s.saleCard}
+                activeOpacity={0.6}
+                onPress={() => router.push(`/(admin)/features/truck-sales/${sale.id}` as any)}
+              >
+                <View style={s.saleHead}>
                   <Text style={s.saleNum}>#{sale.saleNumber}</Text>
-                  <Text style={s.saleMeta}>
-                    {sale.customer?.storeName || ''} · {paymentLabel(sale.paymentMethod)}
-                  </Text>
+                  <View style={[s.payTag, { backgroundColor: (PAYMENT_COLORS[sale.paymentMethod] ?? '#8E8E93') + '18' }]}>
+                    <Text style={[s.payTagText, { color: PAYMENT_COLORS[sale.paymentMethod] ?? '#8E8E93' }]}>
+                      {paymentLabel(sale.paymentMethod)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }} />
+                  <Text style={s.saleAmount}>{formatCurrency(sale.totalAmount)}</Text>
+                  <Ionicons name="chevron-forward" size={15} color="#C7C7CC" />
                 </View>
-                <Text style={s.saleAmount}>{formatCurrency(sale.totalAmount)}</Text>
-              </View>
+                <Text style={s.saleMeta} numberOfLines={1}>
+                  {sale.customer?.storeName || '—'}
+                  {sale.createdAt ? ` · ${formatDateTime(sale.createdAt)}` : ''}
+                </Text>
+              </TouchableOpacity>
             ))}
+
             <View style={[s.totalRow]}>
               <Text style={s.totalLabel}>Нийт орлого</Text>
               <Text style={s.totalValue}>{formatCurrency(totalRevenue)}</Text>
@@ -292,13 +312,15 @@ export default function TruckLoadDetailScreen() {
               const qty = (b.items ?? []).reduce((s: number, i: any) => s + (i.quantity ?? 0), 0);
               const first = b.sequence === 1;
               return (
-                <View key={b.id} style={[s.batch, bi < batches.length - 1 && s.borderB]}>
+                <View key={b.id} style={s.batch}>
+                  <View style={[s.batchAccent, { backgroundColor: first ? '#34C759' : '#FF9500' }]} />
                   <View style={s.batchHead}>
                     <View style={[s.batchTag, { backgroundColor: first ? '#34C75915' : '#FF950015' }]}>
                       <Text style={[s.batchTagText, { color: first ? '#34C759' : '#FF9500' }]}>
                         {first ? 'Анхны ачилт' : `${b.sequence - 1}-р нэмэлт`}
                       </Text>
                     </View>
+                    <View style={{ flex: 1 }} />
                     <Text style={s.batchQty}>{qty}ш</Text>
                   </View>
                   <Text style={s.batchDate}>
@@ -307,8 +329,11 @@ export default function TruckLoadDetailScreen() {
                   </Text>
                   {(b.items ?? []).map((bi2: any) => (
                     <View key={bi2.id} style={s.batchItem}>
+                      <View style={s.bullet} />
                       <Text style={s.batchItemName} numberOfLines={1}>{bi2.product?.name ?? '-'}</Text>
-                      <Text style={s.batchItemQty}>{bi2.quantity}ш</Text>
+                      <Text style={s.batchItemQty}>
+                        {formatQty(bi2.quantity, bi2.product?.unitsPerBox)}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -366,7 +391,11 @@ export default function TruckLoadDetailScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={s.itemName} numberOfLines={1}>{it.product?.name || '-'}</Text>
                     <Text style={s.itemMeta}>
-                      Ачсан: {it.loadedQty ?? 0} · Зарсан: {it.soldQty ?? 0} · Үлд: {remaining}
+                      Ачсан {formatQty(it.loadedQty ?? 0, it.product?.unitsPerBox)}
+                      {' · '}Зарсан {formatQty(it.soldQty ?? 0, it.product?.unitsPerBox)}
+                    </Text>
+                    <Text style={s.itemMeta}>
+                      Үлдэгдэл {formatQty(remaining, it.product?.unitsPerBox)}
                     </Text>
                   </View>
                   <Text style={s.itemPrice}>{formatCurrency(it.product?.sellingPrice ?? 0)}</Text>
@@ -489,17 +518,29 @@ export default function TruckLoadDetailScreen() {
 }
 
 const s = StyleSheet.create({
+  toggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11 },
+  toggleText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
   histToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11 },
   histToggleText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
-  batch: { paddingVertical: 12 },
-  batchHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  batchTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
+
+  /* Багц — зүүн талд цагийн шугам мэт өнгөт зурвастай карт */
+  batch: { backgroundColor: '#FAFBFC', borderRadius: 12, borderWidth: 1, borderColor: '#EDEFF3', padding: 12, marginBottom: 8, overflow: 'hidden' },
+  batchAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  batchHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  batchTag: { paddingHorizontal: 9, paddingVertical: 3.5, borderRadius: 8 },
   batchTagText: { fontSize: 11, fontWeight: '800' },
-  batchQty: { fontSize: 14, fontWeight: '800', color: '#1C1C1E' },
-  batchDate: { fontSize: 11, color: '#8E8E93', marginTop: 4, marginBottom: 7 },
-  batchItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  batchItemName: { flex: 1, fontSize: 13, color: '#48484A', paddingRight: 10 },
+  batchQty: { fontSize: 15, fontWeight: '800', color: '#1C1C1E', fontVariant: ['tabular-nums'] },
+  batchDate: { fontSize: 11, color: '#9A9AA0', marginTop: 6, marginBottom: 9 },
+  batchItem: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4 },
+  bullet: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#C7C7CC' },
+  batchItemName: { flex: 1, fontSize: 13, color: '#48484A' },
   batchItemQty: { fontSize: 13, fontWeight: '700', color: '#1C1C1E' },
+
+  /* Борлуулалтын карт */
+  saleCard: { backgroundColor: '#FAFBFC', borderRadius: 12, borderWidth: 1, borderColor: '#EDEFF3', paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8 },
+  saleHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  payTag: { paddingHorizontal: 7, paddingVertical: 2.5, borderRadius: 6 },
+  payTagText: { fontSize: 10, fontWeight: '800' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
   addName: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
   addQty: { fontSize: 14, fontWeight: '700', color: '#5856D6' },
