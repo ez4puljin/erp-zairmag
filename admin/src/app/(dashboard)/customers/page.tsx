@@ -74,7 +74,7 @@ export default function CustomersPage() {
             setSearch(v);
             setPage(1);
           }}
-          placeholder="Дэлгүүр хайх..."
+          placeholder="Дэлгүүр, утас, РД хайх..."
           className="flex-1 min-w-[220px]"
         />
       </FilterBar>
@@ -147,7 +147,11 @@ export default function CustomersPage() {
                       )}
                     </div>
                     <p className="text-[13px] text-[#8C8FA3] truncate">
-                      {customer.contactName} · {customer.phone}
+                      {[
+                        customer.contactName,
+                        customer.phone,
+                        customer.registerNo && `РД: ${customer.registerNo}`,
+                      ].filter(Boolean).join(' · ')}
                     </p>
                   </div>
 

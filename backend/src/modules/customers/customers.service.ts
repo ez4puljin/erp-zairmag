@@ -25,6 +25,7 @@ export class CustomersService {
       where.OR = [
         { storeName: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
+        { registerNo: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -78,6 +79,7 @@ export class CustomersService {
             contactName: dto.contactName,
             phone: dto.phone,
             email: dto.email,
+            registerNo: dto.registerNo,
             address: dto.address,
             city: dto.city,
             latitude: dto.latitude,
@@ -108,6 +110,7 @@ export class CustomersService {
         contactName: dto.contactName,
         phone: dto.phone,
         email: dto.email,
+        registerNo: dto.registerNo,
         address: dto.address,
         city: dto.city,
         latitude: dto.latitude,

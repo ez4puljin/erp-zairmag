@@ -14,7 +14,7 @@ export default function NewCustomerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    storeName: '', contactName: '', phone: '', address: '',
+    storeName: '', contactName: '', phone: '', registerNo: '', address: '',
     customerCategoryId: '', pricingTier: 'STANDARD',
     creditLimit: '', openingBalance: '',
   });
@@ -38,6 +38,7 @@ export default function NewCustomerPage() {
         storeName: form.storeName,
         contactName: form.contactName,
         phone: form.phone,
+        registerNo: form.registerNo || undefined,
         address: form.address,
         customerCategoryId: form.customerCategoryId || undefined,
         pricingTier: form.pricingTier,
@@ -79,9 +80,15 @@ export default function NewCustomerPage() {
                 <input type="text" value={form.phone} onChange={e => handleChange('phone', e.target.value)} placeholder="99112233" className={inputClass} />
               </div>
             </div>
-            <div>
-              <label className={labelClass}>Хаяг</label>
-              <input type="text" value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="Хаяг" className={inputClass} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Хаяг</label>
+                <input type="text" value={form.address} onChange={e => handleChange('address', e.target.value)} placeholder="Хаяг" className={inputClass} />
+              </div>
+              <div>
+                <label className={labelClass}>РД</label>
+                <input type="text" value={form.registerNo} onChange={e => handleChange('registerNo', e.target.value)} placeholder="Регистрийн дугаар" className={inputClass} />
+              </div>
             </div>
           </div>
         </SectionCard>
