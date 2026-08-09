@@ -78,6 +78,15 @@ async function main() {
       дутуу: current.missing,
     });
 
+    // Шимтгэлийг нийлбэрээр нь нэг зардал болгож хаана.
+    const withFees = await service.postFees(stmt.id, admin.id, category.id);
+    console.log('\n── Шимтгэл ──', {
+      мөр: withFees.fee.count,
+      нийлбэр: withFees.fee.total,
+      бүртгэсэн: withFees.fee.posted,
+      зардлынДугаар: withFees.fee.expenseNumber,
+    });
+
     // Бүгдийг бүртгэнэ.
     const result = await service.postAll(stmt.id, admin.id);
     console.log('\n── Бүртгэсэн ──', {
@@ -91,7 +100,9 @@ async function main() {
       balance: n((await prisma.bankAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance),
     };
     const expectedDebt = before.debt - current.totalCredit;
-    const expectedBalance = before.balance + current.totalCredit - current.totalDebit;
+    // Дансны үлдэгдэлд шимтгэлийн нэгдсэн зардал ч нөлөөлнө.
+    const expectedBalance =
+      before.balance + current.totalCredit - current.totalDebit - withFees.fee.total;
     console.log('── Нөлөө ──', {
       өр: `${before.debt} → ${afterPost.debt} (хүлээсэн ${expectedDebt})`,
       үлдэгдэл: `${before.balance} → ${afterPost.balance} (хүлээсэн ${expectedBalance})`,
@@ -107,9 +118,10 @@ async function main() {
     });
 
     // Бүгдийг буцаана.
-    for (const t of posted.transactions.filter((x) => x.postedAt)) {
+    for (const t of posted.transactions.filter((x) => x.postedAt && !x.isFee)) {
       await service.unpostTransaction(stmt.id, t.id);
     }
+    await service.unpostFees(stmt.id);
     const afterUnpost = {
       debt: n((await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } })).outstandingDebt),
       balance: n((await prisma.bankAccount.findUniqueOrThrow({ where: { id: account.id } })).currentBalance),
@@ -121,8 +133,17 @@ async function main() {
         afterUnpost.debt === before.debt && afterUnpost.balance === before.balance ? 'ТИЙМ' : 'ҮГҮЙ',
     });
 
-    const leftovers = await prisma.payment.count({ where: { bankTransaction: { isNot: null } } });
-    console.log('Эзэнгүй үлдсэн төлбөр:', leftovers);
+    // Буцаасны дараа энэ хуулганд ямар ч холбоос үлдэх ёсгүй.
+    const leftovers = await prisma.bankTransaction.count({
+      where: {
+        statementId: stmt.id,
+        OR: [{ paymentId: { not: null } }, { expenseId: { not: null } }, { postedAt: { not: null } }],
+      },
+    });
+    const feeLink = await prisma.bankStatement.count({
+      where: { id: stmt.id, feeExpenseId: { not: null } },
+    });
+    console.log('Үлдсэн холбоос:', leftovers + feeLink);
   } finally {
     if (statementId) {
       await service.remove(statementId);

@@ -21,6 +21,7 @@ import {
   UpdateTransactionDto,
   UpdateConfigDto,
   SetBankAccountDto,
+  PostFeesDto,
 } from './dto/bank-statement.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -88,6 +89,20 @@ export class BankStatementsController {
   @Post(':id/post-all')
   postAll(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('id') userId: string) {
     return this.service.postAll(id, userId);
+  }
+
+  @Post(':id/post-fees')
+  postFees(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PostFeesDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.postFees(id, userId, dto.expenseCategoryId);
+  }
+
+  @Post(':id/unpost-fees')
+  unpostFees(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.unpostFees(id);
   }
 
   @Patch(':id/transactions/:txnId')

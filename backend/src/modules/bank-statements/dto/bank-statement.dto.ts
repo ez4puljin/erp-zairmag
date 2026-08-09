@@ -85,6 +85,14 @@ export class UpdateConfigDto {
   feeDescription?: string;
 }
 
+export class PostFeesDto {
+  /** Хоосон бол тохиргооны анхдагч ангиллыг ашиглана. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== '' && v !== null)
+  @IsUUID()
+  expenseCategoryId?: string;
+}
+
 export class SetBankAccountDto {
   @IsOptional()
   @ValidateIf((_, v) => v !== '' && v !== null)

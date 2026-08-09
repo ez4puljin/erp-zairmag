@@ -210,6 +210,7 @@ export class BankStatementsService {
           },
         },
         bankAccount: { select: { id: true, bankName: true, accountNumber: true } },
+        feeExpense: { select: { id: true, expenseNumber: true, amount: true } },
       },
     });
     if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
@@ -234,6 +235,9 @@ export class BankStatementsService {
         `${posted} мөр бүртгэгдсэн байна. Эхлээд буцаана уу.`,
       );
     }
+    if (statement.feeExpenseId) {
+      throw new BadRequestException('Шимтгэлийн зардал бүртгэлтэй байна. Эхлээд буцаана уу.');
+    }
 
     await this.prisma.bankStatement.delete({ where: { id } });
     return { success: true };
@@ -246,7 +250,7 @@ export class BankStatementsService {
       include: { transactions: { select: { postedAt: true } } },
     });
     if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
-    if (statement.transactions.some((t) => t.postedAt)) {
+    if (statement.transactions.some((t) => t.postedAt) || statement.feeExpenseId) {
       throw new BadRequestException('Бүртгэсэн мөртэй хуулгын дансыг солих боломжгүй.');
     }
     if (bankAccountId) {
@@ -311,9 +315,13 @@ export class BankStatementsService {
    * оруулсны дараа л мэдэгддэг.
    */
   async swapDebitCredit(statementId: string) {
-    const txns = await this.prisma.bankTransaction.findMany({ where: { statementId } });
-    if (txns.length === 0) throw new NotFoundException('Хуулга олдсонгүй');
-    if (txns.some((t) => t.postedAt)) {
+    const statement = await this.prisma.bankStatement.findUnique({
+      where: { id: statementId },
+      include: { transactions: true },
+    });
+    if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
+    const txns = statement.transactions;
+    if (txns.some((t) => t.postedAt) || statement.feeExpenseId) {
       throw new BadRequestException('Бүртгэсэн мөртэй үед багана солих боломжгүй.');
     }
 
@@ -342,10 +350,13 @@ export class BankStatementsService {
     return this.findOne(statementId);
   }
 
-  /** Бэлэн болсон бүх мөрийг нэг дор бүртгэнэ. */
+  /**
+   * Бэлэн болсон бүх мөрийг нэг дор бүртгэнэ.
+   * Шимтгэлийн мөрийг оруулахгүй — тэдгээрийг нийлбэрээр нь тусад нь хаана.
+   */
   async postAll(statementId: string, userId: string) {
     const txns = await this.prisma.bankTransaction.findMany({
-      where: { statementId, postedAt: null },
+      where: { statementId, postedAt: null, isFee: false },
       orderBy: [{ sortOrder: 'asc' }],
       include: { statement: { select: { id: true, bankAccountId: true } } },
     });
@@ -364,9 +375,115 @@ export class BankStatementsService {
     return { ...(await this.findOne(statementId)), posted, skipped };
   }
 
+  /**
+   * Хуулгын бүх шимтгэлийг нэгтгэж ганц зардал болгож хаана.
+   *
+   * Шимтгэл нь өдөрт хэдэн ч удаа, бага дүнгээр суудаг тул мөр бүрээр нь
+   * зардал үүсгэвэл бүртгэл хэрэггүй олон бичилтээр дүүрнэ.
+   */
+  async postFees(statementId: string, userId: string, expenseCategoryId?: string) {
+    const statement = await this.prisma.bankStatement.findUnique({
+      where: { id: statementId },
+      include: { transactions: { where: { isFee: true } } },
+    });
+    if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
+    if (statement.feeExpenseId) {
+      throw new BadRequestException('Шимтгэл аль хэдийн бүртгэгдсэн байна.');
+    }
+    if (!statement.bankAccountId) {
+      throw new BadRequestException('Хуулгын дансыг эхлээд сонгоно уу.');
+    }
+
+    const fees = statement.transactions;
+    if (fees.length === 0) throw new BadRequestException('Шимтгэлийн мөр алга.');
+    // Энэ өөрчлөлтөөс өмнө оруулсан хуулганд шимтгэлийг мөрөөр нь бүртгэсэн
+    // байж болно — давхар зардал үүсгэхээс сэргийлнэ.
+    if (fees.some((t) => t.postedAt)) {
+      throw new BadRequestException(
+        'Шимтгэлийн мөр аль хэдийн бүртгэгдсэн байна. Эхлээд буцаана уу.',
+      );
+    }
+
+    // Шимтгэл нь зарлага. Буцаалт (кредит) байвал нийлбэрээс хасна.
+    const total = fees.reduce((sum, t) => sum + toNum(t.debit) - toNum(t.credit), 0);
+    if (total <= 0) throw new BadRequestException('Шимтгэлийн нийлбэр тэг байна.');
+
+    const cfg = await this.getConfig();
+    const categoryId = expenseCategoryId || cfg.feeExpenseCategoryId;
+    if (!categoryId) throw new BadRequestException('Зардлын ангилал сонгоогүй байна.');
+
+    // Огноо — хамгийн эртний шимтгэлийн огноо, эс бөгөөс хуулгын эхлэл.
+    const dates = fees.map((t) => t.txnDate).filter((d): d is Date => !!d);
+    const at = dates.length
+      ? new Date(Math.min(...dates.map((d) => d.getTime())))
+      : (statement.dateFrom ?? new Date());
+
+    const expense = await this.expenses.create(
+      {
+        categoryId,
+        amount: total,
+        description: `${cfg.feeDescription || 'Банкны шимтгэл'} (${fees.length} гүйлгээ)`,
+        date: at.toISOString().slice(0, 10),
+        bankAccountId: statement.bankAccountId,
+      },
+      userId,
+    );
+
+    const postedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.bankStatement.update({
+        where: { id: statementId },
+        data: { feeExpenseId: expense.id },
+      }),
+      this.prisma.bankTransaction.updateMany({
+        where: { statementId, isFee: true },
+        data: { postedAt, expenseCategoryId: categoryId },
+      }),
+    ]);
+
+    return this.findOne(statementId);
+  }
+
+  /** Шимтгэлийн нэгдсэн зардлыг буцаана. */
+  async unpostFees(statementId: string) {
+    const statement = await this.prisma.bankStatement.findUnique({
+      where: { id: statementId },
+      include: { transactions: { where: { isFee: true, postedAt: { not: null } } } },
+    });
+    if (!statement) throw new NotFoundException('Хуулга олдсонгүй');
+
+    if (!statement.feeExpenseId) {
+      // Хуучин хуулганд шимтгэлийг мөрөөр нь бүртгэсэн байж болно.
+      if (statement.transactions.length === 0) {
+        throw new BadRequestException('Шимтгэл бүртгэгдээгүй байна.');
+      }
+      for (const t of statement.transactions) {
+        await this.unpostTransaction(statementId, t.id);
+      }
+      return this.findOne(statementId);
+    }
+
+    const expenseId = statement.feeExpenseId;
+    // Холбоосыг эхлээд салгана — эс бөгөөс FK нь устгалыг зогсооно.
+    await this.prisma.$transaction([
+      this.prisma.bankStatement.update({
+        where: { id: statementId },
+        data: { feeExpenseId: null },
+      }),
+      this.prisma.bankTransaction.updateMany({
+        where: { statementId, isFee: true },
+        data: { postedAt: null },
+      }),
+    ]);
+    await this.expenses.remove(expenseId);
+
+    return this.findOne(statementId);
+  }
+
   private async postOne(
     txn: {
       id: string;
+      isFee: boolean;
       debit: Prisma.Decimal;
       credit: Prisma.Decimal;
       description: string;
@@ -380,6 +497,9 @@ export class BankStatementsService {
     userId: string,
   ) {
     if (txn.postedAt) throw new BadRequestException('Энэ мөр аль хэдийн бүртгэгдсэн байна.');
+    if (txn.isFee) {
+      throw new BadRequestException('Шимтгэлийг нийлбэрээр нь нэг дор бүртгэнэ.');
+    }
 
     const { amount, income } = amountOf(txn);
     if (amount <= 0) throw new BadRequestException('Дүн тэг байна.');
@@ -457,10 +577,14 @@ export class BankStatementsService {
     uploadedAt: Date;
     bankAccountId: string | null;
     bankAccount?: { bankName: string; accountNumber?: string; id?: string } | null;
+    feeExpenseId?: string | null;
+    feeExpense?: { expenseNumber: number; amount: Prisma.Decimal } | null;
     transactions: Array<TxnCore & { isFee: boolean }>;
   }) {
-    // Шимтгэлийн мөрийг ч бүртгэдэг тул бүх мөрийг тооцно.
-    const txns = s.transactions;
+    // Шимтгэлийг нийлбэрээр нь тусад нь хаадаг тул үндсэн тооцоонд оруулахгүй.
+    const txns = s.transactions.filter((t) => !t.isFee);
+    const fees = s.transactions.filter((t) => t.isFee);
+
     const missing: Record<MissingField, number> = { target: 0, desc: 0 };
     let ready = 0;
     let posted = 0;
@@ -485,12 +609,20 @@ export class BankStatementsService {
       bankAccountId: s.bankAccountId,
       bankName: s.bankAccount?.bankName ?? null,
       txnCount: txns.length,
-      feeCount: txns.filter((t) => t.isFee).length,
       totalCredit: txns.reduce((sum, t) => sum + toNum(t.credit), 0),
       totalDebit: txns.reduce((sum, t) => sum + toNum(t.debit), 0),
       postedCount: posted,
       readyCount: ready,
       missing,
+      // Шимтгэл — тусдаа блок болж харагдана.
+      fee: {
+        count: fees.length,
+        total: fees.reduce((sum, t) => sum + toNum(t.debit) - toNum(t.credit), 0),
+        // Хуучин хуулганд мөрөөр нь бүртгэсэн байж болох тул түүнийг ч
+        // "бүртгэсэн" гэж үзнэ — эс бөгөөс давхар хаах товч идэвхтэй харагдана.
+        posted: !!s.feeExpenseId || fees.some((t) => t.postedAt),
+        expenseNumber: s.feeExpense?.expenseNumber ?? null,
+      },
     };
   }
 }

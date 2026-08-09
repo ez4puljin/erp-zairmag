@@ -101,9 +101,7 @@ export function TxnTable({
             return (
               <tr
                 key={t.id}
-                className={`border-b border-[#F7F8FA] align-top ${
-                  posted ? 'bg-[#F0FDF4]/70' : t.isFee ? 'bg-[#FFFBEB]/60' : ''
-                }`}
+                className={`border-b border-[#F7F8FA] align-top ${posted ? 'bg-[#F0FDF4]/70' : ''}`}
               >
                 <td className="px-3 py-2 whitespace-nowrap text-[#4A4D5C]">
                   {t.txnDate ? t.txnDate.slice(0, 10) : '—'}
@@ -127,11 +125,6 @@ export function TxnTable({
                     {t.isSettlement && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#EEF2FF] text-[#5856D6] font-medium">
                         <Zap className="w-3 h-3" /> ПОС
-                      </span>
-                    )}
-                    {t.isFee && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#B45309] font-medium">
-                        Шимтгэл
                       </span>
                     )}
                   </div>

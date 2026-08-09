@@ -39,13 +39,19 @@ export interface BankStatement {
   uploadedAt: string;
   bankAccountId: string | null;
   bankName: string | null;
+  /** Шимтгэлээс бусад мөрийн тоо — шимтгэлийг тусад нь нэгтгэж хаана. */
   txnCount: number;
-  feeCount: number;
   totalCredit: number;
   totalDebit: number;
   postedCount: number;
   readyCount: number;
   missing: MissingCounts;
+  fee: {
+    count: number;
+    total: number;
+    posted: boolean;
+    expenseNumber: number | null;
+  };
   transactions?: BankTxn[];
   /** post-all хариунд ирнэ. */
   posted?: number;

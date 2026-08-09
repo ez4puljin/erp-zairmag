@@ -22,6 +22,7 @@ import { ErrorBanner } from '@/components/shared/error-banner';
 import { Money } from '@/components/shared/money';
 import { SearchableSelect, type SelectOption } from '@/components/shared/searchable-select';
 import { TxnTable } from './txn-table';
+import { FeeCard } from './fee-card';
 import { ConfigModal } from './config-modal';
 import { MISSING_LABEL, type BankStatement, type BankTxn, type MissingCounts } from './types';
 
@@ -64,6 +65,8 @@ export default function BankStatementsPage() {
   const [customers, setCustomers] = useState<SelectOption[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<SelectOption[]>([]);
   const [bankAccounts, setBankAccounts] = useState<SelectOption[]>([]);
+  /** Тохиргоонд заасан шимтгэлийн анхдагч ангилал. */
+  const [feeCategoryId, setFeeCategoryId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -117,6 +120,9 @@ export default function BankStatementsPage() {
           ),
         ),
       ),
+      api
+        .get('/api/bank-statements/config')
+        .then((r) => setFeeCategoryId(r.data?.feeExpenseCategoryId ?? null)),
     ]).catch(() => {});
   }, []);
 
@@ -256,6 +262,36 @@ export default function BankStatementsPage() {
     }
   };
 
+  const postFees = async (categoryId: string) => {
+    if (!statement) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await api.post(`/api/bank-statements/${statement.id}/post-fees`, {
+        expenseCategoryId: categoryId,
+      });
+      applyStatement(r.data);
+    } catch (e) {
+      apiError(e, 'Шимтгэл бүртгэхэд алдаа гарлаа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const unpostFees = async () => {
+    if (!statement) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await api.post(`/api/bank-statements/${statement.id}/unpost-fees`);
+      applyStatement(r.data);
+    } catch (e) {
+      apiError(e, 'Шимтгэл буцаахад алдаа гарлаа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runAction = async (path: string, fallback: string) => {
     if (!statement) return;
     setLoading(true);
@@ -305,6 +341,8 @@ export default function BankStatementsPage() {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const blanks = leadingBlanks(year, month);
   const allPosted = !!statement && statement.postedCount >= statement.txnCount;
+  // Шимтгэлийг тусдаа блокт харуулдаг тул үндсэн хүснэгтээс хасна.
+  const mainTxns = (statement?.transactions ?? []).filter((t) => !t.isFee);
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
@@ -537,9 +575,19 @@ export default function BankStatementsPage() {
                 <MissingSummary missing={statement.missing} allPosted={allPosted} />
               </SectionCard>
 
-              <SectionCard title={`Гүйлгээ (${statement.transactions?.length ?? 0})`} noPadding>
+              <FeeCard
+                statement={statement}
+                feeTxns={(statement.transactions ?? []).filter((t) => t.isFee)}
+                expenseCategories={expenseCategories}
+                defaultCategoryId={feeCategoryId}
+                busy={loading}
+                onPost={(cid) => void postFees(cid)}
+                onUnpost={() => void unpostFees()}
+              />
+
+              <SectionCard title={`Гүйлгээ (${mainTxns.length})`} noPadding>
                 <TxnTable
-                  transactions={statement.transactions ?? []}
+                  transactions={mainTxns}
                   customers={customers}
                   expenseCategories={expenseCategories}
                   onChange={(id, patch) => void updateTxn(id, patch)}

@@ -755,6 +755,7 @@ model Expense {
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
   bankTransaction BankTransaction?
+  feeStatement    BankStatement?   @relation("StatementFeeExpense")
 
   @@index([categoryId])
   @@index([date])
@@ -1027,6 +1028,12 @@ model BankStatement {
   /// автоматаар холбогдоно; олдохгүй бол хэрэглэгч гараар сонгоно.
   bankAccountId String?      @map("bank_account_id") @db.Uuid
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  /// Банкны шимтгэлийн мөрүүдийг нэгтгэж үүсгэсэн ганц зардал.
+  /// Шимтгэл олон удаа бага дүнгээр суудаг тул мөр бүрээр нь биш,
+  /// нийлбэрээр нь нэг удаа хаана.
+  feeExpenseId String?  @unique @map("fee_expense_id") @db.Uuid
+  feeExpense   Expense? @relation("StatementFeeExpense", fields: [feeExpenseId], references: [id])
 
   transactions BankTransaction[]
 
