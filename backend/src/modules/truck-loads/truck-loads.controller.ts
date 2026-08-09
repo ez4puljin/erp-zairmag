@@ -37,8 +37,11 @@ export class TruckLoadsController {
     return this.service.dispatch(id, req.user.id);
   }
 
+  // Жолооч өдрийн дундуур агуулахад эргэж ирээд өөрөө нэмэлт ачилт
+  // бүртгэдэг тул DRIVER-т нээлттэй. Бүртгэл нь ачилтын түүхэнд тусдаа
+  // багц болж үлддэг.
   @Post(':id/add-items')
-  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.DRIVER)
   addItems(@Param('id') id: string, @Body() body: { items: { productId: string; loadedQty: number }[] }, @Req() req: any) {
     return this.service.addItems(id, body.items, req.user.id);
   }

@@ -30,6 +30,7 @@ export default function TruckLoadDetailScreen() {
   const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [returnQty, setReturnQty] = useState<Record<string, { returned: string; damaged: string }>>({});
   const [approving, setApproving] = useState(false);
@@ -281,8 +282,12 @@ export default function TruckLoadDetailScreen() {
         )}
 
         {Object.keys(paymentBreakdown).length > 0 && (
-          <DetailSection title="ТӨЛБӨРИЙН ХЭЛБЭР">
-            {Object.entries(paymentBreakdown).map(([method, amount], idx, arr) => {
+          <DetailSection title="ТӨЛБӨРИЙН ЗАДАРГАА">
+            <TouchableOpacity style={s.toggle} activeOpacity={0.6} onPress={() => setBreakdownOpen(v => !v)}>
+              <Text style={s.toggleText}>{breakdownOpen ? 'Хураах' : 'Задаргааг харах'}</Text>
+              <Ionicons name={breakdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#007AFF" />
+            </TouchableOpacity>
+            {breakdownOpen && Object.entries(paymentBreakdown).map(([method, amount], idx, arr) => {
               const color = PAYMENT_COLORS[method] || '#8E8E93';
               return (
                 <View key={method} style={[s.pmRow, idx < arr.length - 1 && s.borderB]}>

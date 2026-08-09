@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ProductPicker, QuantitySheet, BarcodeScannerModal, normalizeCode,
+  type PickerProduct, type QuantityResult,
+} from '../../src/components/admin';
+import {
   View,
   Text,
   ScrollView,
@@ -48,7 +52,14 @@ export default function LoadScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [requestNote, setRequestNote] = useState('');
+  // Нэмэлт ачилт
+  const [products, setProducts] = useState<PickerProduct[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<PickerProduct | null>(null);
+  const [addLines, setAddLines] = useState<{ productId: string; name: string; qty: number }[]>([]);
+  const [submittingAdd, setSubmittingAdd] = useState(false);
+  const [salesOpen, setSalesOpen] = useState(false);
   const [completing, setCompleting] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -64,6 +75,13 @@ export default function LoadScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!modalVisible || products.length > 0) return;
+    api.get('/api/products?limit=100')
+      .then(r => setProducts(r.data?.data ?? r.data ?? []))
+      .catch(() => {});
+  }, [modalVisible, products.length]);
 
   useEffect(() => {
     fetchData();
@@ -93,14 +111,51 @@ export default function LoadScreen() {
     }
   }, [truckLoad?.items, sortBy]);
 
-  const handleRequestAdditional = () => {
-    if (!requestNote.trim()) {
-      Alert.alert('Алдаа', 'Тайлбар оруулна уу');
+  /** Нэмэлт ачилтын жагсаалтад бараа нэмнэ. */
+  const handlePickQty = (result: QuantityResult) => {
+    if (!pendingProduct) return;
+    setAddLines(prev => {
+      const idx = prev.findIndex(l => l.productId === pendingProduct.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], qty: next[idx].qty + result.quantity };
+        return next;
+      }
+      return [...prev, { productId: pendingProduct.id, name: pendingProduct.name, qty: result.quantity }];
+    });
+    setPendingProduct(null);
+    setPickerOpen(false);
+  };
+
+  /** Зураасан кодыг SKU-тай тааруулна. */
+  const handleScanned = (code: string) => {
+    setScannerOpen(false);
+    const target = normalizeCode(code);
+    const found = products.find(p => normalizeCode(p.sku ?? '') === target);
+    if (!found) {
+      Alert.alert('Олдсонгүй', `"${code}" кодтой бараа бүртгэлгүй байна.`);
       return;
     }
-    Alert.alert('Амжилттай', 'Нэмэлт бараа хүсэлт илгээгдлээ');
-    setModalVisible(false);
-    setRequestNote('');
+    setPickerOpen(false);
+    setPendingProduct(found);
+  };
+
+  const handleSubmitAdditional = async () => {
+    if (!truckLoad || addLines.length === 0) return;
+    setSubmittingAdd(true);
+    try {
+      await api.post(`/api/truck-loads/${truckLoad.id}/add-items`, {
+        items: addLines.map(l => ({ productId: l.productId, loadedQty: l.qty })),
+      });
+      setAddLines([]);
+      setModalVisible(false);
+      await fetchData();
+      Alert.alert('Амжилттай', 'Нэмэлт ачилт бүртгэгдлээ.');
+    } catch (e: any) {
+      Alert.alert('Алдаа', e?.response?.data?.message || 'Алдаа гарлаа');
+    } finally {
+      setSubmittingAdd(false);
+    }
   };
 
   const handleRequestCompletion = () => {
@@ -227,7 +282,19 @@ export default function LoadScreen() {
               <Text style={styles.cardTitle}>Борлуулалтын задаргаа</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#AF52DE' }}>{sales.length} борлуулалт</Text>
             </View>
-            {sales.map((sale) => {
+
+            <TouchableOpacity
+              style={styles.salesToggle}
+              activeOpacity={0.6}
+              onPress={() => setSalesOpen(v => !v)}
+            >
+              <Text style={styles.salesToggleText}>
+                {salesOpen ? 'Хураах' : 'Борлуулалтуудыг харах'}
+              </Text>
+              <Text style={styles.salesToggleChevron}>{salesOpen ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+
+            {salesOpen && sales.map((sale) => {
               const isExpanded = expandedSale === sale.id;
               const pmLabels: Record<string, string> = { CASH: 'Бэлэн', BANK_TRANSFER: 'Шилжүүлэг', CARD: 'Карт', CREDIT: 'Зээл', COMBINED: 'Хосолсон' };
               return (
@@ -315,7 +382,7 @@ export default function LoadScreen() {
         {/* Additional Items Button */}
         <TouchableOpacity style={styles.additionalBtn} onPress={() => setModalVisible(true)}>
           <Ionicons name="add-circle-outline" size={18} color="#fff" />
-          <Text style={styles.additionalBtnText}>Нэмэлт бараа хүсэх</Text>
+          <Text style={styles.additionalBtnText}>Нэмэлт бараа авах</Text>
         </TouchableOpacity>
 
         {/* Complete Load Button */}
@@ -337,37 +404,96 @@ export default function LoadScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Modal for additional items request */}
+      {/* Нэмэлт ачилт */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Нэмэлт бараа хүсэлт</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Шаардлагатай бараа, тоо ширхэг бичнэ үү..."
-              placeholderTextColor="#8E8E93"
-              multiline
-              numberOfLines={4}
-              value={requestNote}
-              onChangeText={setRequestNote}
-              textAlignVertical="top"
-            />
+            <Text style={styles.modalTitle}>Нэмэлт ачилт</Text>
+
+            {addLines.length === 0 ? (
+              <Text style={styles.addHint}>Агуулахаас нэмж авах барааг сонгоно уу</Text>
+            ) : (
+              addLines.map((l) => (
+                <View key={l.productId} style={styles.addRow}>
+                  <Text style={styles.addName} numberOfLines={1}>{l.name}</Text>
+                  <Text style={styles.addQty}>{l.qty}ш</Text>
+                  <TouchableOpacity onPress={() => setAddLines(p => p.filter(x => x.productId !== l.productId))}>
+                    <Text style={styles.addRemove}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+
+            <View style={styles.addActions}>
+              <TouchableOpacity style={styles.addSearchBtn} onPress={() => setPickerOpen(true)}>
+                <Text style={styles.addSearchText}>🔍  Бараа хайх</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addScanBtn} onPress={() => setScannerOpen(true)}>
+                <Text style={styles.addScanText}>▥</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => { setModalVisible(false); setRequestNote(''); }}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => { setModalVisible(false); setAddLines([]); }}
+              >
                 <Text style={styles.modalCancelText}>Болих</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSubmitBtn} onPress={handleRequestAdditional}>
-                <Text style={styles.modalSubmitText}>Илгээх</Text>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, (addLines.length === 0 || submittingAdd) && { opacity: 0.4 }]}
+                onPress={handleSubmitAdditional}
+                disabled={addLines.length === 0 || submittingAdd}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {submittingAdd ? 'Нэмж байна...' : `Ачилтад нэмэх${addLines.length ? ` (${addLines.reduce((s, l) => s + l.qty, 0)}ш)` : ''}`}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      <ProductPicker
+        visible={pickerOpen}
+        products={products}
+        onClose={() => setPickerOpen(false)}
+        onSelect={p => setPendingProduct(p)}
+        onScanRequest={() => setScannerOpen(true)}
+      />
+
+      <QuantitySheet
+        product={pendingProduct}
+        onCancel={() => setPendingProduct(null)}
+        onConfirm={handlePickQty}
+        confirmLabel="Жагсаалтад нэмэх"
+      />
+
+      <BarcodeScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={handleScanned}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  salesToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginBottom: 2 },
+  salesToggleText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
+  salesToggleChevron: { fontSize: 15, color: '#007AFF', lineHeight: 16 },
+
+  addHint: { fontSize: 14, color: '#8E8E93', textAlign: 'center', paddingVertical: 18 },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#F0F2F5' },
+  addName: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
+  addQty: { fontSize: 15, fontWeight: '700', color: '#5856D6' },
+  addRemove: { fontSize: 17, color: '#FF3B30', paddingHorizontal: 4 },
+  addActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  addSearchBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 46, borderRadius: 12, backgroundColor: '#5856D612', borderWidth: 1, borderColor: '#5856D630' },
+  addSearchText: { fontSize: 15, fontWeight: '600', color: '#5856D6' },
+  addScanBtn: { width: 52, alignItems: 'center', justifyContent: 'center', height: 46, borderRadius: 12, backgroundColor: '#5856D6' },
+  addScanText: { fontSize: 19, color: '#fff' },
+
   container: { flex: 1, backgroundColor: '#F2F2F7' },
   scroll: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F7' },
