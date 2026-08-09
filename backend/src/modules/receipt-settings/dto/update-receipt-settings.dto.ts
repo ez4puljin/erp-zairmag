@@ -16,6 +16,7 @@ export class UpdateReceiptSettingsDto {
   @IsOptional() @IsBoolean() showBarcode?: boolean;
   @IsOptional() @IsBoolean() showItemNumber?: boolean;
   @IsOptional() @IsBoolean() showSaleDriver?: boolean;
+  @IsOptional() @IsBoolean() showLoadNumber?: boolean;
   @IsOptional() @IsString() feedbackPhone?: string;
   @IsOptional() @IsBoolean() printTwoCopies?: boolean;
   @IsOptional() @IsBoolean() showVat?: boolean;

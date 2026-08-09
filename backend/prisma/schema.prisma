@@ -774,6 +774,7 @@ model ReceiptSettings {
   showBarcode     Boolean  @default(true) @map("show_barcode")
   showItemNumber  Boolean  @default(true) @map("show_item_number")
   showSaleDriver  Boolean  @default(true) @map("show_sale_driver")
+  showLoadNumber  Boolean  @default(true) @map("show_load_number")
   feedbackPhone   String?  @map("feedback_phone")
   printTwoCopies  Boolean  @default(true) @map("print_two_copies")
   showVat         Boolean  @default(false) @map("show_vat")

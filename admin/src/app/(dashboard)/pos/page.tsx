@@ -27,6 +27,13 @@ import { PAYMENT_METHODS, COMBINED_METHODS } from './_lib/payment-methods';
 import { CustomerSheet } from './_components/customer-sheet';
 import { CartSheet } from './_components/cart-sheet';
 import { MobilePos, type PosProductEntry } from './_components/mobile-pos';
+import { SaleReceipt, type ReceiptData } from '@/components/shared/sale-receipt';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import {
+  type ReceiptSettings,
+  DEFAULT_RECEIPT_SETTINGS,
+  mergeReceiptSettings,
+} from '@/lib/receipt-settings';
 
 interface TruckLoadItem {
   id: string;
@@ -164,6 +171,16 @@ export default function POSPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Баримтын загварын тохиргоо — хэвлэхэд ашиглана.
+  const [receiptSettings, setReceiptSettings] = useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS);
+  useEffect(() => {
+    api.get('/api/receipt-settings')
+      .then((res) => setReceiptSettings(mergeReceiptSettings(res.data)))
+      .catch(() => {
+        // Тохиргоо татаж чадаагүй ч өгөгдмөл загвараар хэвлэх боломжтой.
+      });
+  }, []);
 
   // Close customer dropdown when clicking outside
   useEffect(() => {
@@ -519,7 +536,7 @@ export default function POSPage() {
               className="flex-1 flex items-center justify-center gap-2 min-h-12 rounded-2xl text-[15px] font-semibold text-white transition-all active:scale-[0.97] shadow-sm shadow-[#007AFF]/25"
               style={{ background: 'linear-gradient(135deg, #007AFF, #5AC8FA)' }}
             >
-              <Printer className="w-5 h-5" /> Баримт хэвлэх (2 хувь)
+              <Printer className="w-5 h-5" /> Баримт хэвлэх ({receiptSettings.printTwoCopies ? '2 хувь' : '1 хувь'})
             </button>
             <button
               onClick={handleNewSale}
@@ -531,7 +548,7 @@ export default function POSPage() {
         </div>
 
         {/* Printable receipt (shown only when printing) - 2 copies */}
-        <div className="hidden print:block print-receipt" style={{ fontFamily: 'monospace', fontSize: '12px', width: '300px', margin: '0 auto', color: '#000' }}>
+        <div className="hidden print:block print-receipt" style={{ margin: '0 auto', color: '#000' }}>
           <ReceiptContent
             saleResult={saleResult}
             driverName={saleDriverName}
@@ -541,18 +558,24 @@ export default function POSPage() {
             combinedPayments={saleCombined}
             getMethodLabel={getMethodLabel}
             copyLabel="ХАРИЛЦАГЧИЙН ХУВЬ"
+            settings={receiptSettings}
           />
-          <div style={{ pageBreakAfter: 'always' }} />
-          <ReceiptContent
-            saleResult={saleResult}
-            driverName={saleDriverName}
-            customer={saleCustomer}
-            methodLabel={methodLabel}
-            loadNumber={saleLoadNumber}
-            combinedPayments={saleCombined}
-            getMethodLabel={getMethodLabel}
-            copyLabel="ЖОЛООЧИЙН ХУВЬ"
-          />
+          {receiptSettings.printTwoCopies && (
+            <>
+              <div style={{ pageBreakAfter: 'always' }} />
+              <ReceiptContent
+                saleResult={saleResult}
+                driverName={saleDriverName}
+                customer={saleCustomer}
+                methodLabel={methodLabel}
+                loadNumber={saleLoadNumber}
+                combinedPayments={saleCombined}
+                getMethodLabel={getMethodLabel}
+                copyLabel="ЖОЛООЧИЙН ХУВЬ"
+                settings={receiptSettings}
+              />
+            </>
+          )}
         </div>
 
         {/* Print styles */}
@@ -1023,15 +1046,14 @@ export default function POSPage() {
                 <p className="text-[10px] font-semibold text-[#8C8FA3] uppercase">Хосолсон задаргаа</p>
                 {combinedPayments.map((cp, idx) => (
                   <div key={idx} className="flex items-center gap-1.5">
-                    <select
+                    <SearchableSelect
                       value={cp.method}
-                      onChange={(e) => updateCombinedPayment(idx, 'method', e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-white border border-[#E8ECF0] text-[12px] text-[#1A1D26] outline-none"
-                    >
-                      {COMBINED_METHODS.map((m) => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => updateCombinedPayment(idx, 'method', v)}
+                      options={COMBINED_METHODS}
+                      inputClassName="w-full px-2 py-1.5 rounded-lg bg-white border border-[#E8ECF0] text-[12px] text-[#1A1D26] outline-none"
+                      widthClass="flex-1 min-w-0"
+                      aria-label="Төлбөрийн хэлбэр"
+                    />
                     <input
                       type="number"
                       value={cp.amount || ''}
@@ -1179,8 +1201,9 @@ export default function POSPage() {
     </>
   );
 }
-
-// Receipt content component for print - shows detailed receipt
+// Хэвлэх баримт — "Баримтын загвар" хуудсанд тохируулсан загварыг ашиглана.
+// Загварыг зурах код нь `sale-receipt.tsx`-д нэг л газар байгаа тул
+// урьдчилан харсан зүйл яг тэр хэвээрээ хэвлэгдэнэ.
 function ReceiptContent({
   saleResult,
   driverName,
@@ -1190,6 +1213,7 @@ function ReceiptContent({
   combinedPayments,
   getMethodLabel,
   copyLabel,
+  settings,
 }: {
   saleResult: SaleResult;
   driverName: string;
@@ -1199,62 +1223,33 @@ function ReceiptContent({
   combinedPayments?: CombinedPayment[];
   getMethodLabel: (m: string) => string;
   copyLabel: string;
+  settings: ReceiptSettings;
 }) {
   const date = saleResult.createdAt
     ? new Date(saleResult.createdAt).toLocaleString('mn-MN')
     : new Date().toLocaleString('mn-MN');
 
-  const totalQty = saleResult.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+  const data: ReceiptData = {
+    saleNumber: String(saleResult.saleNumber ?? saleResult.id),
+    date,
+    loadNumber,
+    driverName,
+    customerName: customer?.storeName ?? null,
+    customerPhone: customer?.phone ?? null,
+    items: (saleResult.items ?? []).map((item) => ({
+      name: item.product?.name ?? '-',
+      barcode: (item.product as any)?.barcode ?? null,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      lineTotal: Number(item.lineTotal ?? item.quantity * item.unitPrice),
+    })),
+    totalAmount: Number(saleResult.totalAmount),
+    paymentLabel: methodLabel,
+    combinedPayments: combinedPayments?.map((p) => ({
+      label: getMethodLabel(p.method),
+      amount: p.amount,
+    })),
+  };
 
-  const combinedDetail = combinedPayments
-    ? combinedPayments.map((p) => `  ${getMethodLabel(p.method)}: ₮${p.amount.toLocaleString()}`).join('\n')
-    : '';
-
-  return (
-    <div style={{ padding: '8px 0' }}>
-      <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.5' }}>
-{`====================================
-      ЗАЙРМАГ ТҮГЭЭЛТ
-     Борлуулалтын баримт
-       ${copyLabel}
-====================================
-Баримт №: ${saleResult.saleNumber ?? saleResult.id}
-Огноо:    ${date}
-Ачилт №:  ${loadNumber}
-Жолооч:   ${driverName}
-------------------------------------
-ХАРИЛЦАГЧ
-  Нэр:  ${customer?.storeName ?? '-'}
-  Утас:  ${customer?.phone ?? '-'}
-  Хаяг:  ${customer?.address ?? '-'}
-------------------------------------
-БАРАА               Тоо   Үнэ    Дүн`}
-{saleResult.items?.map((item) => {
-  const name = (item.product?.name ?? '').substring(0, 18).padEnd(18);
-  const qty = String(item.quantity).padStart(4);
-  const price = Number(item.unitPrice).toLocaleString().padStart(7);
-  const total = Number(item.lineTotal ?? item.quantity * item.unitPrice).toLocaleString().padStart(8);
-  return `\n${name} ${qty} ${price} ${total}`;
-}).join('') ?? ''}
-{`
-------------------------------------
-Нийт бараа:                ${String(totalQty).padStart(4)} ш
-====================================
-НИЙТ ДҮН:       ₮${Number(saleResult.totalAmount).toLocaleString()}
-====================================
-Төлбөр: ${methodLabel}`}
-{combinedDetail ? `\n${combinedDetail}` : ''}
-{`
-------------------------------------
-
-Хүлээн авсан: ___________________
-
-Хүлээлгэн өгсөн: _______________
-
-------------------------------------
-       Баярлалаа!
-====================================`}
-      </pre>
-    </div>
-  );
+  return <SaleReceipt settings={settings} data={data} copyLabel={copyLabel} />;
 }

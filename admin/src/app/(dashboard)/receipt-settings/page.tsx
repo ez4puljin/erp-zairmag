@@ -5,50 +5,18 @@ import api from '@/lib/api';
 import { Receipt, Save, Eye, CheckCircle, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
+import { SaleReceipt, SAMPLE_RECEIPT } from '@/components/shared/sale-receipt';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { PAPER_WIDTHS } from '@/lib/options';
+import {
+  type ReceiptSettings as Settings,
+  DEFAULT_RECEIPT_SETTINGS as DEFAULT,
+  mergeReceiptSettings,
+} from '@/lib/receipt-settings';
 
 const inputClass =
   'w-full px-3.5 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 const labelClass = 'block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5';
-
-interface Settings {
-  companyName: string;
-  subtitle: string;
-  phone: string | null;
-  address: string | null;
-  footerMessage: string;
-  paperWidth: number;
-  fontSize: number;
-  showCustomer: boolean;
-  showPhone: boolean;
-  showSignatures: boolean;
-  showFooter: boolean;
-  showDriver: boolean;
-  showBarcode: boolean;
-  showItemNumber: boolean;
-  showSaleDriver: boolean;
-  feedbackPhone: string | null;
-  printTwoCopies: boolean;
-}
-
-const DEFAULT: Settings = {
-  companyName: 'ЗАЙРМАГ ТҮГЭЭЛТ',
-  subtitle: 'БОРЛУУЛАЛТЫН БАРИМТ',
-  phone: '',
-  address: '',
-  footerMessage: 'Баярлалаа!',
-  paperWidth: 58,
-  fontSize: 20,
-  showCustomer: true,
-  showPhone: true,
-  showSignatures: true,
-  showFooter: true,
-  showDriver: true,
-  showBarcode: true,
-  showItemNumber: true,
-  showSaleDriver: true,
-  feedbackPhone: '90940123',
-  printTwoCopies: true,
-};
 
 export default function ReceiptSettingsPage() {
   const [s, setS] = useState<Settings>(DEFAULT);
@@ -58,7 +26,7 @@ export default function ReceiptSettingsPage() {
 
   useEffect(() => {
     api.get('/api/receipt-settings')
-      .then(res => setS({ ...DEFAULT, ...res.data, phone: res.data.phone ?? '', address: res.data.address ?? '', feedbackPhone: res.data.feedbackPhone ?? '' }))
+      .then(res => setS(mergeReceiptSettings(res.data)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -82,6 +50,7 @@ export default function ReceiptSettingsPage() {
         showFooter: s.showFooter,
         showDriver: s.showDriver,
         showSaleDriver: s.showSaleDriver,
+        showLoadNumber: s.showLoadNumber,
         showBarcode: s.showBarcode,
         showItemNumber: s.showItemNumber,
         printTwoCopies: s.printTwoCopies,
@@ -98,8 +67,6 @@ export default function ReceiptSettingsPage() {
   function update<K extends keyof Settings>(key: K, value: Settings[K]) {
     setS(prev => ({ ...prev, [key]: value }));
   }
-
-  const previewWidth = s.paperWidth >= 80 ? 320 : 240;
 
   if (loading) {
     return (
@@ -216,14 +183,14 @@ export default function ReceiptSettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelClass}>Цаасны өргөн</label>
-                  <select
-                    value={s.paperWidth}
-                    onChange={e => update('paperWidth', Number(e.target.value))}
-                    className={inputClass}
-                  >
-                    <option value={58}>58мм (стандарт)</option>
-                    <option value={80}>80мм (өргөн)</option>
-                  </select>
+                  <SearchableSelect
+                    value={String(s.paperWidth)}
+                    onChange={v => update('paperWidth', Number(v))}
+                    options={PAPER_WIDTHS}
+                    inputClassName={inputClass}
+                    widthClass="w-full"
+                    aria-label="Цаасны өргөн"
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Үсгийн хэмжээ ({s.fontSize}px)</label>
@@ -245,6 +212,7 @@ export default function ReceiptSettingsPage() {
                 <Toggle label="Хөл текст" value={s.showFooter} onChange={v => update('showFooter', v)} />
                 <Toggle label="Жолоочийн нэр (ачилт)" value={s.showDriver} onChange={v => update('showDriver', v)} />
                 <Toggle label="Жолооч (борлуулалт)" value={s.showSaleDriver} onChange={v => update('showSaleDriver', v)} />
+                <Toggle label="Ачилтын дугаар" value={s.showLoadNumber} onChange={v => update('showLoadNumber', v)} />
                 <Toggle label="Барааны баркод" value={s.showBarcode} onChange={v => update('showBarcode', v)} />
                 <Toggle label="Барааны дэс дугаар" value={s.showItemNumber} onChange={v => update('showItemNumber', v)} />
                 <Toggle label="2 хувь хэвлэх" value={s.printTwoCopies} onChange={v => update('printTwoCopies', v)} />
@@ -260,82 +228,9 @@ export default function ReceiptSettingsPage() {
               <Eye className="w-4 h-4" /> Урьдчилан харах
             </div>
             <div className="rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] p-6">
-              <div
-                className="bg-white shadow-md mx-auto p-3 font-mono text-[#1A1D26]"
-                style={{ width: previewWidth, fontSize: s.fontSize * 0.55 }}
-              >
-                <div className="text-center font-black" style={{ fontSize: s.fontSize * 0.7 }}>
-                  {s.companyName}
-                </div>
-                <div className="text-center font-bold" style={{ fontSize: s.fontSize * 0.6 }}>
-                  {s.subtitle}
-                </div>
-                <div className="text-center font-semibold" style={{ fontSize: s.fontSize * 0.5 }}>
-                  ХАРИЛЦАГЧИЙН ХУВЬ
-                </div>
-                {s.phone && <div className="text-center" style={{ fontSize: s.fontSize * 0.45 }}>Утас: {s.phone}</div>}
-                {s.address && <div className="text-center" style={{ fontSize: s.fontSize * 0.45 }}>{s.address}</div>}
-
-                <div className="border-t-2 border-black my-2" />
-
-                <div>Баримт №: 123</div>
-                <div>Огноо: 2026.04.08 14:30</div>
-                {s.showSaleDriver && <div>Жолооч: Болд Баяр</div>}
-
-                {s.showCustomer && (
-                  <>
-                    <div className="border-t border-black my-1.5" />
-                    <div>Харилцагч:</div>
-                    <div className="font-bold">Жишээ дэлгүүр</div>
-                    {s.showPhone && <div>Утас: 99119911</div>}
-                  </>
-                )}
-
-                <div className="border-t-2 border-black my-2" />
-
-                <div className="font-bold">{s.showItemNumber ? '1. ' : ''}Классик зайрмаг</div>
-                {s.showBarcode && <div style={{ fontSize: s.fontSize * 0.4 }}>Баркод: 4820123456789</div>}
-                <div className="flex justify-between">
-                  <span style={{ fontSize: s.fontSize * 0.45 }}>2 x 3,000₮</span>
-                  <span className="font-bold">6,000₮</span>
-                </div>
-                <div className="font-bold mt-1">{s.showItemNumber ? '2. ' : ''}Мангон сорбет</div>
-                {s.showBarcode && <div style={{ fontSize: s.fontSize * 0.4 }}>Баркод: 4820987654321</div>}
-                <div className="flex justify-between">
-                  <span style={{ fontSize: s.fontSize * 0.45 }}>1 x 5,000₮</span>
-                  <span className="font-bold">5,000₮</span>
-                </div>
-
-                <div className="border-t-2 border-black my-2" />
-
-                <div className="flex justify-between font-black" style={{ fontSize: s.fontSize * 0.7 }}>
-                  <span>НИЙТ ДҮН</span>
-                  <span>11,000₮</span>
-                </div>
-                <div>Төлбөр: Бэлэн</div>
-
-                {s.showSignatures && (
-                  <>
-                    <div className="border-t-2 border-black my-2" />
-                    <div className="mt-1" style={{ fontSize: s.fontSize * 0.45 }}>Хүлээлгэн өгсөн:</div>
-                    <div style={{ fontSize: s.fontSize * 0.45 }}>__________________</div>
-                    <div className="mt-1" style={{ fontSize: s.fontSize * 0.45 }}>Хүлээн авсан:</div>
-                    <div style={{ fontSize: s.fontSize * 0.45 }}>__________________</div>
-                  </>
-                )}
-
-                {s.showFooter && (
-                  <>
-                    <div className="border-t-2 border-black my-2" />
-                    <div className="text-center font-bold">{s.footerMessage}</div>
-                  </>
-                )}
-
-                {s.feedbackPhone && (
-                  <div className="text-center font-bold mt-1" style={{ fontSize: s.fontSize * 0.45 }}>
-                    Санал хүсэлт: {s.feedbackPhone}
-                  </div>
-                )}
+              {/* POS-ийн хэвлэлттэй яг нэг бүрэлдэхүүн — загвар зөрөхгүй. */}
+              <div className="shadow-md mx-auto w-fit">
+                <SaleReceipt settings={s} data={SAMPLE_RECEIPT} copyLabel="ХАРИЛЦАГЧИЙН ХУВЬ" />
               </div>
               <div className="text-center text-[11px] text-[#8C8FA3] mt-3">
                 {s.paperWidth}мм цаас · {s.printTwoCopies ? '2 хувь' : '1 хувь'}
