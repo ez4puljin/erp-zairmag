@@ -550,7 +550,7 @@ export class TruckLoadsService {
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, unitsPerBox: true },
+                select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, unitsPerBox: true, weightGrams: true },
               },
             },
           },
@@ -588,7 +588,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, sellingPrice: true, sellingPriceRural: true } },
+              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -616,7 +616,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true },
+              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -626,7 +626,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -644,7 +644,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true },
+              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -652,7 +652,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -673,7 +673,7 @@ export class TruckLoadsService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true },
+              select: { id: true, name: true, sku: true, unit: true, sellingPrice: true, sellingPriceRural: true, costPrice: true, imageUrl: true, unitsPerBox: true, weightGrams: true },
             },
           },
         },
@@ -681,7 +681,7 @@ export class TruckLoadsService {
         sales: {
           include: {
             customer: { select: { id: true, storeName: true, contactName: true } },
-            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, sellingPrice: true, sellingPriceRural: true } } } },
+            items: { include: { product: { select: { id: true, name: true, sku: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } } } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -737,7 +737,7 @@ export class TruckLoadsService {
         include: {
           items: {
             include: {
-              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, sellingPrice: true, sellingPriceRural: true } },
+              product: { select: { id: true, name: true, sku: true, unit: true, unitsPerBox: true, weightGrams: true, sellingPrice: true, sellingPriceRural: true } },
             },
           },
           driver: { select: { id: true, firstName: true, lastName: true, phone: true } },
