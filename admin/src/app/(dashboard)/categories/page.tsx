@@ -6,6 +6,7 @@ import { FolderOpen, Plus, Pencil, Trash2, X, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
 import { EmptyState } from '@/components/shared/empty-state';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -168,12 +169,17 @@ export default function CategoriesPage() {
               </div>
               <div>
                 <label className="block text-[13px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Эцэг ангилал</label>
-                <select value={form.parentId} onChange={e => setForm(prev => ({ ...prev, parentId: e.target.value }))} className={inputClass}>
-                  <option value="">Байхгүй (Үндсэн)</option>
-                  {categories.filter((c: any) => c.id !== editItem?.id).map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={form.parentId}
+                  onChange={v => setForm(prev => ({ ...prev, parentId: v }))}
+                  options={categories
+                    .filter((c: any) => c.id !== editItem?.id)
+                    .map((c: any) => ({ value: c.id, label: c.name }))}
+                  placeholder="Байхгүй (Үндсэн)"
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Эцэг ангилал"
+                />
               </div>
               {error && <p className="text-[13px] text-[#FF3B30] font-medium">{error}</p>}
               <div className="flex gap-3 pt-2">

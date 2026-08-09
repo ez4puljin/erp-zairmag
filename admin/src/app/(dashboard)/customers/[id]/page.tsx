@@ -30,6 +30,8 @@ import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { PRICING_TIERS } from '@/lib/options';
 
 const tierConfig: Record<string, { label: string; bg: string; text: string }> = {
   STANDARD: { label: 'Standard', bg: '#007AFF15', text: '#007AFF' },
@@ -617,39 +619,28 @@ export default function CustomerDetailPage() {
               </div>
               <div>
                 <label className={labelClass}>Харилцагчийн ангилал</label>
-                <select
+                <SearchableSelect
                   value={editForm.customerCategoryId}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      customerCategoryId: e.target.value,
-                    }))
+                  onChange={(v) =>
+                    setEditForm((prev) => ({ ...prev, customerCategoryId: v }))
                   }
-                  className={inputClass}
-                >
-                  <option value="">Сонгоогүй</option>
-                  {categories.map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  options={categories.map((cat: any) => ({ value: cat.id, label: cat.name }))}
+                  placeholder="Сонгоогүй"
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Харилцагчийн ангилал"
+                />
               </div>
               <div>
                 <label className={labelClass}>Үнийн зэрэглэл</label>
-                <select
+                <SearchableSelect
                   value={editForm.pricingTier}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, pricingTier: e.target.value }))
-                  }
-                  className={inputClass}
-                >
-                  <option value="STANDARD">Standard</option>
-                  <option value="SILVER">Silver</option>
-                  <option value="GOLD">Gold</option>
-                  <option value="PLATINUM">Platinum</option>
-                  <option value="VIP">VIP</option>
-                </select>
+                  onChange={(v) => setEditForm((prev) => ({ ...prev, pricingTier: v }))}
+                  options={PRICING_TIERS}
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Үнийн зэрэглэл"
+                />
               </div>
               <div>
                 <label className={labelClass}>Зээлийн хязгаар (₮)</label>

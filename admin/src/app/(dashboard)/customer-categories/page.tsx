@@ -6,6 +6,8 @@ import { MapPin, Plus, Pencil, Trash2, X, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
 import { EmptyState } from '@/components/shared/empty-state';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { CUSTOMER_CATEGORY_TYPES } from '@/lib/options';
 
 const typeConfig: Record<string, { label: string; bg: string; text: string }> = {
   KHOROO: { label: 'Хороо', bg: '#007AFF15', text: '#007AFF' },
@@ -221,14 +223,14 @@ export default function CustomerCategoriesPage() {
                 <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">
                   Төрөл
                 </label>
-                <select
+                <SearchableSelect
                   value={form.type}
-                  onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
-                  className={inputClass}
-                >
-                  <option value="KHOROO">Хороо</option>
-                  <option value="SUM">Сум</option>
-                </select>
+                  onChange={(v) => setForm((prev) => ({ ...prev, type: v }))}
+                  options={CUSTOMER_CATEGORY_TYPES}
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Төрөл"
+                />
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">

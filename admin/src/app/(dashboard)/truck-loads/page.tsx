@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -435,12 +436,17 @@ export default function TruckLoadsKanban() {
                         ⚠️ Жолооч бүртгээгүй байна. Эхлээд жолооч бүртгэнэ үү. <span className="underline font-bold">Жолооч бүртгэх</span>
                       </a>
                     ) : (
-                      <select value={formDriverId} onChange={(e) => setFormDriverId(e.target.value)} className={inputClass}>
-                        <option value="">Сонгох...</option>
-                        {drivers.map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.firstName} {d.lastName} ({d.phone})</option>
-                        ))}
-                      </select>
+                      <SearchableSelect
+                        value={formDriverId}
+                        onChange={setFormDriverId}
+                        options={drivers.map((d: any) => ({
+                          value: d.id,
+                          label: `${d.firstName} ${d.lastName} (${d.phone})`,
+                        }))}
+                        inputClassName={inputClass}
+                        widthClass="w-full"
+                        aria-label="Жолооч"
+                      />
                     )}
                   </div>
 

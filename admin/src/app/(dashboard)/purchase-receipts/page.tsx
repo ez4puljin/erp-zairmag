@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/shared/section-card';
 import { ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const UNIT_LABELS: Record<string, string> = { PIECE: 'ширхэг', BOX: 'хайрцаг', KG: 'кг', LITER: 'литр', PACK: 'баглаа' };
 
@@ -210,10 +211,15 @@ ${receipt.notes ? 'Тэмдэглэл: ' + receipt.notes : ''}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className={labelClass}>Нийлүүлэгч *</label>
-                <select value={supplierId} onChange={e => setSupplierId(e.target.value)} required className={inputClass}>
-                  <option value="">Сонгох...</option>
-                  {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <SearchableSelect
+                  value={supplierId}
+                  onChange={setSupplierId}
+                  options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                  required
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Нийлүүлэгч"
+                />
               </div>
               <div>
                 <label className={labelClass}>Огноо *</label>

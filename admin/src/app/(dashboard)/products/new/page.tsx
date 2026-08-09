@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { ChevronLeft, Upload, X, Image as ImageIcon, Package, DollarSign, Boxes, FileText, CheckCircle } from 'lucide-react';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { PRODUCT_UNITS } from '@/lib/options';
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -168,14 +170,15 @@ export default function NewProductPage() {
                   </div>
                   <div>
                     <label className={labelClass}>Хэмжих нэгж *</label>
-                    <select value={form.unit} onChange={e => handleChange('unit', e.target.value)} required className={inputClass}>
-                      <option value="">Сонгох...</option>
-                      <option value="PIECE">Ширхэг</option>
-                      <option value="BOX">Хайрцаг</option>
-                      <option value="KG">Килограмм</option>
-                      <option value="LITER">Литр</option>
-                      <option value="PACK">Баглаа</option>
-                    </select>
+                    <SearchableSelect
+                      value={form.unit}
+                      onChange={v => handleChange('unit', v)}
+                      options={PRODUCT_UNITS}
+                      required
+                      inputClassName={inputClass}
+                      widthClass="w-full"
+                      aria-label="Хэмжих нэгж"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -186,18 +189,28 @@ export default function NewProductPage() {
                         ⚠️ Ангилал бүртгээгүй байна. Эхлээд <span className="underline font-bold">ангилал үүсгэнэ</span> үү.
                       </a>
                     ) : (
-                      <select value={form.categoryId} onChange={e => handleChange('categoryId', e.target.value)} required className={inputClass}>
-                        <option value="">Сонгох...</option>
-                        {categories.map((c: any) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                      </select>
+                      <SearchableSelect
+                        value={form.categoryId}
+                        onChange={v => handleChange('categoryId', v)}
+                        options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
+                        required
+                        inputClassName={inputClass}
+                        widthClass="w-full"
+                        aria-label="Ангилал"
+                      />
                     )}
                   </div>
                   <div>
                     <label className={labelClass}>Нийлүүлэгч</label>
-                    <select value={form.supplierId} onChange={e => handleChange('supplierId', e.target.value)} className={inputClass}>
-                      <option value="">Сонгох... (заавал биш)</option>
-                      {suppliers.map((s: any) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                    </select>
+                    <SearchableSelect
+                      value={form.supplierId}
+                      onChange={v => handleChange('supplierId', v)}
+                      options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                      placeholder="Сонгох... (заавал биш)"
+                      inputClassName={inputClass}
+                      widthClass="w-full"
+                      aria-label="Нийлүүлэгч"
+                    />
                     {suppliers.length === 0 && (
                       <a href="/suppliers" className="text-[10px] text-[#007AFF] font-semibold mt-1 inline-block hover:underline">
                         + Нийлүүлэгч үүсгэх

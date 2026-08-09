@@ -10,6 +10,8 @@ import { SectionCard } from '@/components/shared/section-card';
 import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { EXPENSE_PAYMENT_METHODS } from '@/lib/options';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F2F2F7] border border-[#E5E5EA] text-[15px] text-[#1C1C1E] placeholder-[#AEAEB2] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
@@ -273,19 +275,15 @@ export default function ExpensesPage() {
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Ангилал *</label>
-                <select
+                <SearchableSelect
                   value={form.categoryId}
-                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  className={inputClass}
+                  onChange={(v) => setForm({ ...form, categoryId: v })}
+                  options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
                   required
-                >
-                  <option value="">Сонгох...</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Ангилал"
+                />
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Дүн *</label>
@@ -321,15 +319,14 @@ export default function ExpensesPage() {
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Төлбөрийн хэлбэр</label>
-                <select
+                <SearchableSelect
                   value={form.paymentMethod}
-                  onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="CASH">Бэлэн</option>
-                  <option value="BANK_TRANSFER">Шилжүүлэг</option>
-                  <option value="CARD">Карт</option>
-                </select>
+                  onChange={(v) => setForm({ ...form, paymentMethod: v })}
+                  options={EXPENSE_PAYMENT_METHODS}
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Төлбөрийн хэлбэр"
+                />
               </div>
               <div>
                 <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">Лавлагааны дугаар</label>

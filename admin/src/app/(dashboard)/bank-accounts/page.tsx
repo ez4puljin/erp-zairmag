@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { CURRENCIES } from '@/lib/options';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[15px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
@@ -290,16 +292,14 @@ export default function BankAccountsPage() {
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5">Валют</label>
-                  <select
+                  <SearchableSelect
                     value={form.currency}
-                    onChange={e => update('currency', e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="MNT">MNT</option>
-                    <option value="USD">USD</option>
-                    <option value="CNY">CNY</option>
-                    <option value="EUR">EUR</option>
-                  </select>
+                    onChange={v => update('currency', v)}
+                    options={CURRENCIES}
+                    inputClassName={inputClass}
+                    widthClass="w-full"
+                    aria-label="Валют"
+                  />
                 </div>
               </div>
 

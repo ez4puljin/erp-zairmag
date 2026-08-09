@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Search } from 'lucide-react';
+import { SearchableSelect, type SelectOption } from './searchable-select';
 
 /** Шүүлтүүрийн мөрийн нэгдсэн байршуулагч. */
 export function FilterBar({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -26,36 +27,40 @@ export function DateField({ label, value, onChange }: { label?: string; value: s
   );
 }
 
-export interface SelectOption {
-  value: string;
-  label: string;
-}
+export type { SelectOption };
 
+/**
+ * Сонголтын талбар. Доогуураа бичиж хайх боломжтой —
+ * дэлгэрэнгүйг `searchable-select.tsx`-д үзнэ үү.
+ */
 export function SelectField({
   label,
   value,
   onChange,
   options,
   placeholder,
+  widthClass,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   options: SelectOption[];
   placeholder?: string;
+  widthClass?: string;
 }) {
   return (
-    <label className={fieldWrap}>
+    <div className={fieldWrap}>
       {label && <span className={labelCls}>{label}</span>}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={`${controlCls} min-w-[140px]`}>
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <SearchableSelect
+        value={value}
+        onChange={onChange}
+        options={options}
+        placeholder={placeholder}
+        emptyText={placeholder ?? 'Сонгох...'}
+        aria-label={label}
+        widthClass={widthClass}
+      />
+    </div>
   );
 }
 

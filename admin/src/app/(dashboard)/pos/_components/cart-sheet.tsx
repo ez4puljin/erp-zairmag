@@ -15,6 +15,7 @@ import {
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 import { COMBINED_METHODS, PAYMENT_METHODS, tapFeedback } from '../_lib/payment-methods';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 export interface PosCartLine {
   productId: string;
@@ -376,17 +377,14 @@ export function CartSheet({
               <div className="mt-2.5 rounded-2xl bg-[#F5F6FA] border border-[#E8ECF0] p-3 space-y-2">
                 {combinedPayments.map((cp, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <select
+                    <SearchableSelect
                       value={cp.method}
-                      onChange={(e) => onCombinedChange(idx, 'method', e.target.value)}
-                      className="flex-1 min-w-0 h-11 px-2.5 rounded-xl bg-white border border-[#E8ECF0] text-[15px] text-[#1A1D26] outline-none"
-                    >
-                      {COMBINED_METHODS.map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => onCombinedChange(idx, 'method', v)}
+                      options={COMBINED_METHODS}
+                      inputClassName="w-full h-11 px-2.5 rounded-xl bg-white border border-[#E8ECF0] text-[15px] text-[#1A1D26] outline-none"
+                      widthClass="flex-1 min-w-0"
+                      aria-label="Төлбөрийн хэлбэр"
+                    />
                     <input
                       type="text"
                       inputMode="numeric"

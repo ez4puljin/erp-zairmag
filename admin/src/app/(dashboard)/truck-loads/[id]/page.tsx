@@ -12,6 +12,7 @@ import {
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   LOADING:              { label: 'Ачиж байна',          color: '#007AFF', bg: '#EAF2FF' },
@@ -462,14 +463,20 @@ export default function TruckLoadDetailPage() {
           <form onSubmit={handleAddItems} className="p-5 space-y-3">
             {addItems.map((ai, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <select value={ai.productId} onChange={(e) => {
-                  const next = [...addItems]; next[idx].productId = e.target.value; setAddItems(next);
-                }} className={inputClass + ' flex-1'}>
-                  <option value="">Бараа сонгох...</option>
-                  {products.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.sku}) — нөөц: {p.stockAvailable ?? '?'}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={ai.productId}
+                  onChange={(v) => {
+                    const next = [...addItems]; next[idx].productId = v; setAddItems(next);
+                  }}
+                  options={products.map((p: any) => ({
+                    value: p.id,
+                    label: `${p.name} (${p.sku}) — нөөц: ${p.stockAvailable ?? '?'}`,
+                  }))}
+                  emptyText="Бараа сонгох..."
+                  inputClassName={inputClass}
+                  widthClass="flex-1 min-w-0"
+                  aria-label="Бараа"
+                />
                 <input type="number" min={1} value={ai.loadedQty || ''} onChange={(e) => {
                   const next = [...addItems]; next[idx].loadedQty = parseInt(e.target.value) || 0; setAddItems(next);
                 }} placeholder="Тоо" className={inputClass + ' w-28'} />

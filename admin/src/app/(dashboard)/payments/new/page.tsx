@@ -7,6 +7,8 @@ import { ChevronLeft, Wallet, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { PAYMENT_METHODS } from '@/lib/options';
 
 export default function NewPaymentPage() {
   const router = useRouter();
@@ -78,10 +80,15 @@ export default function NewPaymentPage() {
                   <span>Харилцагч бүртгээгүй байна. Эхлээд харилцагч бүртгэнэ үү. <span className="underline font-bold">Харилцагч бүртгэх</span></span>
                 </a>
               ) : (
-                <select value={form.customerId} onChange={e => setForm(prev => ({ ...prev, customerId: e.target.value }))} required className={inputClass}>
-                  <option value="">Сонгох...</option>
-                  {customers.map((c: any) => (<option key={c.id} value={c.id}>{c.storeName}</option>))}
-                </select>
+                <SearchableSelect
+                  value={form.customerId}
+                  onChange={v => setForm(prev => ({ ...prev, customerId: v }))}
+                  options={customers.map((c: any) => ({ value: c.id, label: c.storeName }))}
+                  required
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Харилцагч"
+                />
               )}
             </div>
 
@@ -99,24 +106,31 @@ export default function NewPaymentPage() {
 
             <div>
               <label className={labelClass}>Төлбөрийн хэлбэр</label>
-              <select value={form.method} onChange={e => setForm(prev => ({ ...prev, method: e.target.value }))} className={inputClass}>
-                <option value="CASH">Бэлэн мөнгө</option>
-                <option value="BANK_TRANSFER">Банкны шилжүүлэг</option>
-                <option value="MOBILE_MONEY">Мобайл төлбөр</option>
-                <option value="CHECK">Чек</option>
-              </select>
+              <SearchableSelect
+                value={form.method}
+                onChange={v => setForm(prev => ({ ...prev, method: v }))}
+                options={PAYMENT_METHODS}
+                inputClassName={inputClass}
+                widthClass="w-full"
+                aria-label="Төлбөрийн хэлбэр"
+              />
             </div>
 
             <div>
               <label className={labelClass}>Хүлээн авсан данс *</label>
-              <select value={form.bankAccountId} onChange={e => setForm(prev => ({ ...prev, bankAccountId: e.target.value }))} required className={inputClass}>
-                <option value="">Данс сонгох...</option>
-                {bankAccounts.map((acc: any) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.bankName} — {acc.accountNumber} ({acc.holderName})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.bankAccountId}
+                onChange={v => setForm(prev => ({ ...prev, bankAccountId: v }))}
+                options={bankAccounts.map((acc: any) => ({
+                  value: acc.id,
+                  label: `${acc.bankName} — ${acc.accountNumber} (${acc.holderName})`,
+                }))}
+                emptyText="Данс сонгох..."
+                required
+                inputClassName={inputClass}
+                widthClass="w-full"
+                aria-label="Хүлээн авсан данс"
+              />
               {bankAccounts.length === 0 && (
                 <p className="text-[11px] text-[#FF3B30] mt-1.5">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
               )}

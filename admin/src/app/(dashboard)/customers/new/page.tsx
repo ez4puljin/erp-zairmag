@@ -7,6 +7,8 @@ import { ChevronLeft, Users } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionCard } from '@/components/shared/section-card';
 import { ErrorBanner } from '@/components/shared/error-banner';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { PRICING_TIERS } from '@/lib/options';
 
 export default function NewCustomerPage() {
   const router = useRouter();
@@ -97,22 +99,28 @@ export default function NewCustomerPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Бүс нутаг</label>
-              <select value={form.customerCategoryId} onChange={e => handleChange('customerCategoryId', e.target.value)} className={inputClass}>
-                <option value="">Сонгох...</option>
-                {categories.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.type === 'KHOROO' ? 'Хороо' : 'Сум'})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={form.customerCategoryId}
+                onChange={v => handleChange('customerCategoryId', v)}
+                options={categories.map((c: any) => ({
+                  value: c.id,
+                  label: `${c.name} (${c.type === 'KHOROO' ? 'Хороо' : 'Сум'})`,
+                }))}
+                inputClassName={inputClass}
+                widthClass="w-full"
+                aria-label="Бүс нутаг"
+              />
             </div>
             <div>
               <label className={labelClass}>Үнийн зэрэглэл</label>
-              <select value={form.pricingTier} onChange={e => handleChange('pricingTier', e.target.value)} className={inputClass}>
-                <option value="STANDARD">Standard</option>
-                <option value="SILVER">Silver</option>
-                <option value="GOLD">Gold</option>
-                <option value="PLATINUM">Platinum</option>
-                <option value="VIP">VIP</option>
-              </select>
+              <SearchableSelect
+                value={form.pricingTier}
+                onChange={v => handleChange('pricingTier', v)}
+                options={PRICING_TIERS}
+                inputClassName={inputClass}
+                widthClass="w-full"
+                aria-label="Үнийн зэрэглэл"
+              />
             </div>
           </div>
         </SectionCard>

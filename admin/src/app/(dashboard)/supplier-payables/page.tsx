@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { FilterBar, DateField, SelectField, ActionButton } from '@/components/shared/filter-bar';
+import { SearchableSelect } from '@/components/shared/searchable-select';
+import { SUPPLIER_PAYMENT_METHODS, SUPPLIER_TXN_TYPES } from '@/lib/options';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 
@@ -329,20 +331,28 @@ export default function SupplierPayablesPage() {
                     ⚠️ Нийлүүлэгч бүртгээгүй байна. Эхлээд нийлүүлэгч бүртгэнэ үү. <span className="underline font-bold">Нийлүүлэгч бүртгэх</span>
                   </a>
                 ) : (
-                  <select value={paymentForm.supplierId} onChange={e => setPaymentForm(p => ({ ...p, supplierId: e.target.value }))} required className={inputClass}>
-                    <option value="">Сонгох...</option>
-                    {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <SearchableSelect
+                    value={paymentForm.supplierId}
+                    onChange={v => setPaymentForm(p => ({ ...p, supplierId: v }))}
+                    options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                    required
+                    inputClassName={inputClass}
+                    widthClass="w-full"
+                    aria-label="Нийлүүлэгч"
+                  />
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Төрөл *</label>
-                  <select value={paymentForm.type} onChange={e => setPaymentForm(p => ({ ...p, type: e.target.value }))} className={inputClass}>
-                    <option value="PAYMENT">Төлбөр</option>
-                    <option value="RETURN">Буцаалт</option>
-                    <option value="ADJUSTMENT">Тохируулга</option>
-                  </select>
+                  <SearchableSelect
+                    value={paymentForm.type}
+                    onChange={v => setPaymentForm(p => ({ ...p, type: v }))}
+                    options={SUPPLIER_TXN_TYPES}
+                    inputClassName={inputClass}
+                    widthClass="w-full"
+                    aria-label="Төрөл"
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Дүн (₮) *</label>
@@ -352,12 +362,14 @@ export default function SupplierPayablesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Төлбөрийн арга</label>
-                  <select value={paymentForm.method} onChange={e => setPaymentForm(p => ({ ...p, method: e.target.value }))} className={inputClass}>
-                    <option value="CASH">Бэлэн</option>
-                    <option value="BANK_TRANSFER">Банк шилжүүлэг</option>
-                    <option value="MOBILE_MONEY">Мобайл</option>
-                    <option value="CHECK">Чек</option>
-                  </select>
+                  <SearchableSelect
+                    value={paymentForm.method}
+                    onChange={v => setPaymentForm(p => ({ ...p, method: v }))}
+                    options={SUPPLIER_PAYMENT_METHODS}
+                    inputClassName={inputClass}
+                    widthClass="w-full"
+                    aria-label="Төлбөрийн хэлбэр"
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Огноо *</label>
@@ -366,14 +378,19 @@ export default function SupplierPayablesPage() {
               </div>
               <div>
                 <label className={labelClass}>Гарсан данс *</label>
-                <select value={paymentForm.bankAccountId} onChange={e => setPaymentForm(p => ({ ...p, bankAccountId: e.target.value }))} required className={inputClass}>
-                  <option value="">Данс сонгох...</option>
-                  {bankAccounts.map((acc: any) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.bankName} — {acc.accountNumber} ({acc.holderName})
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={paymentForm.bankAccountId}
+                  onChange={v => setPaymentForm(p => ({ ...p, bankAccountId: v }))}
+                  options={bankAccounts.map((acc: any) => ({
+                    value: acc.id,
+                    label: `${acc.bankName} — ${acc.accountNumber} (${acc.holderName})`,
+                  }))}
+                  emptyText="Данс сонгох..."
+                  required
+                  inputClassName={inputClass}
+                  widthClass="w-full"
+                  aria-label="Данс"
+                />
                 {bankAccounts.length === 0 && (
                   <p className="text-[11px] text-[#FF3B30] mt-1">Данс бүртгэгдээгүй байна. Эхлээд "Данс" цэсээс шинэ данс үүсгэнэ үү.</p>
                 )}

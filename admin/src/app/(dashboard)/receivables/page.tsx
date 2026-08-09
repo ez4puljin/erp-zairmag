@@ -9,6 +9,7 @@ import { SectionCard } from '@/components/shared/section-card';
 import { FilterBar, DateField, SelectField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { SearchableSelect } from '@/components/shared/searchable-select';
 
 const fmt = (n: number) => n ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -752,19 +753,19 @@ export default function ReceivablesPage() {
                     ⚠️ Данс бүртгээгүй. <span className="underline font-bold">Данс үүсгэх</span>
                   </a>
                 ) : (
-                  <select
+                  <SearchableSelect
                     value={payForm.bankAccountId}
-                    onChange={e => setPayForm(p => ({ ...p, bankAccountId: e.target.value }))}
+                    onChange={v => setPayForm(p => ({ ...p, bankAccountId: v }))}
+                    options={bankAccounts.map((acc: any) => ({
+                      value: acc.id,
+                      label: `${acc.bankName} — ${acc.accountNumber} (${acc.holderName})`,
+                    }))}
+                    emptyText="Данс сонгох..."
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0]/70 text-[14px] text-[#1A1D26] outline-none focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
-                  >
-                    <option value="">Данс сонгох...</option>
-                    {bankAccounts.map((acc: any) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.bankName} — {acc.accountNumber} ({acc.holderName})
-                      </option>
-                    ))}
-                  </select>
+                    inputClassName="w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0]/70 text-[14px] text-[#1A1D26] outline-none focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white"
+                    widthClass="w-full"
+                    aria-label="Данс"
+                  />
                 )}
               </div>
 
