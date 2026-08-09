@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../src/lib/secure-storage';
 
 import { SERVER_URL_KEY } from '@/src/lib/api';
 

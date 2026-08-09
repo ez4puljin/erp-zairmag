@@ -1,5 +1,5 @@
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-storage';
 
 const PRINTER_KEY = 'bluetooth_printer_address';
 const PRINTER_NAME_KEY = 'bluetooth_printer_name';

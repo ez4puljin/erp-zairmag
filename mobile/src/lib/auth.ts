@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-storage';
 import api, { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, getCurrentBaseUrl } from './api';
 import type { AuthResponse, User } from '../types';
 

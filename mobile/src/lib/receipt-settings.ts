@@ -1,5 +1,5 @@
 import api from './api';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from './secure-storage';
 
 const CACHE_KEY = 'receipt_settings_cache';
 

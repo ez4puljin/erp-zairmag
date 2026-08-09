@@ -8,6 +8,16 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { getServerUrl, setServerUrl } from '@/src/lib/api';
 
+/**
+ * Tailscale-ийн хаяг. `EXPO_PUBLIC_API_URL` нь `*.ts.net` бол түүнээс
+ * авна — жолооч гар утасны дата дээрээ ч Tailscale-ээр холбогдох боломжтой.
+ */
+const TAILNET_HOST = (() => {
+  const raw = process.env.EXPO_PUBLIC_API_URL ?? '';
+  const host = raw.replace(/^https?:\/\//, '').replace(/[:/].*$/, '');
+  return host.endsWith('.ts.net') ? host : '';
+})();
+
 export default function ServerConfigScreen() {
   const [serverIp, setServerIp] = useState('');
   const [port, setPort] = useState('3000');
@@ -21,7 +31,9 @@ export default function ServerConfigScreen() {
       try {
         const u = new URL(url);
         setServerIp(u.hostname);
-        setPort(u.port || '3000');
+        // HTTPS хаяг нь ихэвчлэн 443 порт дээр байдаг тул портыг хоосон
+        // орхино — доор fullUrl-д порт нэмэгдэхгүй.
+        setPort(u.port || (u.protocol === 'https:' ? '' : '3000'));
       } catch {
         setServerIp(url.replace(/^https?:\/\//, '').replace(/:\d+$/, ''));
       }
@@ -29,7 +41,14 @@ export default function ServerConfigScreen() {
     });
   }, []);
 
-  const fullUrl = `http://${serverIp}:${port}`;
+  // Tailscale-ийн хаяг (`*.ts.net`) нь `tailscale serve`-ээр 443 порт дээр
+  // HTTPS-ээр нийтлэгддэг. Тийм хаяг оруулсан бол схем болон портыг
+  // автоматаар тохируулна — эс бөгөөс http://host:3000 болж холбогдохгүй.
+  const host = serverIp.trim();
+  const isTailnet = host.endsWith('.ts.net');
+  const scheme = isTailnet ? 'https' : 'http';
+  const shownPort = isTailnet ? '' : port;
+  const fullUrl = shownPort ? `${scheme}://${host}:${shownPort}` : `${scheme}://${host}`;
 
   const handleTest = async () => {
     if (!serverIp.trim()) { setErrorMsg('IP хаяг оруулна уу'); return; }
@@ -79,28 +98,43 @@ export default function ServerConfigScreen() {
 
         <View style={s.card}>
           <View style={s.field}>
-            <Text style={s.label}>IP ХАЯГ</Text>
+            <Text style={s.label}>IP ХАЯГ ЭСВЭЛ ДОМЭЙН</Text>
             <TextInput
               style={s.input}
               value={serverIp}
               onChangeText={t => { setServerIp(t); setStatus('idle'); }}
               placeholder="192.168.1.65"
               placeholderTextColor="#AEAEB2"
-              keyboardType="numeric"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
               autoFocus
             />
           </View>
-          <View style={s.field}>
-            <Text style={s.label}>ПОРТ</Text>
-            <TextInput
-              style={s.input}
-              value={port}
-              onChangeText={t => { setPort(t); setStatus('idle'); }}
-              placeholder="3000"
-              placeholderTextColor="#AEAEB2"
-              keyboardType="number-pad"
-            />
-          </View>
+          {/* Tailscale дээр порт хэрэггүй — 443 дээр HTTPS-ээр нийтлэгддэг. */}
+          {!isTailnet && (
+            <View style={s.field}>
+              <Text style={s.label}>ПОРТ</Text>
+              <TextInput
+                style={s.input}
+                value={port}
+                onChangeText={t => { setPort(t); setStatus('idle'); }}
+                placeholder="3000"
+                placeholderTextColor="#AEAEB2"
+                keyboardType="number-pad"
+              />
+            </View>
+          )}
+
+          {TAILNET_HOST !== '' && !isTailnet && (
+            <TouchableOpacity
+              style={s.presetBtn}
+              onPress={() => { setServerIp(TAILNET_HOST); setStatus('idle'); }}
+            >
+              <Ionicons name="shield-checkmark-outline" size={16} color="#007AFF" />
+              <Text style={s.presetBtnText}>Tailscale хаяг ашиглах</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={s.urlRow}>
             <Ionicons name="link" size={14} color="#8E8E93" />
@@ -138,9 +172,11 @@ export default function ServerConfigScreen() {
         </TouchableOpacity>
 
         <Text style={s.hint}>
-          Жишээ: Компьютерийн WiFi IP хаягийг оруулна.{'\n'}
-          Windows: ipconfig → IPv4 Address{'\n'}
-          Mac: ifconfig → inet
+          Нэг WiFi сүлжээнд бол компьютерийн IP хаягийг оруулна{'\n'}
+          (Windows: ipconfig → IPv4 Address).{'\n'}
+          {'\n'}
+          Гар утасны дата ашиглах бол Tailscale хаягийг оруулна —{'\n'}
+          утсан дээр Tailscale апп нэвтэрсэн байх шаардлагатай.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -158,6 +194,8 @@ const s = StyleSheet.create({
   field: { marginBottom: 14 },
   label: { fontSize: 11, fontWeight: '700', color: '#8E8E93', letterSpacing: 0.5, marginBottom: 6 },
   input: { backgroundColor: '#F5F6FA', borderWidth: 1.5, borderColor: '#E8ECF0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: Platform.OS === 'ios' ? 14 : 10, fontSize: 18, fontWeight: '600', color: '#1C1C1E' },
+  presetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#EAF2FF' },
+  presetBtnText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
   urlRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8ECF0' },
   urlText: { fontSize: 13, color: '#8E8E93', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   successBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, backgroundColor: '#34C75910', borderRadius: 10, padding: 10 },
