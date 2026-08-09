@@ -11,7 +11,7 @@ export { FormModal } from './FormModal';
 export { FormField } from './FormField';
 export type { SelectOption, FieldType } from './FormField';
 export { DetailSection, DetailRow } from './DetailSection';
-export { confirm } from './ConfirmDialog';
+export { confirm, notify } from './ConfirmDialog';
 export { FilterChips } from './FilterChips';
 export type { FilterOption } from './FilterChips';
 export { DateRangePicker } from './DateRangePicker';

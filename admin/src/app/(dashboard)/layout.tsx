@@ -37,6 +37,7 @@ import {
   MessageSquare,
   Receipt,
   ReceiptText,
+  Tag,
   PercentCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -87,6 +88,9 @@ const menuGroups: NavGroup[] = [
       { href: '/receivables', label: 'Тооцоо', description: 'Харилцагчдын тооцоо', icon: BookOpen, color: '#F472B6', bg: '#FDF2F8' },
       { href: '/supplier-payables', label: 'Нийлүүлэгч тооцоо', description: 'Нийлүүлэгчдийн тооцоо', icon: FileText, color: '#EA580C', bg: '#FFF7ED' },
       { href: '/cash-closings', label: 'Мөнгөн хаалт', description: 'Кассын хаалт', icon: Landmark, color: '#A855F7', bg: '#FAF5FF' },
+      { href: '/expenses', label: 'Зардал', description: 'Зардал бүртгэх', icon: Receipt, color: '#DC2626', bg: '#FEF2F2' },
+      { href: '/expense-categories', label: 'Зардлын ангилал', description: 'Зардлын төрөл', icon: Tag, color: '#F59E0B', bg: '#FFFBEB' },
+      { href: '/invoices', label: 'Нэхэмжлэх', description: 'Нэхэмжлэхийн жагсаалт', icon: ReceiptText, color: '#0891B2', bg: '#ECFEFF' },
     ],
   },
   {

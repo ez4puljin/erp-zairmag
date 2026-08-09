@@ -35,6 +35,9 @@ const SECTIONS: Section[] = [
       { icon: 'document', label: 'Нийлүүлэгч тооцоо', color: '#EA580C', route: '/(admin)/features/supplier-payables' },
       { icon: 'card-outline', label: 'Данс', color: '#0EA5E9', route: '/(admin)/features/bank-accounts' },
       { icon: 'cash', label: 'Мөнгөн хаалт', color: '#A855F7', route: '/(admin)/features/cash-closings' },
+      { icon: 'receipt', label: 'Зардал', color: '#DC2626', route: '/(admin)/features/expenses' },
+      { icon: 'pricetags', label: 'Зардлын ангилал', color: '#F59E0B', route: '/(admin)/features/expense-categories' },
+      { icon: 'reader', label: 'Нэхэмжлэх', color: '#0891B2', route: '/(admin)/features/invoices' },
     ],
   },
   {
