@@ -35,7 +35,21 @@ echo  ========================================
 %TS% serve status
 echo  ========================================
 echo.
-echo   URL: https://puljin.tailb3398e.ts.net
+
+:: Hostname is assigned by Tailscale and differs per machine and per
+:: account, so read it instead of hard-coding it.
+set "TSHOST="
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "try { ((& %TS% status --json ^| ConvertFrom-Json).Self.DNSName).TrimEnd('.') } catch { '' }"`) do set "TSHOST=%%i"
+
+if defined TSHOST (
+    echo   URL: https://%TSHOST%
+    echo.
+    echo   Enter this in the app under "Server settings" - no port needed.
+) else (
+    echo   Could not read the Tailscale hostname.
+    echo   Find it with:  tailscale status --json
+    echo   or at:         https://login.tailscale.com/admin/machines
+)
 echo.
 echo   NOTES:
 echo   - backend (3000) and admin (3001) must be running - see start.bat
