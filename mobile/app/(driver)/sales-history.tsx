@@ -145,21 +145,27 @@ export default function SalesHistoryScreen() {
       const connected = await connectPrinter(saved.address);
       if (!connected) return;
 
+      // Хэвлэхийн өмнө сервер дээрх хамгийн сүүлийн загварыг татна.
+      // Ингэснээр админ "Хадгалах" дарсан даруйд, аппыг дахин нээхгүйгээр
+      // шинэ загвараар хэвлэгдэнэ. Серверт хүрэхгүй бол кэшээр үргэлжилнэ.
+      let s = receiptSettings;
+      try { s = await fetchReceiptSettings(); setReceiptSettings(s); } catch {}
+
       // Trigger offscreen render
       setPrintSale(sale);
       // Give React Native time to render the ViewShot
       await new Promise(r => setTimeout(r, 300));
 
-      const width = widthForPaper(receiptSettings.paperWidth);
+      const width = widthForPaper(s.paperWidth);
 
       if (customerReceiptRef.current?.capture) {
         const b64 = await customerReceiptRef.current.capture();
-        await printImageBase64(b64, width, receiptSettings.paperWidth);
+        await printImageBase64(b64, width, s.paperWidth);
         await feedLines(2);
       }
-      if (receiptSettings.printTwoCopies && driverReceiptRef.current?.capture) {
+      if (s.printTwoCopies && driverReceiptRef.current?.capture) {
         const b64 = await driverReceiptRef.current.capture();
-        await printImageBase64(b64, width, receiptSettings.paperWidth);
+        await printImageBase64(b64, width, s.paperWidth);
         await feedLines(3);
       } else {
         await feedLines(3);

@@ -235,23 +235,29 @@ export default function POSScreen() {
     if (!saleResult) return;
     setPrinting(true);
     try {
+      // Хэвлэхийн өмнө сервер дээрх хамгийн сүүлийн загварыг татна.
+      // Ингэснээр админ "Хадгалах" дарсан даруйд, аппыг дахин нээхгүйгээр
+      // шинэ загвараар хэвлэгдэнэ. Серверт хүрэхгүй бол кэшээр үргэлжилнэ.
+      let s = receiptSettings;
+      try { s = await fetchReceiptSettings(); setReceiptSettings(s); } catch {}
+
       const saved = await getSavedPrinter();
       if (!saved) { setShowPrinterModal(true); setPrinting(false); return; }
       const connected = await connectPrinter(saved.address);
       if (!connected) { setShowPrinterModal(true); setPrinting(false); return; }
 
-      const width = widthForPaper(receiptSettings.paperWidth);
+      const width = widthForPaper(s.paperWidth);
 
       // Capture receipt #1 (customer copy)
       if (!customerReceiptRef.current?.capture) throw new Error('Баримт бэлэн биш байна');
       const base64a = await customerReceiptRef.current.capture();
-      await printImageBase64(base64a, width, receiptSettings.paperWidth);
+      await printImageBase64(base64a, width, s.paperWidth);
       await feedLines(2);
 
       // Capture receipt #2 (driver copy) only if enabled
-      if (receiptSettings.printTwoCopies && driverReceiptRef.current?.capture) {
+      if (s.printTwoCopies && driverReceiptRef.current?.capture) {
         const base64b = await driverReceiptRef.current.capture();
-        await printImageBase64(base64b, width, receiptSettings.paperWidth);
+        await printImageBase64(base64b, width, s.paperWidth);
         await feedLines(3);
       } else {
         await feedLines(3);

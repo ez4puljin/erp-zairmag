@@ -22,4 +22,12 @@ export class UpdateReceiptSettingsDto {
   @IsOptional() @IsBoolean() showVat?: boolean;
   @IsOptional() @IsInt() @Min(0) @Max(50) vatRate?: number;
   @IsOptional() @IsInt() @Min(0) @Max(50) cityTaxRate?: number;
+
+  // --- Байршлын тохиргоо ---
+  @IsOptional() @IsInt() @Min(0) @Max(40) marginX?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(40) marginY?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(20) lineSpacing?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(20) sectionSpacing?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(40) signatureSpacing?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(10) itemFontBoost?: number;
 }

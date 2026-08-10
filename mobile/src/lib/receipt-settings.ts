@@ -24,6 +24,14 @@ export interface ReceiptSettings {
   showVat: boolean;
   vatRate: number;
   cityTaxRate: number;
+
+  /** Байршлын тохиргоо — серверээс ирнэ, APK дахин барих шаардлагагүй. */
+  marginX: number;
+  marginY: number;
+  lineSpacing: number;
+  sectionSpacing: number;
+  signatureSpacing: number;
+  itemFontBoost: number;
 }
 
 export const DEFAULT_SETTINGS: ReceiptSettings = {
@@ -47,6 +55,12 @@ export const DEFAULT_SETTINGS: ReceiptSettings = {
   showVat: false,
   vatRate: 10,
   cityTaxRate: 1,
+  marginX: 4,
+  marginY: 4,
+  lineSpacing: 2,
+  sectionSpacing: 2,
+  signatureSpacing: 6,
+  itemFontBoost: 2,
 };
 
 let cached: ReceiptSettings | null = null;

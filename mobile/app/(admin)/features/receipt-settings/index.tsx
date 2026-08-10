@@ -111,16 +111,16 @@ export default function ReceiptSettingsScreen() {
         <View style={s.fontSizeRow}>
           <TouchableOpacity
             style={s.fontSizeBtn}
-            onPress={() => update('fontSize', Math.max(14, form.fontSize - 2))}
+            onPress={() => update('fontSize', Math.max(10, form.fontSize - 1))}
           >
             <Ionicons name="remove" size={18} color="#007AFF" />
           </TouchableOpacity>
           <View style={s.fontSizeBar}>
-            <View style={[s.fontSizeFill, { width: `${((form.fontSize - 14) / 18) * 100}%` }]} />
+            <View style={[s.fontSizeFill, { width: `${((form.fontSize - 10) / 22) * 100}%` }]} />
           </View>
           <TouchableOpacity
             style={s.fontSizeBtn}
-            onPress={() => update('fontSize', Math.min(32, form.fontSize + 2))}
+            onPress={() => update('fontSize', Math.min(32, form.fontSize + 1))}
           >
             <Ionicons name="add" size={18} color="#007AFF" />
           </TouchableOpacity>

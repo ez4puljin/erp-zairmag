@@ -55,17 +55,23 @@ export default function TruckSaleDetailScreen() {
       const connected = await connectPrinter(saved.address);
       if (!connected) return;
 
+      // Хэвлэхийн өмнө сервер дээрх хамгийн сүүлийн загварыг татна.
+      // Ингэснээр админ "Хадгалах" дарсан даруйд, аппыг дахин нээхгүйгээр
+      // шинэ загвараар хэвлэгдэнэ. Серверт хүрэхгүй бол кэшээр үргэлжилнэ.
+      let s = settings;
+      try { s = await fetchReceiptSettings(); setSettings(s); } catch {}
+
       // Дэлгэцээс гадуур баримтыг зурах хугацаа өгнө.
       setPrintSale(data);
       await new Promise((r) => setTimeout(r, 300));
 
-      const width = widthForPaper(settings.paperWidth);
+      const width = widthForPaper(s.paperWidth);
       if (customerRef.current?.capture) {
-        await printImageBase64(await customerRef.current.capture(), width, settings.paperWidth);
+        await printImageBase64(await customerRef.current.capture(), width, s.paperWidth);
         await feedLines(2);
       }
-      if (settings.printTwoCopies && driverRef.current?.capture) {
-        await printImageBase64(await driverRef.current.capture(), width, settings.paperWidth);
+      if (s.printTwoCopies && driverRef.current?.capture) {
+        await printImageBase64(await driverRef.current.capture(), width, s.paperWidth);
         await feedLines(3);
       } else {
         await feedLines(3);

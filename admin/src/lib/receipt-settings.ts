@@ -24,6 +24,14 @@ export interface ReceiptSettings {
   showLoadNumber: boolean;
   feedbackPhone: string | null;
   printTwoCopies: boolean;
+
+  /** Байршлын тохиргоо — принтерийн цэгээр (58мм цаас = 384 цэг). */
+  marginX: number;
+  marginY: number;
+  lineSpacing: number;
+  sectionSpacing: number;
+  signatureSpacing: number;
+  itemFontBoost: number;
 }
 
 export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
@@ -45,6 +53,12 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
   showLoadNumber: true,
   feedbackPhone: '90940123',
   printTwoCopies: true,
+  marginX: 4,
+  marginY: 4,
+  lineSpacing: 2,
+  sectionSpacing: 2,
+  signatureSpacing: 6,
+  itemFontBoost: 2,
 };
 
 /** Серверээс ирсэн утгыг өгөгдмөлтэй нийлүүлнэ (null → хоосон мөр). */

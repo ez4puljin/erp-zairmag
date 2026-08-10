@@ -823,6 +823,16 @@ model ReceiptSettings {
   showVat         Boolean  @default(false) @map("show_vat")
   vatRate         Int      @default(10) @map("vat_rate")
   cityTaxRate     Int      @default(1) @map("city_tax_rate")
+
+  /// Байршлын тохиргоо — эдгээрийг өөрчлөхөд APK дахин build хийх шаардлагагүй.
+  /// Утга нь принтерийн цэгээр (58мм цаас = 384 цэг).
+  marginX          Int     @default(4) @map("margin_x")           // хажуугийн зай
+  marginY          Int     @default(4) @map("margin_y")           // дээд/доод зай
+  lineSpacing      Int     @default(2) @map("line_spacing")       // мөр хоорондын зай
+  sectionSpacing   Int     @default(2) @map("section_spacing")    // тусгаарлах зураасны зай
+  signatureSpacing Int     @default(6) @map("signature_spacing")  // гарын үсгийн дээрх зай
+  itemFontBoost    Int     @default(2) @map("item_font_boost")    // барааны мөр хэдэн px томрох
+
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("receipt_settings")

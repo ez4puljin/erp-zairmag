@@ -18,6 +18,30 @@ const inputClass =
   'w-full px-3.5 py-2.5 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-[#1A1D26] placeholder-[#A0A3B1] outline-none transition-all focus:border-[#007AFF] focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 const labelClass = 'block text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide mb-1.5';
 
+
+/** Тоон тохиргоог гулсуураар өөрчлөх мөр. */
+function Slider({
+  label, value, min, max, onChange,
+}: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">
+        {label} ({value})
+      </label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-[#007AFF]"
+        aria-label={label}
+      />
+    </div>
+  );
+}
+
 export default function ReceiptSettingsPage() {
   const [s, setS] = useState<Settings>(DEFAULT);
   const [loading, setLoading] = useState(true);
@@ -196,12 +220,38 @@ export default function ReceiptSettingsPage() {
                   <label className={labelClass}>Үсгийн хэмжээ ({s.fontSize}px)</label>
                   <input
                     type="range"
-                    min={14}
+                    min={10}
                     max={32}
+                    step={1}
                     value={s.fontSize}
                     onChange={e => update('fontSize', Number(e.target.value))}
                     className="w-full mt-3 accent-[#007AFF]"
                   />
+                </div>
+              </div>
+
+              {/* Байршил — эдгээрийг өөрчлөхөд утасны апп дахин суулгах шаардлагагүй,
+                  хэвлэх бүрд сервер дээрх утгыг татдаг. */}
+              <div className="pt-2">
+                <p className="text-[12px] font-bold text-[#8C8FA3] uppercase tracking-wide mb-1">
+                  Байршил
+                </p>
+                <p className="text-[12px] text-[#8C8FA3] mb-3">
+                  Утга нь принтерийн цэгээр. Хадгалахад утасны апп дараагийн хэвлэлтээс эхлэн дагана.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Slider label="Хажуугийн зай" value={s.marginX} min={0} max={40}
+                    onChange={v => update('marginX', v)} />
+                  <Slider label="Дээд/доод зай" value={s.marginY} min={0} max={40}
+                    onChange={v => update('marginY', v)} />
+                  <Slider label="Мөр хоорондын зай" value={s.lineSpacing} min={0} max={20}
+                    onChange={v => update('lineSpacing', v)} />
+                  <Slider label="Хэсэг хоорондын зай" value={s.sectionSpacing} min={0} max={20}
+                    onChange={v => update('sectionSpacing', v)} />
+                  <Slider label="Гарын үсгийн дээрх зай" value={s.signatureSpacing} min={0} max={40}
+                    onChange={v => update('signatureSpacing', v)} />
+                  <Slider label="Барааны мөр томрох хэмжээ" value={s.itemFontBoost} min={0} max={10}
+                    onChange={v => update('itemFontBoost', v)} />
                 </div>
               </div>
 

@@ -154,8 +154,8 @@ export function SaleReceipt({ sale, customer, paymentMethod, copyLabel, driverNa
       {settings.showSignatures && (
         <>
           <View style={s.tableDividerDashed} />
-          <Text style={s.signLabel}>Хүлээлгэн өгсөн: ______________</Text>
-          <Text style={s.signLabel}>Хүлээн авсан: _________________</Text>
+          <SignatureLine label="Хүлээлгэн өгсөн" s={s} />
+          <SignatureLine label="Хүлээн авсан" s={s} />
         </>
       )}
 
@@ -169,6 +169,16 @@ export function SaleReceipt({ sale, customer, paymentMethod, copyLabel, driverNa
       {settings.feedbackPhone ? (
         <Text style={s.feedback}>Санал хүсэлт: {settings.feedbackPhone}</Text>
       ) : null}
+    </View>
+  );
+}
+
+/** Шошго + цаасны баруун зах хүртэл сунах зураас. */
+function SignatureLine({ label, s }: { label: string; s: any }) {
+  return (
+    <View style={s.signRow}>
+      <Text style={s.signLabel}>{label}:</Text>
+      <View style={s.signLine} />
     </View>
   );
 }
@@ -259,8 +269,8 @@ export function HandoverReceipt({ load, type, copyLabel, settings = DEFAULT_SETT
       {settings.showSignatures && (
         <>
           <View style={s.tableDividerDashed} />
-          <Text style={s.signLabel}>Хүлээлгэн өгсөн: ______________</Text>
-          <Text style={s.signLabel}>Хүлээн авсан: _________________</Text>
+          <SignatureLine label="Хүлээлгэн өгсөн" s={s} />
+          <SignatureLine label="Хүлээн авсан" s={s} />
         </>
       )}
 
@@ -272,43 +282,56 @@ export function HandoverReceipt({ load, type, copyLabel, settings = DEFAULT_SETT
 }
 
 function makeStyles(settings: ReceiptSettings) {
-  // Honor saved fontSize but cap at 14 for compactness as per latest design
-  const fs = Math.min(settings.fontSize || 12, 14);
+  // Байршлын утгууд тохиргооноос ирнэ. Хуучин APK-д эдгээр талбар байхгүй
+  // байж болох тул ?? -ээр хамгаална.
+  const mX = settings.marginX ?? 4;
+  const mY = settings.marginY ?? 4;
+  const line = settings.lineSpacing ?? 2;
+  const sect = settings.sectionSpacing ?? 2;
+  const sign = settings.signatureSpacing ?? 6;
+  const boost = settings.itemFontBoost ?? 2;
+  // Тохиргооны фонтыг шууд ашиглана. Өмнө нь 14-өөр таслаж байсан тул
+  // тохиргоонд том фонт сонгосон ч хэвлэлт өөрчлөгддөггүй байв.
+  const fs = settings.fontSize || 12;
   return StyleSheet.create({
-    page: { backgroundColor: '#FFFFFF', paddingVertical: 6, paddingHorizontal: 4 },
+    page: { backgroundColor: '#FFFFFF', paddingVertical: mY, paddingHorizontal: mX },
     title: { fontSize: fs + 6, fontWeight: '900', color: '#000', textAlign: 'center' },
     subtitle: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1 },
     copyLabel: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1 },
-    divider: { borderBottomWidth: 1.5, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: 4 },
-    tableDivider: { borderBottomWidth: 1.5, borderBottomColor: '#000', marginVertical: 3 },
-    tableDividerDashed: { borderBottomWidth: 1, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: 3 },
+    divider: { borderBottomWidth: 1.5, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: sect },
+    tableDivider: { borderBottomWidth: 1.5, borderBottomColor: '#000', marginVertical: sect },
+    tableDividerDashed: { borderBottomWidth: 1, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: sect },
 
     // Customer bar
-    custBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2, marginBottom: 2 },
+    custBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 1, marginBottom: 1 },
     custName: { fontSize: fs - 1, fontWeight: '700', color: '#000', flex: 1 },
     custPhone: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
 
     // Meta block
     metaBlock: { paddingVertical: 1 },
-    metaRow: { flexDirection: 'row', paddingVertical: 1, alignItems: 'flex-start' },
+    metaRow: { flexDirection: 'row', paddingVertical: 0, alignItems: 'flex-start' },
     metaLabel: { fontSize: fs - 2, color: '#000', width: 65, fontWeight: '500' },
     metaValue: { fontSize: fs - 2, fontWeight: '600', color: '#000', flex: 1 },
 
-    // Items table
-    tableHead: { flexDirection: 'row', paddingVertical: 2 },
-    th: { fontSize: fs - 3, fontWeight: '700', color: '#000' },
-    itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 3 },
-    itemName: { fontSize: fs - 2, fontWeight: '700', color: '#000', lineHeight: fs + 2 },
-    itemBarcode: { fontSize: fs - 3, fontWeight: '800', color: '#000', lineHeight: fs + 1, marginTop: 1, letterSpacing: 0.5 },
-    itemCell: { fontSize: fs - 2, color: '#000', paddingTop: 1 },
+    // Items table — барааны мөрийг бусад хэсгээс том, тод хэвлэнэ
+    tableHead: { flexDirection: 'row', paddingVertical: 1 },
+    th: { fontSize: fs - 1, fontWeight: '700', color: '#000' },
+    itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: line },
+    itemName: { fontSize: fs + boost, fontWeight: '900', color: '#000', lineHeight: fs + boost + 2 },
+    itemBarcode: { fontSize: fs, fontWeight: '800', color: '#000', lineHeight: fs + 2, marginTop: 0, letterSpacing: 0.5 },
+    itemCell: { fontSize: fs + Math.max(0, boost - 1), fontWeight: '800', color: '#000', paddingTop: 1 },
 
     // Totals
-    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 1 },
+    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0 },
     totalLabel: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
     totalValue: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
 
     // Signatures / footer
-    signLabel: { fontSize: fs - 3, color: '#000', paddingVertical: 4 },
+    signRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: sign },
+    signLabel: { fontSize: fs - 1, fontWeight: '600', color: '#000' },
+    /** Зураас нь үлдсэн бүх өргөнийг эзэлнэ — өмнө нь тогтмол урттай зураас
+     *  байсан тул баруун талд хоосон зай үлдэж, давчуу харагддаг байв. */
+    signLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#000', marginLeft: 4, marginBottom: 2 },
     footer: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 2 },
     feedback: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 3 },
   });

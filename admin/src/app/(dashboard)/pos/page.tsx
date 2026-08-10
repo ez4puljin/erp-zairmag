@@ -1335,6 +1335,7 @@ function ReceiptContent({
     driverName,
     customerName: customer?.storeName ?? null,
     customerPhone: customer?.phone ?? null,
+    customerAddress: customer?.address ?? null,
     items: (saleResult.items ?? []).map((item) => ({
       name: item.product?.name ?? '-',
       barcode: (item.product as any)?.barcodes?.[0]?.code ?? null,
@@ -1348,6 +1349,17 @@ function ReceiptContent({
       label: getMethodLabel(p.method),
       amount: p.amount,
     })),
+    // Бэлэн / бэлэн бус хуваарилалт — утасны баримттай ижил байлгана.
+    cashAmount: combinedPayments?.length
+      ? combinedPayments.filter((p) => p.method === 'CASH').reduce((s, p) => s + p.amount, 0)
+      : saleResult.paymentMethod === 'CASH'
+        ? Number(saleResult.totalAmount)
+        : 0,
+    nonCashAmount: combinedPayments?.length
+      ? combinedPayments.filter((p) => p.method !== 'CASH').reduce((s, p) => s + p.amount, 0)
+      : saleResult.paymentMethod === 'CASH'
+        ? 0
+        : Number(saleResult.totalAmount),
   };
 
   return <SaleReceipt settings={settings} data={data} copyLabel={copyLabel} />;
