@@ -230,6 +230,28 @@ export default function TruckLoadDetailPage() {
     if (id) fetchLoad();
   }, [id]);
 
+  // Борлуулалтын тайлангаас `?sale=<id>`-тэй ирвэл тухайн борлуулалтын
+  // засварыг шууд нээнэ — админ хайж олох шаардлагагүй.
+  const [pendingSaleId, setPendingSaleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingSaleId(new URLSearchParams(window.location.search).get('sale'));
+  }, []);
+
+  useEffect(() => {
+    if (!pendingSaleId || !load) return;
+    const sale = (load.sales ?? []).find((s: any) => s.id === pendingSaleId);
+    setPendingSaleId(null);
+    // Дахин ачаалахад давтан нээгдэхгүй байхаар хаягаас параметрийг арилгана.
+    window.history.replaceState(null, '', window.location.pathname);
+    if (!sale) {
+      alert('Энэ ачилтаас тухайн борлуулалт олдсонгүй.');
+      return;
+    }
+    setSalesOpen(true);
+    openEditSale(sale);
+  }, [pendingSaleId, load]);
+
   async function fetchLoad() {
     setLoading(true);
     try {

@@ -629,6 +629,8 @@ export class ReportsService {
       itemCount: number;
       subtotal: number;
       total: number;
+      /** Түгээлтийн борлуулалтын ачилт — тайлангаас засвар руу шилжихэд хэрэгтэй. */
+      truckLoadId?: string;
       lines: Array<{ productId: string; productName: string; barcode: string | null; quantity: number; unitPrice: number; lineTotal: number }>;
     };
 
@@ -681,6 +683,7 @@ export class ReportsService {
         itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
         subtotal: Number(s.subtotal),
         total: Number(s.totalAmount),
+        truckLoadId: s.truckLoadId,
         lines,
       });
     }

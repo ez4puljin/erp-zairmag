@@ -43,6 +43,8 @@ export interface SalesRegisterRow {
   itemCount: number;
   subtotal: number;
   total: number;
+  /** Зөвхөн TRUCK сувагт. Тайлангаас засвар руу шилжихэд ашиглана. */
+  truckLoadId?: string;
   lines: SalesRegisterLine[];
 }
 export interface SalesRegister {

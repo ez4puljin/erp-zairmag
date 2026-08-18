@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useRouter } from 'next/navigation';
 import { format, subDays } from 'date-fns';
-import { ReceiptText, ChevronDown, ChevronRight, Package } from 'lucide-react';
+import { ReceiptText, ChevronDown, ChevronRight, Package, Pencil } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
@@ -17,6 +19,10 @@ import { reportsApi, PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type SalesRegister }
 interface Opt { value: string; label: string }
 
 export default function SalesRegisterPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [customers, setCustomers] = useState<Opt[]>([]);
   const [products, setProducts] = useState<Opt[]>([]);
   const [f, setF] = useState({
@@ -148,6 +154,7 @@ export default function SalesRegisterPage() {
                   <th className="px-2 py-2 font-semibold">Худалдагч</th>
                   <th className="px-2 py-2 font-semibold">Төлбөр</th>
                   <th className="px-2 py-2 font-semibold text-right">Дүн</th>
+                  {isAdmin && <th className="no-print px-2 py-2 font-semibold text-right">Үйлдэл</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F2F4F7]">
@@ -170,10 +177,24 @@ export default function SalesRegisterPage() {
                       <td className="px-2 py-2 text-[#8C8FA3]">{r.sellerName}</td>
                       <td className="px-2 py-2 text-[#8C8FA3]">{r.paymentMethod ? (PAYMENT_METHOD_LABEL[r.paymentMethod] ?? r.paymentMethod) : '—'}</td>
                       <td className="px-2 py-2 text-right font-semibold tabular-nums">{formatMnt(r.total, { symbol: false })}</td>
+                      {isAdmin && (
+                        <td className="no-print px-2 py-2 text-right">
+                          {/* Засвар нь ачилтын хуудсан дээр хийгддэг тул тэр борлуулалтыг
+                              шууд нээлттэйгээр очно. Захиалгын сувагт засвар байхгүй. */}
+                          {r.channel === 'TRUCK' && r.truckLoadId && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); router.push(`/truck-loads/${r.truckLoadId}?sale=${r.id}`); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" /> Засах
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                     {expanded === r.id && (
                       <tr className="bg-[#F9FAFB]">
-                        <td colSpan={6} className="px-6 py-2">
+                        <td colSpan={isAdmin ? 7 : 6} className="px-6 py-2">
                           <div className="space-y-1">
                             {r.lines.map((l, i) => (
                               <div key={i} className="flex items-center justify-between text-[12px] text-[#4A4D5C]">
@@ -188,7 +209,7 @@ export default function SalesRegisterPage() {
                   </Fragment>
                 ))}
                 {report.items.length === 0 && (
-                  <tr><td colSpan={6}><EmptyState icon={ReceiptText} title="Борлуулалт олдсонгүй" hint="Хугацаа эсвэл шүүлтээ өөрчилнө үү" /></td></tr>
+                  <tr><td colSpan={isAdmin ? 7 : 6}><EmptyState icon={ReceiptText} title="Борлуулалт олдсонгүй" hint="Хугацаа эсвэл шүүлтээ өөрчилнө үү" /></td></tr>
                 )}
               </tbody>
               {report.items.length > 0 && (
@@ -196,6 +217,7 @@ export default function SalesRegisterPage() {
                   <tr className="border-t-2 border-[#E8ECF0] font-bold">
                     <td className="px-2 py-2.5" colSpan={5}>НИЙТ</td>
                     <td className="px-2 py-2.5 text-right tabular-nums">{formatMnt(report.totals.revenue, { symbol: false })}</td>
+                    {isAdmin && <td className="no-print" />}
                   </tr>
                 </tfoot>
               )}
