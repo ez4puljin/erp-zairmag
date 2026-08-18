@@ -32,6 +32,8 @@ export interface ReceiptSettings {
   sectionSpacing: number;
   signatureSpacing: number;
   itemFontBoost: number;
+  /** Үсэг хоорондын зай (px). Бутархай байж болно. */
+  letterSpacing: number;
 }
 
 export const DEFAULT_SETTINGS: ReceiptSettings = {
@@ -61,6 +63,7 @@ export const DEFAULT_SETTINGS: ReceiptSettings = {
   sectionSpacing: 2,
   signatureSpacing: 6,
   itemFontBoost: 2,
+  letterSpacing: 0,
 };
 
 let cached: ReceiptSettings | null = null;

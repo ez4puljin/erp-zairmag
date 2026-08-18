@@ -63,6 +63,7 @@ export function SaleReceipt({
   const sect = s.sectionSpacing ?? 2;
   const sign = s.signatureSpacing ?? 6;
   const boost = s.itemFontBoost ?? 2;
+  const ls = s.letterSpacing ?? 0;
 
   const total = data.totalAmount;
   const cash = data.cashAmount ?? (data.paymentLabel === 'Бэлэн' ? total : 0);
@@ -77,6 +78,8 @@ export function SaleReceipt({
         paddingInline: px(mX),
         fontSize: px(fs),
         lineHeight: 1.25,
+        // CSS-д letter-spacing өвлөгддөг тул нэг л газар тавихад бүх текстэд тусна.
+        letterSpacing: `${ls}px`,
       }}
     >
       <div className="text-center font-black" style={{ fontSize: px(fs + 6) }}>
@@ -136,7 +139,7 @@ export function SaleReceipt({
               {item.name}
             </div>
             {s.showBarcode && item.barcode && (
-              <div style={{ fontSize: px(fs), fontWeight: 800, letterSpacing: '0.5px', marginTop: 0 }}>
+              <div style={{ fontSize: px(fs), fontWeight: 800, marginTop: 0 }}>
                 ▎{item.barcode}
               </div>
             )}

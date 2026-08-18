@@ -290,50 +290,52 @@ function makeStyles(settings: ReceiptSettings) {
   const sect = settings.sectionSpacing ?? 2;
   const sign = settings.signatureSpacing ?? 6;
   const boost = settings.itemFontBoost ?? 2;
+  // RN-д letterSpacing өвлөгддөггүй тул текстийн загвар бүрд тавина.
+  const ls = settings.letterSpacing ?? 0;
   // Тохиргооны фонтыг шууд ашиглана. Өмнө нь 14-өөр таслаж байсан тул
   // тохиргоонд том фонт сонгосон ч хэвлэлт өөрчлөгддөггүй байв.
   const fs = settings.fontSize || 12;
   return StyleSheet.create({
     page: { backgroundColor: '#FFFFFF', paddingVertical: mY, paddingHorizontal: mX },
-    title: { fontSize: fs + 6, fontWeight: '900', color: '#000', textAlign: 'center' },
-    subtitle: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1 },
-    copyLabel: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1 },
+    title: { fontSize: fs + 6, fontWeight: '900', color: '#000', textAlign: 'center', letterSpacing: ls },
+    subtitle: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1, letterSpacing: ls },
+    copyLabel: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 1, letterSpacing: ls },
     divider: { borderBottomWidth: 1.5, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: sect },
     tableDivider: { borderBottomWidth: 1.5, borderBottomColor: '#000', marginVertical: sect },
     tableDividerDashed: { borderBottomWidth: 1, borderBottomColor: '#000', borderStyle: 'dashed', marginVertical: sect },
 
     // Customer bar
     custBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 1, marginBottom: 1 },
-    custName: { fontSize: fs - 1, fontWeight: '700', color: '#000', flex: 1 },
-    custPhone: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
+    custName: { fontSize: fs - 1, fontWeight: '700', color: '#000', flex: 1, letterSpacing: ls },
+    custPhone: { fontSize: fs - 2, fontWeight: '600', color: '#000', letterSpacing: ls },
 
     // Meta block
     metaBlock: { paddingVertical: 1 },
     metaRow: { flexDirection: 'row', paddingVertical: 0, alignItems: 'flex-start' },
-    metaLabel: { fontSize: fs - 2, color: '#000', width: 65, fontWeight: '500' },
-    metaValue: { fontSize: fs - 2, fontWeight: '600', color: '#000', flex: 1 },
+    metaLabel: { fontSize: fs - 2, color: '#000', width: 65, fontWeight: '500', letterSpacing: ls },
+    metaValue: { fontSize: fs - 2, fontWeight: '600', color: '#000', flex: 1, letterSpacing: ls },
 
     // Items table — барааны мөрийг бусад хэсгээс том, тод хэвлэнэ
     tableHead: { flexDirection: 'row', paddingVertical: 1 },
-    th: { fontSize: fs - 1, fontWeight: '700', color: '#000' },
+    th: { fontSize: fs - 1, fontWeight: '700', color: '#000', letterSpacing: ls },
     itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: line },
-    itemName: { fontSize: fs + boost, fontWeight: '900', color: '#000', lineHeight: fs + boost + 2 },
-    itemBarcode: { fontSize: fs, fontWeight: '800', color: '#000', lineHeight: fs + 2, marginTop: 0, letterSpacing: 0.5 },
-    itemCell: { fontSize: fs + Math.max(0, boost - 1), fontWeight: '800', color: '#000', paddingTop: 1 },
+    itemName: { fontSize: fs + boost, fontWeight: '900', color: '#000', lineHeight: fs + boost + 2, letterSpacing: ls },
+    itemBarcode: { fontSize: fs, fontWeight: '800', color: '#000', lineHeight: fs + 2, marginTop: 0, letterSpacing: ls },
+    itemCell: { fontSize: fs + Math.max(0, boost - 1), fontWeight: '800', color: '#000', paddingTop: 1, letterSpacing: ls },
 
     // Totals
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 0 },
-    totalLabel: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
-    totalValue: { fontSize: fs - 2, fontWeight: '600', color: '#000' },
+    totalLabel: { fontSize: fs - 2, fontWeight: '600', color: '#000', letterSpacing: ls },
+    totalValue: { fontSize: fs - 2, fontWeight: '600', color: '#000', letterSpacing: ls },
 
     // Signatures / footer
     signRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: sign },
-    signLabel: { fontSize: fs - 1, fontWeight: '600', color: '#000' },
+    signLabel: { fontSize: fs - 1, fontWeight: '600', color: '#000', letterSpacing: ls },
     /** Зураас нь үлдсэн бүх өргөнийг эзэлнэ — өмнө нь тогтмол урттай зураас
      *  байсан тул баруун талд хоосон зай үлдэж, давчуу харагддаг байв. */
     signLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#000', marginLeft: 4, marginBottom: 2 },
-    footer: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 2 },
-    feedback: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 3 },
+    footer: { fontSize: fs - 1, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 2, letterSpacing: ls },
+    feedback: { fontSize: fs - 3, fontWeight: '700', color: '#000', textAlign: 'center', marginTop: 3, letterSpacing: ls },
   });
 }
 

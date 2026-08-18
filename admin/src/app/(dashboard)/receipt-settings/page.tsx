@@ -21,18 +21,18 @@ const labelClass = 'block text-[11px] font-semibold text-[#8C8FA3] uppercase tra
 
 /** Тоон тохиргоог гулсуураар өөрчлөх мөр. */
 function Slider({
-  label, value, min, max, onChange,
-}: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  label, value, min, max, onChange, step = 1,
+}: { label: string; value: number; min: number; max: number; onChange: (v: number) => void; step?: number }) {
   return (
     <div>
       <label className="block text-[13px] font-medium text-[#8C8FA3] mb-1.5">
-        {label} ({value})
+        {label} ({step < 1 ? value.toFixed(1) : value})
       </label>
       <input
         type="range"
         min={min}
         max={max}
-        step={1}
+        step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-[#007AFF]"
@@ -252,6 +252,8 @@ export default function ReceiptSettingsPage() {
                     onChange={v => update('signatureSpacing', v)} />
                   <Slider label="Барааны мөр томрох хэмжээ" value={s.itemFontBoost} min={0} max={10}
                     onChange={v => update('itemFontBoost', v)} />
+                  <Slider label="Үсэг хоорондын зай" value={s.letterSpacing} min={0} max={5} step={0.1}
+                    onChange={v => update('letterSpacing', v)} />
                 </div>
               </div>
 

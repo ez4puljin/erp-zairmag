@@ -832,6 +832,8 @@ model ReceiptSettings {
   sectionSpacing   Int     @default(2) @map("section_spacing")    // тусгаарлах зураасны зай
   signatureSpacing Int     @default(6) @map("signature_spacing")  // гарын үсгийн дээрх зай
   itemFontBoost    Int     @default(2) @map("item_font_boost")    // барааны мөр хэдэн px томрох
+  /// Үсэг хоорондын зай. Бутархай байж болно (0.5 гэх мэт).
+  letterSpacing    Float   @default(0) @map("letter_spacing")
 
   updatedAt       DateTime @updatedAt @map("updated_at")
 

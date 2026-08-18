@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class UpdateReceiptSettingsDto {
   @IsOptional() @IsString() companyName?: string;
@@ -30,4 +30,5 @@ export class UpdateReceiptSettingsDto {
   @IsOptional() @IsInt() @Min(0) @Max(20) sectionSpacing?: number;
   @IsOptional() @IsInt() @Min(0) @Max(40) signatureSpacing?: number;
   @IsOptional() @IsInt() @Min(0) @Max(10) itemFontBoost?: number;
+  @IsOptional() @IsNumber() @Min(0) @Max(5) letterSpacing?: number;
 }
