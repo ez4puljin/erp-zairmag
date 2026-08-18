@@ -148,6 +148,7 @@ model User {
   truckLoadVerified   TruckLoad[]        @relation("ReturnVerifier")
   truckLoadsCreated   TruckLoad[]        @relation("TruckLoadCreator")
   expenses            Expense[]          @relation("ExpenseCreator")
+  bankTransfers       BankTransfer[]     @relation("BankTransferCreator")
   truckLoadBatches    TruckLoadBatch[]   @relation("BatchCreator")
   bankStatements      BankStatement[]
 
@@ -633,9 +634,33 @@ model BankAccount {
   supplierPayments SupplierPayment[]
   expenses         Expense[]
   bankStatements   BankStatement[]
+  transfersOut     BankTransfer[]    @relation("TransferFrom")
+  transfersIn      BankTransfer[]    @relation("TransferTo")
 
   @@index([isActive])
   @@map("bank_accounts")
+}
+
+/// Данс хоорондын мөнгөн шилжүүлэг.
+/// Нэг бичилтээр хоёр дансны үлдэгдлийг зэрэг хөдөлгөнө: гаргасан данснаас
+/// хасаж, хүлээн авсан данс руу нэмнэ. Иймд нийт үлдэгдэл өөрчлөгдөхгүй.
+model BankTransfer {
+  id            String      @id @default(uuid()) @db.Uuid
+  fromAccountId String      @map("from_account_id") @db.Uuid
+  fromAccount   BankAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId   String      @map("to_account_id") @db.Uuid
+  toAccount     BankAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+  amount        Decimal     @db.Decimal(14, 2)
+  description   String?
+  date          DateTime    @db.Date
+  createdById   String      @map("created_by_id") @db.Uuid
+  createdBy     User        @relation("BankTransferCreator", fields: [createdById], references: [id])
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([date])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@map("bank_transfers")
 }
 
 model CustomerLedgerEntry {

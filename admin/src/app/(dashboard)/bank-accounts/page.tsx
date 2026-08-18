@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
-import { Wallet, Plus, Pencil, Trash2, X, CheckCircle, XCircle, Building2, User, Hash, Coins } from 'lucide-react';
+import { Wallet, Plus, Pencil, Trash2, X, CheckCircle, XCircle, Building2, User, Hash, Coins, ArrowLeftRight } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
 import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { CURRENCIES } from '@/lib/options';
+import { MoneyInput } from '@/components/shared/money-input';
+import { useAuth } from '@/hooks/use-auth';
 
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[15px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
@@ -25,6 +27,24 @@ interface BankAccount {
   isActive: boolean;
   createdAt: string;
 }
+
+interface BankTransfer {
+  id: string;
+  amount: number;
+  description: string | null;
+  date: string;
+  fromAccount: { id: string; bankName: string; accountNumber: string };
+  toAccount: { id: string; bankName: string; accountNumber: string };
+  createdBy?: { firstName: string; lastName: string };
+}
+
+const EMPTY_TRANSFER = {
+  fromAccountId: '',
+  toAccountId: '',
+  amount: '',
+  description: '',
+  date: new Date().toISOString().split('T')[0],
+};
 
 const EMPTY_FORM = {
   bankName: '',
@@ -45,6 +65,14 @@ export default function BankAccountsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Данс хоорондын шилжүүлэг
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+  const [transfers, setTransfers] = useState<BankTransfer[]>([]);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferForm, setTransferForm] = useState<any>(EMPTY_TRANSFER);
+  const [savingTransfer, setSavingTransfer] = useState(false);
+
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,7 +85,16 @@ export default function BankAccountsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+  const fetchTransfers = useCallback(async () => {
+    try {
+      const res = await api.get('/api/bank-accounts/transfers');
+      setTransfers(res.data ?? []);
+    } catch (err) {
+      console.error('Шилжүүлэг ачаалахад алдаа', err);
+    }
+  }, []);
+
+  useEffect(() => { fetchAccounts(); fetchTransfers(); }, [fetchAccounts, fetchTransfers]);
 
   function update(key: string, value: any) {
     setForm((p: any) => ({ ...p, [key]: value }));
@@ -128,6 +165,57 @@ export default function BankAccountsPage() {
     }
   }
 
+  function openTransfer() {
+    setTransferForm(EMPTY_TRANSFER);
+    setShowTransfer(true);
+  }
+
+  async function handleTransfer() {
+    const amount = Number(transferForm.amount || 0);
+    if (!transferForm.fromAccountId || !transferForm.toAccountId) {
+      setMsg({ type: 'error', text: 'Гаргах болон хүлээн авах данс сонгоно уу' });
+      return;
+    }
+    if (transferForm.fromAccountId === transferForm.toAccountId) {
+      setMsg({ type: 'error', text: 'Нэг данс руугаа шилжүүлэх боломжгүй' });
+      return;
+    }
+    if (amount <= 0) {
+      setMsg({ type: 'error', text: 'Дүн 0-ээс их байх ёстой' });
+      return;
+    }
+
+    setSavingTransfer(true);
+    try {
+      await api.post('/api/bank-accounts/transfers', {
+        fromAccountId: transferForm.fromAccountId,
+        toAccountId: transferForm.toAccountId,
+        amount,
+        description: transferForm.description || undefined,
+        date: transferForm.date || undefined,
+      });
+      setShowTransfer(false);
+      await Promise.all([fetchAccounts(), fetchTransfers()]);
+      setMsg({ type: 'success', text: 'Шилжүүлэг амжилттай' });
+    } catch (err: any) {
+      const m = err?.response?.data?.message;
+      setMsg({ type: 'error', text: Array.isArray(m) ? m.join(', ') : m || 'Алдаа гарлаа' });
+    } finally {
+      setSavingTransfer(false);
+    }
+  }
+
+  async function handleDeleteTransfer(id: string) {
+    if (!confirm('Энэ шилжүүлгийг устгах уу? Хоёр дансны үлдэгдэл буцаана.')) return;
+    try {
+      await api.delete(`/api/bank-accounts/transfers/${id}`);
+      await Promise.all([fetchAccounts(), fetchTransfers()]);
+      setMsg({ type: 'success', text: 'Шилжүүлэг устгагдлаа' });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err?.response?.data?.message || 'Алдаа гарлаа' });
+    }
+  }
+
   const activeCount = accounts.filter((a) => a.isActive).length;
   const totalBalance = accounts.reduce((s, a) => s + Number(a.currentBalance || 0), 0);
 
@@ -138,12 +226,20 @@ export default function BankAccountsPage() {
         subtitle="Банкны данс, үлдэгдлийн бүртгэл"
         icon={Wallet}
         actions={
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all"
-          >
-            <Plus className="w-4 h-4" /> Шинэ данс
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openTransfer}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#5856D6]/12 text-[#5856D6] text-[13px] font-semibold hover:bg-[#5856D6]/20 transition-all"
+            >
+              <ArrowLeftRight className="w-4 h-4" /> Шилжүүлэг
+            </button>
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-[#007AFF] text-white text-[13px] font-semibold shadow-sm shadow-[#007AFF]/25 hover:brightness-105 transition-all"
+            >
+              <Plus className="w-4 h-4" /> Шинэ данс
+            </button>
+          </div>
         }
       />
 
@@ -245,6 +341,151 @@ export default function BankAccountsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Данс хоорондын шилжүүлгүүд */}
+      {transfers.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-[#F0F2F5]">
+            <ArrowLeftRight className="w-5 h-5 text-[#5856D6]" />
+            <h2 className="text-[16px] font-bold text-[#1A1D26]">Данс хоорондын шилжүүлэг</h2>
+            <span className="text-[13px] text-[#8C8FA3]">({transfers.length})</span>
+          </div>
+          <div className="divide-y divide-[#F2F4F7]">
+            {transfers.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-[14px] font-medium text-[#1A1D26] flex-wrap">
+                    <span>{t.fromAccount.bankName}</span>
+                    <span className="font-mono text-[12px] text-[#8C8FA3]">{t.fromAccount.accountNumber}</span>
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-[#5856D6] shrink-0" />
+                    <span>{t.toAccount.bankName}</span>
+                    <span className="font-mono text-[12px] text-[#8C8FA3]">{t.toAccount.accountNumber}</span>
+                  </div>
+                  <p className="text-[12px] text-[#8C8FA3] truncate">
+                    {[
+                      new Date(t.date).toLocaleDateString('mn-MN'),
+                      t.description,
+                      t.createdBy ? `${t.createdBy.lastName} ${t.createdBy.firstName}` : null,
+                    ].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <span className="text-[15px] font-bold text-[#5856D6] tabular-nums shrink-0">
+                  {formatMnt(t.amount)}
+                </span>
+                {isAdmin && (
+                  <button
+                    onClick={() => handleDeleteTransfer(t.id)}
+                    className="p-2 rounded-lg text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors shrink-0"
+                    title="Устгах"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Шилжүүлгийн цонх */}
+      {showTransfer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-ios-scale-in">
+            <div className="flex items-center gap-3 p-5 border-b border-[#F0F2F5] shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-[#5856D6]/12 flex items-center justify-center shrink-0">
+                <ArrowLeftRight className="w-5 h-5 text-[#5856D6]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-[18px] font-bold text-[#1A1D26]">Данс хооронд шилжүүлэх</h2>
+                <p className="text-[13px] text-[#8C8FA3]">Нэг данснаас нөгөө рүү мөнгө шилжүүлнэ</p>
+              </div>
+              <button onClick={() => setShowTransfer(false)} className="p-2 rounded-lg hover:bg-[#F2F4F7] shrink-0 transition-colors">
+                <X className="w-5 h-5 text-[#8C8FA3]" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-1.5">Гаргах данс *</label>
+                <SearchableSelect
+                  value={transferForm.fromAccountId}
+                  onChange={(v) => setTransferForm((p: any) => ({ ...p, fromAccountId: v }))}
+                  options={accounts.filter((a) => a.isActive).map((a) => ({
+                    value: a.id,
+                    label: `${a.bankName} ${a.accountNumber} — ${formatMnt(a.currentBalance)}`,
+                  }))}
+                  emptyText="Данс сонгох..."
+                  inputClassName={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-1.5">Хүлээн авах данс *</label>
+                <SearchableSelect
+                  value={transferForm.toAccountId}
+                  onChange={(v) => setTransferForm((p: any) => ({ ...p, toAccountId: v }))}
+                  options={accounts
+                    .filter((a) => a.isActive && a.id !== transferForm.fromAccountId)
+                    .map((a) => ({
+                      value: a.id,
+                      label: `${a.bankName} ${a.accountNumber} — ${formatMnt(a.currentBalance)}`,
+                    }))}
+                  emptyText="Данс сонгох..."
+                  inputClassName={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-1.5">Дүн *</label>
+                <MoneyInput
+                  value={transferForm.amount}
+                  onChange={(v) => setTransferForm((p: any) => ({ ...p, amount: v }))}
+                  className={inputClass}
+                  min={1}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-1.5">Огноо *</label>
+                <input
+                  type="date"
+                  value={transferForm.date}
+                  onChange={(e) => setTransferForm((p: any) => ({ ...p, date: e.target.value }))}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-1.5">Тайлбар</label>
+                <textarea
+                  value={transferForm.description}
+                  onChange={(e) => setTransferForm((p: any) => ({ ...p, description: e.target.value }))}
+                  rows={2}
+                  placeholder="Жишээ: Кассын мөнгө банкинд тушаав"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-5 border-t border-[#F0F2F5] shrink-0">
+              <button
+                onClick={() => setShowTransfer(false)}
+                className="flex-1 px-5 py-3 rounded-xl bg-[#F2F4F7] text-[#4A4D5C] font-semibold text-[14px] hover:bg-[#E8ECF0] transition-colors"
+              >
+                Болих
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={savingTransfer}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#5856D6] text-white font-semibold text-[14px] shadow-sm shadow-[#5856D6]/25 hover:brightness-105 disabled:opacity-50 transition-all"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                {savingTransfer ? 'Шилжүүлж байна...' : 'Шилжүүлэх'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

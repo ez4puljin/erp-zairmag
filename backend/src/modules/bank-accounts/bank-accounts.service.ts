@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { CreateBankTransferDto } from './dto/create-bank-transfer.dto';
 
 @Injectable()
 export class BankAccountsService {
@@ -158,7 +159,7 @@ export class BankAccountsService {
         let opening = Number(acc.openingBalance);
         if (start) {
           const before = { lt: start };
-          const [pBefore, spBefore, eBefore] = await Promise.all([
+          const [pBefore, spBefore, eBefore, trOutBefore, trInBefore] = await Promise.all([
             this.prisma.payment.groupBy({
               by: ['type'],
               where: { bankAccountId: acc.id, createdAt: before },
@@ -172,6 +173,14 @@ export class BankAccountsService {
               where: { bankAccountId: acc.id, date: before },
               _sum: { amount: true },
             }),
+            this.prisma.bankTransfer.aggregate({
+              where: { fromAccountId: acc.id, date: before },
+              _sum: { amount: true },
+            }),
+            this.prisma.bankTransfer.aggregate({
+              where: { toAccountId: acc.id, date: before },
+              _sum: { amount: true },
+            }),
           ]);
           for (const g of pBefore) {
             const sum = Number(g._sum.amount ?? 0);
@@ -179,10 +188,12 @@ export class BankAccountsService {
           }
           opening -= Number(spBefore._sum.amount ?? 0);
           opening -= Number(eBefore._sum.amount ?? 0);
+          opening -= Number(trOutBefore._sum.amount ?? 0);
+          opening += Number(trInBefore._sum.amount ?? 0);
         }
 
         // --- Хугацааны доторх гүйлгээнүүд ---
-        const [payments, supplierPayments, expenses] = await Promise.all([
+        const [payments, supplierPayments, expenses, transfers] = await Promise.all([
           this.prisma.payment.findMany({
             where: { bankAccountId: acc.id, ...(hasRange ? { createdAt: inRange } : {}) },
             include: { customer: { select: { storeName: true, contactName: true } } },
@@ -195,12 +206,22 @@ export class BankAccountsService {
             where: { bankAccountId: acc.id, ...(hasRange ? { date: inRange } : {}) },
             include: { category: { select: { name: true } } },
           }),
+          this.prisma.bankTransfer.findMany({
+            where: {
+              ...(hasRange ? { date: inRange } : {}),
+              OR: [{ fromAccountId: acc.id }, { toAccountId: acc.id }],
+            },
+            include: {
+              fromAccount: { select: { bankName: true, accountNumber: true } },
+              toAccount: { select: { bankName: true, accountNumber: true } },
+            },
+          }),
         ]);
 
         type Tx = {
           id: string;
           date: Date;
-          kind: 'PAYMENT' | 'PAYOUT' | 'SUPPLIER' | 'EXPENSE';
+          kind: 'PAYMENT' | 'PAYOUT' | 'SUPPLIER' | 'EXPENSE' | 'TRANSFER_IN' | 'TRANSFER_OUT';
           description: string;
           inflow: number;
           outflow: number;
@@ -255,6 +276,28 @@ export class BankAccountsService {
           });
         }
 
+        // Шилжүүлэг нь энэ дансны хувьд орлого эсвэл зарлага аль нэг нь болно.
+        for (const t of transfers) {
+          const amount = Number(t.amount);
+          const isOut = t.fromAccountId === acc.id;
+          const other = isOut ? t.toAccount : t.fromAccount;
+          const otherLabel = `${other.bankName} ${other.accountNumber}`;
+          txs.push({
+            id: t.id,
+            date: t.date,
+            kind: isOut ? 'TRANSFER_OUT' : 'TRANSFER_IN',
+            description: [
+              isOut ? `Шилжүүлэг → ${otherLabel}` : `Шилжүүлэг ← ${otherLabel}`,
+              t.description,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            inflow: isOut ? 0 : amount,
+            outflow: isOut ? amount : 0,
+            running: 0,
+          });
+        }
+
         txs.sort((a, b) => a.date.getTime() - b.date.getTime());
 
         let running = opening;
@@ -291,5 +334,101 @@ export class BankAccountsService {
       accounts: report,
       totals,
     };
+  }
+
+  // ==================== ДАНС ХООРОНДЫН ШИЛЖҮҮЛЭГ ====================
+
+  /**
+   * Данс хооронд мөнгө шилжүүлэх.
+   *
+   * Хоёр дансны үлдэгдлийг нэг гүйлгээнд зэрэг хөдөлгөнө — эс бөгөөс
+   * дундуур нь тасарвал мөнгө алга болно.
+   */
+  async createTransfer(dto: CreateBankTransferDto, userId: string) {
+    if (dto.fromAccountId === dto.toAccountId) {
+      throw new BadRequestException('Нэг данс руугаа шилжүүлэх боломжгүй.');
+    }
+
+    const amount = Number(dto.amount);
+    const date = dto.date ? new Date(dto.date) : new Date();
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Огноо буруу байна.');
+    }
+
+    const [from, to] = await Promise.all([
+      this.prisma.bankAccount.findUnique({ where: { id: dto.fromAccountId } }),
+      this.prisma.bankAccount.findUnique({ where: { id: dto.toAccountId } }),
+    ]);
+    if (!from) throw new NotFoundException('Гаргах данс олдсонгүй.');
+    if (!to) throw new NotFoundException('Хүлээн авах данс олдсонгүй.');
+
+    return this.prisma.$transaction(async (tx) => {
+      const transfer = await tx.bankTransfer.create({
+        data: {
+          fromAccountId: dto.fromAccountId,
+          toAccountId: dto.toAccountId,
+          amount,
+          description: dto.description ?? null,
+          date,
+          createdById: userId,
+        },
+        include: {
+          fromAccount: { select: { id: true, bankName: true, accountNumber: true } },
+          toAccount: { select: { id: true, bankName: true, accountNumber: true } },
+        },
+      });
+
+      await tx.bankAccount.update({
+        where: { id: dto.fromAccountId },
+        data: { currentBalance: { decrement: amount } },
+      });
+      await tx.bankAccount.update({
+        where: { id: dto.toAccountId },
+        data: { currentBalance: { increment: amount } },
+      });
+
+      return transfer;
+    });
+  }
+
+  async findTransfers(from?: string, to?: string, accountId?: string) {
+    const dateFilter: any = {};
+    if (from) dateFilter.gte = new Date(from);
+    if (to) dateFilter.lte = new Date(to + 'T23:59:59.999');
+
+    return this.prisma.bankTransfer.findMany({
+      where: {
+        ...(from || to ? { date: dateFilter } : {}),
+        ...(accountId
+          ? { OR: [{ fromAccountId: accountId }, { toAccountId: accountId }] }
+          : {}),
+      },
+      include: {
+        fromAccount: { select: { id: true, bankName: true, accountNumber: true } },
+        toAccount: { select: { id: true, bankName: true, accountNumber: true } },
+        createdBy: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  /** Шилжүүлэг устгах — хоёр дансны үлдэгдлийг буцаана. */
+  async removeTransfer(id: string) {
+    const transfer = await this.prisma.bankTransfer.findUnique({ where: { id } });
+    if (!transfer) throw new NotFoundException('Шилжүүлэг олдсонгүй.');
+
+    const amount = Number(transfer.amount);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.bankAccount.update({
+        where: { id: transfer.fromAccountId },
+        data: { currentBalance: { increment: amount } },
+      });
+      await tx.bankAccount.update({
+        where: { id: transfer.toAccountId },
+        data: { currentBalance: { decrement: amount } },
+      });
+      await tx.bankTransfer.delete({ where: { id } });
+      return { message: 'Шилжүүлэг устгагдлаа.' };
+    });
   }
 }

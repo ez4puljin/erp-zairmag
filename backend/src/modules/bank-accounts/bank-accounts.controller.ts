@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { CreateBankTransferDto } from './dto/create-bank-transfer.dto';
 
 @Controller('api/bank-accounts')
 export class BankAccountsController {
@@ -23,6 +24,29 @@ export class BankAccountsController {
     @Query('accountId') accountId?: string,
   ) {
     return this.service.getAllAccountsReport(from, to, accountId || undefined);
+  }
+
+  // ':id'-аас ӨМНӨ байрлана — эс бөгөөс 'transfers' нь :id гэж уншигдана.
+  @Get('transfers')
+  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  listTransfers(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.service.findTransfers(from, to, accountId || undefined);
+  }
+
+  @Post('transfers')
+  @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
+  createTransfer(@Body() dto: CreateBankTransferDto, @Req() req: any) {
+    return this.service.createTransfer(dto, req.user.id);
+  }
+
+  @Delete('transfers/:id')
+  @Roles(Role.ADMIN)
+  removeTransfer(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.removeTransfer(id);
   }
 
   @Get(':id')
