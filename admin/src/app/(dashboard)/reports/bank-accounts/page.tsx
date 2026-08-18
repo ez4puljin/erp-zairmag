@@ -1,258 +1,259 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import api from '@/lib/api';
-import { Wallet, TrendingUp, TrendingDown, DollarSign, ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Search, Printer, ChevronDown, ChevronRight, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/shared/page-header';
-import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
-import { FilterBar, DateField, ActionButton } from '@/components/shared/filter-bar';
+import { FilterBar, DateField, SelectField, ActionButton } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
-import { formatMnt } from '@/components/shared/money';
-import { PAYMENT_METHODS } from '@/lib/options';
 
-/** Төлбөрийн хэлбэрийн монгол шошго. */
-const methodLabel = (m?: string) =>
-  PAYMENT_METHODS.find((o) => o.value === m)?.label ?? m ?? '';
+const fmt = (n: number) => n.toLocaleString('mn-MN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-interface ReportItem {
-  account: {
-    id: string;
-    bankName: string;
-    accountNumber: string;
-    holderName: string;
-    currency: string;
-    currentBalance: number;
-  };
+interface Tx {
+  id: string;
+  date: string;
+  kind: 'PAYMENT' | 'PAYOUT' | 'SUPPLIER' | 'EXPENSE';
+  description: string;
+  inflow: number;
+  outflow: number;
+  running: number;
+}
+
+interface AccountRow {
+  account: { id: string; bankName: string; accountNumber: string; holderName: string };
+  openingBalance: number;
   inflow: { count: number; amount: number };
   outflow: { count: number; amount: number };
-  net: number;
+  closingBalance: number;
+  transactions: Tx[];
 }
 
 interface Report {
-  accounts: ReportItem[];
-  grandTotal: { inflow: number; outflow: number; net: number };
+  accounts: AccountRow[];
+  totals: { opening: number; inflow: number; outflow: number; closing: number };
 }
 
 export default function BankAccountReportPage() {
-  const today = new Date().toISOString().split('T')[0];
-  const firstDay = new Date();
-  firstDay.setDate(1);
-  const [from, setFrom] = useState(firstDay.toISOString().split('T')[0]);
-  const [to, setTo] = useState(today);
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(firstDay);
+  const [dateTo, setDateTo] = useState(todayStr);
+  const [accountId, setAccountId] = useState('');
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [detailData, setDetailData] = useState<Record<string, any>>({});
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const printRef = useRef<HTMLDivElement>(null);
 
-  const fetchReport = useCallback(async () => {
+  useEffect(() => {
+    api.get('/api/bank-accounts')
+      .then((r) => setAccounts(r.data?.data || r.data || []))
+      .catch((err) => console.error('Данс ачаалахад алдаа', err));
+  }, []);
+
+  useEffect(() => {
+    void handleSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSearch() {
+    if (!dateFrom || !dateTo) return;
     setLoading(true);
+    setExpandedRows(new Set());
     try {
-      const res = await api.get('/api/bank-accounts/report', { params: { from, to } });
+      const res = await api.get('/api/bank-accounts/report', {
+        params: { from: dateFrom, to: dateTo, ...(accountId ? { accountId } : {}) },
+      });
       setReport(res.data);
     } catch (err: any) {
-      alert('Алдаа: ' + (err?.response?.data?.message || 'тайлан авч чадсангүй'));
-    } finally {
-      setLoading(false);
+      alert('Алдаа: ' + (err.response?.data?.message || err.message));
     }
-  }, [from, to]);
+    setLoading(false);
+  }
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
+  function toggleExpand(id: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
-  async function toggleExpand(accountId: string) {
-    if (expanded === accountId) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(accountId);
-    if (!detailData[accountId]) {
-      try {
-        const res = await api.get(`/api/bank-accounts/${accountId}/transactions`, { params: { from, to } });
-        setDetailData((p) => ({ ...p, [accountId]: res.data }));
-      } catch (err) {
-        console.error(err);
-      }
-    }
+  function handlePrint() {
+    if (!printRef.current) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<html><head><title>Дансны тайлан</title>
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #1C1C1E; font-size: 11px; }
+        h2 { text-align: center; margin-bottom: 4px; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { border: 1px solid #999; padding: 3px 6px; }
+        th { background: #eee; font-weight: 600; font-size: 10px; }
+        td { font-size: 10px; }
+        @media print { body { padding: 10px; } }
+      </style></head><body>`);
+    win.document.write(printRef.current.innerHTML);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.print();
   }
 
   return (
     <div className="space-y-5 animate-ios-fade-in">
       <PageHeader
-        title="Дансны орлого/зарлага тайлан"
-        subtitle="Данс тус бүрийн орлого, зарлага, цэвэр үлдэгдэл"
+        title="Дансны тайлан"
+        subtitle="Эхний/эцсийн үлдэгдэл, орлого/зарлага"
         icon={Wallet}
+        actions={
+          report ? (
+            <ActionButton variant="ghost" onClick={handlePrint}>
+              <Printer className="w-4 h-4" /> Хэвлэх
+            </ActionButton>
+          ) : undefined
+        }
       />
 
-      {/* Date range */}
       <FilterBar>
-        <DateField label="Эхлэх огноо" value={from} onChange={setFrom} />
-        <DateField label="Төгсөх огноо" value={to} onChange={setTo} />
-        <ActionButton onClick={fetchReport} disabled={loading}>
-          {loading ? 'Уншиж байна...' : 'Тайлан авах'}
+        <DateField label="Эхний огноо *" value={dateFrom} onChange={setDateFrom} />
+        <DateField label="Эцсийн огноо *" value={dateTo} onChange={setDateTo} />
+        <SelectField
+          label="Данс"
+          value={accountId}
+          onChange={setAccountId}
+          options={accounts.map((a: any) => ({
+            value: a.id,
+            label: `${a.bankName} - ${a.accountNumber}`,
+          }))}
+          placeholder="Бүгд (Бүх данс)"
+        />
+        <ActionButton onClick={handleSearch} disabled={loading}>
+          <Search className="w-4 h-4" />
+          {loading ? 'Хайж байна...' : 'Тайлан харах'}
         </ActionButton>
       </FilterBar>
 
-      {/* Grand totals */}
       {report && (
-        <StatGrid cols={3}>
-          <StatCard
-            label="Нийт орлого"
-            value={formatMnt(report.grandTotal.inflow)}
-            icon={ArrowDownRight}
-            gradient="green"
-            index={0}
-          />
-          <StatCard
-            label="Нийт зарлага"
-            value={formatMnt(report.grandTotal.outflow)}
-            icon={ArrowUpRight}
-            gradient="red"
-            index={1}
-          />
-          <StatCard
-            label="Цэвэр үлдэгдэл"
-            value={`${report.grandTotal.net >= 0 ? '+' : ''}${formatMnt(report.grandTotal.net)}`}
-            icon={DollarSign}
-            gradient={report.grandTotal.net >= 0 ? 'blue' : 'orange'}
-            index={2}
-          />
-        </StatGrid>
-      )}
+        <div ref={printRef}>
+          <div className="hidden print:block text-center mb-4">
+            <h2 className="text-[18px] font-bold">Дансны тайлан</h2>
+            <p className="text-[13px] text-[#8C8FA3]">{dateFrom} ~ {dateTo}</p>
+          </div>
 
-      {/* Per-account breakdown */}
-      {report && report.accounts.length === 0 && (
-        <SectionCard noPadding>
-          <EmptyState icon={Wallet} title="Данс бүртгэгдээгүй байна" hint="Сонгосон хугацаанд данс олдсонгүй" />
-        </SectionCard>
-      )}
+          <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="bg-[#F9FAFB] text-[#8C8FA3] text-[11px] uppercase tracking-wide">
+                    <th className="px-2 py-2 text-left font-semibold w-8"></th>
+                    <th className="px-2 py-2 text-left font-semibold">Данс</th>
+                    <th className="px-2 py-2 text-left font-semibold">Эзэмшигч</th>
+                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E8ECF0]">Эхний үлдэгдэл</th>
+                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E8ECF0]">Орлого</th>
+                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E8ECF0]">Зарлага</th>
+                    <th className="px-2 py-2 text-right font-semibold border-l border-[#E8ECF0]">Эцсийн үлдэгдэл</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.accounts.map((item) => {
+                    const isExpanded = expandedRows.has(item.account.id);
+                    const hasTx = item.transactions.length > 0;
+                    return (
+                      <Fragment key={item.account.id}>
+                        <tr
+                          className={`border-b border-[#F2F4F7] hover:bg-[#F7F9FC] cursor-pointer transition-colors ${isExpanded ? 'bg-[#007AFF]/5' : ''}`}
+                          onClick={() => hasTx && toggleExpand(item.account.id)}
+                        >
+                          <td className="px-2 py-2 text-center">
+                            {hasTx && (isExpanded
+                              ? <ChevronDown className="w-3.5 h-3.5 text-[#007AFF] inline" />
+                              : <ChevronRight className="w-3.5 h-3.5 text-[#8C8FA3] inline" />)}
+                          </td>
+                          <td className="px-2 py-2 font-medium text-[#1A1D26]">
+                            {item.account.bankName}
+                            <span className="ml-1.5 font-mono text-[11px] text-[#007AFF]">{item.account.accountNumber}</span>
+                          </td>
+                          <td className="px-2 py-2 text-[#8C8FA3]">{item.account.holderName}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold tabular-nums">{fmt(item.openingBalance)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold text-[#34C759] tabular-nums">{fmt(item.inflow.amount)}</td>
+                          <td className="px-2 py-2 text-right border-l border-[#F0F2F5] font-semibold text-[#FF3B30] tabular-nums">{fmt(item.outflow.amount)}</td>
+                          <td className={`px-2 py-2 text-right border-l border-[#F0F2F5] font-bold tabular-nums ${item.closingBalance < 0 ? 'text-[#FF3B30]' : 'text-[#1A1D26]'}`}>
+                            {fmt(item.closingBalance)}
+                          </td>
+                        </tr>
 
-      {report && report.accounts.map((item) => (
-        <div key={item.account.id} className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 overflow-hidden">
-          <button
-            onClick={() => toggleExpand(item.account.id)}
-            className="w-full p-4 lg:p-5 flex items-center gap-4 hover:bg-[#F9FAFB] transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-[#007AFF]/12 flex items-center justify-center shrink-0">
-              <Wallet className="w-6 h-6 text-[#007AFF]" />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-              <h3 className="text-[16px] font-bold text-[#1A1D26] truncate">{item.account.bankName}</h3>
-              <p className="text-[12px] text-[#8C8FA3] font-mono truncate">{item.account.accountNumber} · {item.account.holderName}</p>
-            </div>
-            <div className="text-right hidden sm:block shrink-0">
-              <p className="text-[10px] text-[#8C8FA3] uppercase font-semibold tracking-wide">Одоогийн үлдэгдэл</p>
-              <p className="text-[16px] font-bold text-[#1A1D26] tabular-nums">{formatMnt(item.account.currentBalance)}</p>
-            </div>
-            {expanded === item.account.id ? <ChevronUp className="w-5 h-5 text-[#8C8FA3] shrink-0" /> : <ChevronDown className="w-5 h-5 text-[#8C8FA3] shrink-0" />}
-          </button>
-
-          <div className="px-4 lg:px-5 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-[#34C759]/6 rounded-xl p-3 border border-[#34C759]/12">
-              <p className="text-[10px] text-[#34C759] uppercase font-semibold tracking-wide">Орлого ({item.inflow.count})</p>
-              <p className="text-[16px] font-bold text-[#34C759] mt-0.5 tabular-nums">{formatMnt(item.inflow.amount)}</p>
-            </div>
-            <div className="bg-[#FF3B30]/6 rounded-xl p-3 border border-[#FF3B30]/12">
-              <p className="text-[10px] text-[#FF3B30] uppercase font-semibold tracking-wide">Зарлага ({item.outflow.count})</p>
-              <p className="text-[16px] font-bold text-[#FF3B30] mt-0.5 tabular-nums">{formatMnt(item.outflow.amount)}</p>
-            </div>
-            <div className={`rounded-xl p-3 border ${item.net >= 0 ? 'bg-[#007AFF]/6 border-[#007AFF]/12' : 'bg-[#FF9500]/6 border-[#FF9500]/12'}`}>
-              <p className={`text-[10px] uppercase font-semibold tracking-wide ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>Цэвэр</p>
-              <p className={`text-[16px] font-bold mt-0.5 tabular-nums ${item.net >= 0 ? 'text-[#007AFF]' : 'text-[#FF9500]'}`}>
-                {item.net >= 0 ? '+' : ''}{formatMnt(item.net)}
-              </p>
+                        {isExpanded && item.transactions.map((tx) => (
+                          <tr key={tx.id} className="border-b border-[#F2F4F7] bg-[#F9FAFB]">
+                            <td className="px-2 py-1.5"></td>
+                            <td className="px-2 py-1.5 text-[11px] text-[#8C8FA3] whitespace-nowrap">
+                              {new Date(tx.date).toLocaleDateString('mn-MN')}
+                            </td>
+                            <td className="px-2 py-1.5 text-[11px] text-[#4A4D5C] italic">{tx.description}</td>
+                            <td className="px-2 py-1.5 border-l border-[#F0F2F5]"></td>
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] text-[#34C759] tabular-nums">
+                              {tx.inflow > 0 ? fmt(tx.inflow) : ''}
+                            </td>
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] text-[#FF3B30] tabular-nums">
+                              {tx.outflow > 0 ? fmt(tx.outflow) : ''}
+                            </td>
+                            <td className="px-2 py-1.5 text-right border-l border-[#F0F2F5] text-[11px] font-semibold tabular-nums">
+                              {fmt(tx.running)}
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
+                  {report.accounts.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState icon={Wallet} title="Данс олдсонгүй" hint="Шүүлтээ өөрчилнө үү" />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {report.accounts.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-[#F9FAFB] border-t-2 border-[#E8ECF0] font-bold text-[12px]">
+                      <td className="px-2 py-2.5 text-right" colSpan={3}>Нийт дүн</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] tabular-nums">{fmt(report.totals.opening)}</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] text-[#34C759] tabular-nums">{fmt(report.totals.inflow)}</td>
+                      <td className="px-2 py-2.5 text-right border-l border-[#E8ECF0] text-[#FF3B30] tabular-nums">{fmt(report.totals.outflow)}</td>
+                      <td className={`px-2 py-2.5 text-right border-l border-[#E8ECF0] tabular-nums ${report.totals.closing < 0 ? 'text-[#FF3B30]' : ''}`}>
+                        {fmt(report.totals.closing)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
             </div>
           </div>
 
-          {/* Expanded transactions */}
-          {expanded === item.account.id && detailData[item.account.id] && (
-            <div className="border-t border-[#F0F2F5] bg-[#F9FAFB] p-4 lg:p-5 space-y-4">
-              {/* Incoming payments */}
-              {detailData[item.account.id].payments?.length > 0 && (
-                <div>
-                  <h4 className="text-[11px] font-bold text-[#34C759] uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <TrendingDown className="w-3.5 h-3.5" /> Харилцагчаас ирсэн төлбөр
-                  </h4>
-                  <div className="space-y-1.5">
-                    {detailData[item.account.id].payments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[#1A1D26] truncate">{p.customer?.storeName || '-'}</p>
-                          <p className="text-[10px] text-[#8C8FA3] truncate">
-                            {[
-                              new Date(p.createdAt).toLocaleString('mn-MN'),
-                              methodLabel(p.method),
-                              p.notes || p.externalRef,
-                            ].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        <span className="font-bold text-[#34C759] tabular-nums shrink-0">+{formatMnt(p.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Outgoing supplier payments */}
-              {detailData[item.account.id].supplierPayments?.length > 0 && (
-                <div>
-                  <h4 className="text-[11px] font-bold text-[#FF3B30] uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" /> Нийлүүлэгчрүү төлсөн
-                  </h4>
-                  <div className="space-y-1.5">
-                    {detailData[item.account.id].supplierPayments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[#1A1D26] truncate">{p.supplier?.name || '-'}</p>
-                          <p className="text-[10px] text-[#8C8FA3] truncate">
-                            {[
-                              new Date(p.date).toLocaleDateString('mn-MN'),
-                              methodLabel(p.method),
-                              p.description || p.referenceNo,
-                            ].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        <span className="font-bold text-[#FF3B30] tabular-nums shrink-0">-{formatMnt(p.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Зардал — данснаас гарсан зарлага */}
-              {detailData[item.account.id].expenses?.length > 0 && (
-                <div>
-                  <h4 className="text-[11px] font-bold text-[#FF3B30] uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" /> Зардал
-                  </h4>
-                  <div className="space-y-1.5">
-                    {detailData[item.account.id].expenses.map((e: any) => (
-                      <div key={e.id} className="flex items-center justify-between bg-white rounded-xl border border-[#E8ECF0]/70 px-3 py-2 text-[12px]">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-[#1A1D26] truncate">{e.category?.name || 'Зардал'}</p>
-                          <p className="text-[10px] text-[#8C8FA3] truncate">
-                            {[
-                              new Date(e.date).toLocaleDateString('mn-MN'),
-                              e.description,
-                              e.referenceNo,
-                            ].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        <span className="font-bold text-[#FF3B30] tabular-nums shrink-0">-{formatMnt(e.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {detailData[item.account.id].payments?.length === 0 &&
-                detailData[item.account.id].supplierPayments?.length === 0 &&
-                detailData[item.account.id].expenses?.length === 0 && (
-                <p className="text-center text-[12px] text-[#8C8FA3] py-4">Энэ хугацаанд гүйлгээ байхгүй</p>
-              )}
+          <div className="hidden print:block mt-8">
+            <div className="flex justify-between text-[12px]">
+              <p>Тайлан гаргасан: ..................................../ _____________ /</p>
+              <p>Хянасан нягтлан бодогч: ..................................../ _____________ /</p>
             </div>
-          )}
+          </div>
+
+          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 p-5 print:hidden">
+            <div className="grid grid-cols-2 gap-8 text-[13px] text-[#8C8FA3]">
+              <p>Тайлан гаргасан: ..................................../ _____________ /</p>
+              <p>Хянасан нягтлан бодогч: ..................................../ _____________ /</p>
+            </div>
+          </div>
         </div>
-      ))}
+      )}
+
+      {!report && !loading && (
+        <SectionCard noPadding>
+          <EmptyState icon={Wallet} title="Дансны тайлан" hint='Огноо сонгоод "Тайлан харах" товч дарна уу' />
+        </SectionCard>
+      )}
     </div>
   );
 }

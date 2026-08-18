@@ -127,85 +127,169 @@ export class BankAccountsService {
     };
   }
 
-  // Report: all accounts with income/expense in date range
-  async getAllAccountsReport(from?: string, to?: string) {
+  /**
+   * Дансны тайлан — бараа материалын тайлантай ижил бүтэц:
+   * эхний үлдэгдэл, орлого, зарлага, эцсийн үлдэгдэл.
+   *
+   * Үлдэгдлийг `current_balance`-аас биш, гүйлгээнээс нь тооцоолно —
+   * `current_balance` нь зөвхөн ӨНӨӨДРИЙН байдлыг илэрхийлдэг тул
+   * сонгосон хугацааны эцсийн үлдэгдэл болж чадахгүй.
+   *
+   * Тооцооллын томьёо нь үлдэгдлийг хөтөлдөг логиктой (payments/expenses/
+   * supplier-payments service) яг ижил: орлого нь RECEIPT төлбөр, зарлага нь
+   * PAYOUT төлбөр + нийлүүлэгчийн төлбөр + зардал.
+   */
+  async getAllAccountsReport(from?: string, to?: string, accountId?: string) {
     const accounts = await this.prisma.bankAccount.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(accountId ? { id: accountId } : {}) },
       orderBy: { bankName: 'asc' },
     });
 
-    const dateFilter: any = {};
-    if (from) dateFilter.gte = new Date(from);
-    if (to) dateFilter.lte = new Date(to + 'T23:59:59.999Z');
+    const start = from ? new Date(from) : null;
+    const end = to ? new Date(to + 'T23:59:59.999') : null;
+    const inRange: any = {};
+    if (start) inRange.gte = start;
+    if (end) inRange.lte = end;
+    const hasRange = start !== null || end !== null;
 
     const report = await Promise.all(
       accounts.map(async (acc) => {
-        const [inflow, payoutOut, supplierOut, expenseOut] = await Promise.all([
-          this.prisma.payment.aggregate({
-            where: {
-              bankAccountId: acc.id,
-              type: 'RECEIPT',
-              ...(from || to ? { createdAt: dateFilter } : {}),
-            },
-            _sum: { amount: true },
-            _count: true,
+        // --- Эхний үлдэгдэл: нээлтийн үлдэгдэл + хугацаанаас өмнөх бүх хөдөлгөөн ---
+        let opening = Number(acc.openingBalance);
+        if (start) {
+          const before = { lt: start };
+          const [pBefore, spBefore, eBefore] = await Promise.all([
+            this.prisma.payment.groupBy({
+              by: ['type'],
+              where: { bankAccountId: acc.id, createdAt: before },
+              _sum: { amount: true },
+            }),
+            this.prisma.supplierPayment.aggregate({
+              where: { bankAccountId: acc.id, date: before },
+              _sum: { amount: true },
+            }),
+            this.prisma.expense.aggregate({
+              where: { bankAccountId: acc.id, date: before },
+              _sum: { amount: true },
+            }),
+          ]);
+          for (const g of pBefore) {
+            const sum = Number(g._sum.amount ?? 0);
+            opening += g.type === 'PAYOUT' ? -sum : sum;
+          }
+          opening -= Number(spBefore._sum.amount ?? 0);
+          opening -= Number(eBefore._sum.amount ?? 0);
+        }
+
+        // --- Хугацааны доторх гүйлгээнүүд ---
+        const [payments, supplierPayments, expenses] = await Promise.all([
+          this.prisma.payment.findMany({
+            where: { bankAccountId: acc.id, ...(hasRange ? { createdAt: inRange } : {}) },
+            include: { customer: { select: { storeName: true, contactName: true } } },
           }),
-          // Харилцагчид олгосон мөнгө — данснаас гарах урсгал.
-          this.prisma.payment.aggregate({
-            where: {
-              bankAccountId: acc.id,
-              type: 'PAYOUT',
-              ...(from || to ? { createdAt: dateFilter } : {}),
-            },
-            _sum: { amount: true },
-            _count: true,
+          this.prisma.supplierPayment.findMany({
+            where: { bankAccountId: acc.id, ...(hasRange ? { date: inRange } : {}) },
+            include: { supplier: { select: { name: true } } },
           }),
-          this.prisma.supplierPayment.aggregate({
-            where: {
-              bankAccountId: acc.id,
-              ...(from || to ? { date: dateFilter } : {}),
-            },
-            _sum: { amount: true },
-            _count: true,
-          }),
-          // Зардал ч мөн данснаас гарах урсгал.
-          this.prisma.expense.aggregate({
-            where: {
-              bankAccountId: acc.id,
-              ...(from || to ? { date: dateFilter } : {}),
-            },
-            _sum: { amount: true },
-            _count: true,
+          this.prisma.expense.findMany({
+            where: { bankAccountId: acc.id, ...(hasRange ? { date: inRange } : {}) },
+            include: { category: { select: { name: true } } },
           }),
         ]);
 
-        const inflowAmount = Number(inflow._sum.amount ?? 0);
-        const payoutAmount = Number(payoutOut._sum.amount ?? 0);
-        const supplierAmount = Number(supplierOut._sum.amount ?? 0);
-        const expenseAmount = Number(expenseOut._sum.amount ?? 0);
-        const outflowAmount = supplierAmount + expenseAmount + payoutAmount;
+        type Tx = {
+          id: string;
+          date: Date;
+          kind: 'PAYMENT' | 'PAYOUT' | 'SUPPLIER' | 'EXPENSE';
+          description: string;
+          inflow: number;
+          outflow: number;
+          running: number;
+        };
+
+        const txs: Tx[] = [];
+
+        for (const p of payments) {
+          const who = p.customer?.storeName || p.customer?.contactName || 'Харилцагч';
+          const amount = Number(p.amount);
+          const isPayout = p.type === 'PAYOUT';
+          txs.push({
+            id: p.id,
+            date: p.createdAt,
+            kind: isPayout ? 'PAYOUT' : 'PAYMENT',
+            description: [isPayout ? `Харилцагчид олгосон - ${who}` : `Харилцагчийн төлбөр - ${who}`, p.notes]
+              .filter(Boolean)
+              .join(' · '),
+            // Сөрөг дүнтэй төлбөр (буцаалт) эсрэг талдаа бичигдэнэ.
+            inflow: isPayout ? Math.max(0, -amount) : Math.max(0, amount),
+            outflow: isPayout ? Math.max(0, amount) : Math.max(0, -amount),
+            running: 0,
+          });
+        }
+
+        for (const sp of supplierPayments) {
+          const amount = Number(sp.amount);
+          txs.push({
+            id: sp.id,
+            date: sp.date,
+            kind: 'SUPPLIER',
+            description: [`Нийлүүлэгчид төлсөн - ${sp.supplier?.name ?? '-'}`, sp.description]
+              .filter(Boolean)
+              .join(' · '),
+            inflow: Math.max(0, -amount),
+            outflow: Math.max(0, amount),
+            running: 0,
+          });
+        }
+
+        for (const e of expenses) {
+          const amount = Number(e.amount);
+          txs.push({
+            id: e.id,
+            date: e.date,
+            kind: 'EXPENSE',
+            description: [`Зардал - ${e.category?.name ?? '-'}`, e.description].filter(Boolean).join(' · '),
+            inflow: Math.max(0, -amount),
+            outflow: Math.max(0, amount),
+            running: 0,
+          });
+        }
+
+        txs.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        let running = opening;
+        for (const t of txs) {
+          running += t.inflow - t.outflow;
+          t.running = running;
+        }
+
+        const inflowAmount = txs.reduce((s, t) => s + t.inflow, 0);
+        const outflowAmount = txs.reduce((s, t) => s + t.outflow, 0);
 
         return {
           account: acc,
-          inflow: { count: inflow._count, amount: inflowAmount },
-          outflow: {
-            count: supplierOut._count + expenseOut._count + payoutOut._count,
-            amount: outflowAmount,
-            supplier: { count: supplierOut._count, amount: supplierAmount },
-            expense: { count: expenseOut._count, amount: expenseAmount },
-            customerPayout: { count: payoutOut._count, amount: payoutAmount },
-          },
+          openingBalance: opening,
+          inflow: { count: txs.filter((t) => t.inflow > 0).length, amount: inflowAmount },
+          outflow: { count: txs.filter((t) => t.outflow > 0).length, amount: outflowAmount },
+          closingBalance: opening + inflowAmount - outflowAmount,
           net: inflowAmount - outflowAmount,
+          transactions: txs,
         };
       }),
     );
 
-    const grandTotal = {
+    const totals = {
+      opening: report.reduce((s, r) => s + r.openingBalance, 0),
       inflow: report.reduce((s, r) => s + r.inflow.amount, 0),
       outflow: report.reduce((s, r) => s + r.outflow.amount, 0),
-      net: report.reduce((s, r) => s + r.net, 0),
+      closing: report.reduce((s, r) => s + r.closingBalance, 0),
     };
 
-    return { accounts: report, grandTotal };
+    return {
+      from: from ?? null,
+      to: to ?? null,
+      accounts: report,
+      totals,
+    };
   }
 }

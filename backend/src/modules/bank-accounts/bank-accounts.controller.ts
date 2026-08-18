@@ -17,8 +17,12 @@ export class BankAccountsController {
 
   @Get('report')
   @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
-  report(@Query('from') from?: string, @Query('to') to?: string) {
-    return this.service.getAllAccountsReport(from, to);
+  report(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.service.getAllAccountsReport(from, to, accountId || undefined);
   }
 
   @Get(':id')
