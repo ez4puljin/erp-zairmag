@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { BarcodeListInput, cleanBarcodes } from '@/components/shared/barcode-list-input';
 import { ChevronLeft, Upload, X, RefreshCw, Package, DollarSign, Boxes, FileText, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import { formatMnt } from '@/components/shared/money';
@@ -43,7 +43,7 @@ export default function EditProductPage() {
         });
         const codes = (p.barcodes ?? []).map((b: any) => b.code).filter(Boolean);
         setBarcodes(codes.length > 0 ? codes : ['']);
-        if (p.imageUrl) setImagePreview(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${p.imageUrl}`);
+        if (p.imageUrl) setImagePreview(mediaUrl(p.imageUrl));
       }),
       api.get('/api/categories').then(res => setCategories(res.data?.data ?? res.data ?? [])),
       api.get('/api/suppliers?limit=100').then(res => setSuppliers(res.data?.data ?? res.data ?? [])),

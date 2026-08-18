@@ -83,7 +83,12 @@ echo.
 :: ----------------------------------------
 echo [4/5] Starting Admin Dashboard (Next.js) on port 3001...
 cd /d "%~dp0admin"
-start "ICE-CREAM-ADMIN" /min cmd /c "title ICE-CREAM-ADMIN && npx next dev -p 3001"
+:: Production build ashiglana. "next dev" bol bundle-g hüsèlt bür deer
+:: compile hiideg tul Tailscale/LAN-aar hol PC-ees hanhad mash udaan
+:: achaalagddag. Build ni increment tul 2 dahi udaagaas hoish hurdan.
+echo   Building admin (first run takes ~30s)...
+call npx next build
+start "ICE-CREAM-ADMIN" /min cmd /c "title ICE-CREAM-ADMIN && npx next start -p 3001 -H 0.0.0.0"
 cd /d "%~dp0"
 echo   Admin Dashboard starting...
 echo.

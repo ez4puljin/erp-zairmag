@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   Truck, Plus, Package, Calendar, User, Phone,
@@ -15,7 +15,6 @@ import { PageHeader } from '@/components/shared/page-header';
 import { formatMnt } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ====================== TYPES ======================
 interface TruckLoadItem {
@@ -1046,7 +1045,7 @@ function ProductGrid({
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`${API_URL}${p.imageUrl}`}
+                        src={mediaUrl(p.imageUrl)}
                         alt={p.name}
                         className="w-full h-full object-cover"
                       />

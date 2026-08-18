@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import Link from 'next/link';
 import { Package, Plus, ChevronRight, ChevronLeft, AlertTriangle, Pencil, Trash2, Upload, TrendingUp } from 'lucide-react';
@@ -13,7 +13,6 @@ import { FilterBar, SearchField } from '@/components/shared/filter-bar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -173,7 +172,7 @@ export default function ProductsPage() {
                 <div key={product.id} className="flex items-center gap-4 px-4 lg:px-5 py-3.5 hover:bg-[#F9FAFB] transition-colors group">
                   {/* Image */}
                   {product.imageUrl ? (
-                    <img src={`${API_URL}${product.imageUrl}`} alt={product.name}
+                    <img src={mediaUrl(product.imageUrl)} alt={product.name}
                       className="w-12 h-12 rounded-xl object-cover shrink-0 ring-1 ring-[#E8ECF0]/70" />
                   ) : (
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isOut ? 'bg-[#FF3B30]/8' : isLow ? 'bg-[#FF9500]/8' : 'bg-[#34C759]/8'}`}>

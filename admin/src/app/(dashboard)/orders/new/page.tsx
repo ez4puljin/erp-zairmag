@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
+import api, { mediaUrl } from '@/lib/api';
 import { primaryBarcode, matchesSearch, hasBarcode } from '@/lib/barcode';
 import {
   ChevronLeft,
@@ -253,7 +253,7 @@ export default function NewOrderPage() {
                   {/* Image */}
                   <div className="w-full aspect-square rounded-xl bg-[#F5F6FA] flex items-center justify-center mb-2.5 overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${product.imageUrl}`} alt={product.name}
+                      <img src={mediaUrl(product.imageUrl)} alt={product.name}
                         className="w-full h-full object-cover" />
                     ) : (
                       <Package className="w-8 h-8 text-[#C7C7CC]" />
@@ -293,7 +293,7 @@ export default function NewOrderPage() {
                       {/* Product image */}
                       <div className="w-10 h-10 rounded-lg bg-[#F5F6FA] flex items-center justify-center overflow-hidden shrink-0">
                         {item.product.imageUrl ? (
-                          <img src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${item.product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                          <img src={mediaUrl(item.product.imageUrl)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <Package className="w-5 h-5 text-[#C7C7CC]" />
                         )}

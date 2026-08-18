@@ -1,5 +1,9 @@
 import axios from 'axios';
 
+/** Хаяг нь энэ машины өөрийнх рүү заасан эсэх. */
+const pointsToLocalhost = (url: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(url);
+
 /**
  * Backend API-ийн үндсэн хаягийг тодорхойлно.
  *
@@ -10,15 +14,39 @@ import axios from 'axios';
  * 3. Бусад тохиолдолд reverse proxy (Tailscale serve, nginx, Caddy) ижил
  *    origin доор /api-г дамжуулж байна гэж үзнэ — ингэснээр HTTPS хуудаснаас
  *    HTTP руу хандах болон CORS-ын асуудал огт үүсэхгүй.
+ *
+ * Онцгой тохиолдол: `NEXT_PUBLIC_API_URL` нь localhost руу заасан атлаа
+ * хуудсыг өөр машинаас (Tailscale, LAN) үзэж байвал уг тохиргоог үл
+ * тоомсорлоно. Эс бөгөөс хөтөч *өөрийнхөө* localhost руу хандаж, эцэс
+ * төгсгөлгүй "Ачааллаж байна..." дээр гацна.
  */
-function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+export function getApiUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+
   if (typeof window !== 'undefined') {
     const { protocol, hostname, port, origin } = window.location;
+    const viewedLocally = hostname === 'localhost' || hostname === '127.0.0.1';
+
+    if (configured && !(pointsToLocalhost(configured) && !viewedLocally)) {
+      return configured;
+    }
     if (port === '3001') return `${protocol}//${hostname}:3000`;
     return origin;
   }
-  return 'http://localhost:3000';
+
+  return configured || 'http://localhost:3000';
+}
+
+/**
+ * Backend дээр хадгалагдсан зураг/файлын бүтэн хаяг.
+ *
+ * Модулийн түвшинд биш, дуудагдах үедээ тооцоолдог нь чухал — эс бөгөөс
+ * SSR-ийн үед window байхгүй тул localhost руу заачихдаг.
+ */
+export function mediaUrl(path?: string | null): string {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${getApiUrl()}${path}`;
 }
 
 const api = axios.create({
