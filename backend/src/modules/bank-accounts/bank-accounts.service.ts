@@ -10,17 +10,37 @@ export class BankAccountsService {
 
   async create(dto: CreateBankAccountDto) {
     const opening = dto.openingBalance ?? 0;
-    return this.prisma.bankAccount.create({
-      data: {
-        bankName: dto.bankName,
-        accountNumber: dto.accountNumber,
-        holderName: dto.holderName,
-        currency: dto.currency ?? 'MNT',
-        openingBalance: opening,
-        currentBalance: opening,
-        notes: dto.notes ?? null,
-        isActive: dto.isActive ?? true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isIncomeDefault) await this.clearIncomeDefault(tx);
+      return tx.bankAccount.create({
+        data: {
+          bankName: dto.bankName,
+          accountNumber: dto.accountNumber,
+          holderName: dto.holderName,
+          currency: dto.currency ?? 'MNT',
+          openingBalance: opening,
+          currentBalance: opening,
+          notes: dto.notes ?? null,
+          isActive: dto.isActive ?? true,
+          isIncomeDefault: dto.isIncomeDefault ?? false,
+        },
+      });
+    });
+  }
+
+  /** Одоо байгаа орлогын дансны тэмдгийг арилгана — зөвхөн нэг байх ёстой. */
+  private async clearIncomeDefault(tx: any, exceptId?: string) {
+    await tx.bankAccount.updateMany({
+      where: { isIncomeDefault: true, ...(exceptId ? { id: { not: exceptId } } : {}) },
+      data: { isIncomeDefault: false },
+    });
+  }
+
+  /** ПОС-ын шилжүүлгийн төлбөрийг хаах данс. Тохируулаагүй бол null. */
+  async getIncomeAccount() {
+    return this.prisma.bankAccount.findFirst({
+      where: { isIncomeDefault: true, isActive: true },
+      select: { id: true },
     });
   }
 
@@ -48,7 +68,12 @@ export class BankAccountsService {
       data.currentBalance = Number(existing.currentBalance) + delta;
     }
 
-    return this.prisma.bankAccount.update({ where: { id }, data });
+    return this.prisma.$transaction(async (tx) => {
+      // Өмнөх орлогын дансыг эхлээд арилгана — эс бөгөөс өгөгдлийн сангийн
+      // цор ганц индекс зөрчигдөж алдаа өгнө.
+      if (dto.isIncomeDefault) await this.clearIncomeDefault(tx, id);
+      return tx.bankAccount.update({ where: { id }, data });
+    });
   }
 
   async remove(id: string) {

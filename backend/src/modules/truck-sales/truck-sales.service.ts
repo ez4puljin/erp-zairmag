@@ -124,6 +124,16 @@ export class TruckSalesService {
       saleNotes = saleNotes ? `${saleNotes} | COMBINED:${detail}` : `COMBINED:${detail}`;
     }
 
+    // Шилжүүлгээр төлсөн мөнгө шууд орлогын данс дээр суух ёстой — эс бөгөөс
+    // дансны үлдэгдэл бодит байдлаас хоцорч, дараа нь гараар бүртгэхэд
+    // харилцагчийн дэвтэрт төлбөр давхар орно.
+    const incomeAccount = await this.prisma.bankAccount.findFirst({
+      where: { isIncomeDefault: true, isActive: true },
+      select: { id: true },
+    });
+    /** Шилжүүлгийн төлбөрийг хаах данс. Тохируулаагүй бол хоосон. */
+    const transferAccountId = incomeAccount?.id ?? null;
+
     // Нөхөж бүртгэх огноо. Заагаагүй бол одоо. Ирээдүйн огноо зөвшөөрөхгүй.
     const saleAt = dto.saleDate ? new Date(dto.saleDate) : new Date();
     if (Number.isNaN(saleAt.getTime())) {
@@ -230,7 +240,13 @@ export class TruckSalesService {
         });
 
         if (paidPortion > 0) {
-          // Record immediate payment for non-credit portion
+          // Хосолсон төлбөрийн шилжүүлгийн хэсэг байвал уг дүнг орлогын данс
+          // дээр бүртгэнэ. Бэлэн хэсэг нь ямар ч дансанд хамаарахгүй.
+          const transferPortion = dto.combinedPayments
+            .filter((p) => p.method === 'BANK_TRANSFER')
+            .reduce((s, p) => s + p.amount, 0);
+          const bankPortion = transferAccountId ? Math.min(transferPortion, paidPortion) : 0;
+
           const payment = await tx.payment.create({
             data: {
               customerId: dto.customerId,
@@ -240,8 +256,16 @@ export class TruckSalesService {
               paidAt: saleAt,
               createdAt: saleAt,
               notes: `Түгээлтийн хосолсон төлбөр #${sale.saleNumber}`,
+              ...(bankPortion === paidPortion ? { bankAccountId: transferAccountId } : {}),
             },
           });
+
+          if (bankPortion > 0) {
+            await tx.bankAccount.update({
+              where: { id: transferAccountId! },
+              data: { currentBalance: { increment: bankPortion } },
+            });
+          }
 
           const afterPaymentDebt = afterSaleDebt - paidPortion;
           await tx.customer.update({
@@ -267,6 +291,8 @@ export class TruckSalesService {
         }
       } else {
         // Cash/Bank/Card/etc - immediate payment
+        const useIncomeAccount = dto.paymentMethod === 'BANK_TRANSFER' && transferAccountId;
+
         const payment = await tx.payment.create({
           data: {
             customerId: dto.customerId,
@@ -276,8 +302,16 @@ export class TruckSalesService {
             paidAt: saleAt,
             createdAt: saleAt,
             notes: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
+            ...(useIncomeAccount ? { bankAccountId: transferAccountId } : {}),
           },
         });
+
+        if (useIncomeAccount) {
+          await tx.bankAccount.update({
+            where: { id: transferAccountId! },
+            data: { currentBalance: { increment: totalAmount } },
+          });
+        }
 
         const afterSaleDebt = currentDebt + totalAmount;
         await tx.customerLedgerEntry.create({
@@ -516,6 +550,12 @@ export class TruckSalesService {
     // өдрийн борлуулалтын дүн ба харилцагчийн дэвтэр зөрнө.
     const at = sale.createdAt;
 
+    const incomeAcc = await this.prisma.bankAccount.findFirst({
+      where: { isIncomeDefault: true, isActive: true },
+      select: { id: true },
+    });
+    const incomeAccountId = incomeAcc?.id ?? null;
+
     return this.prisma.$transaction(async (tx) => {
       for (const [productId, d] of delta) {
         if (d === 0) continue;
@@ -600,6 +640,9 @@ export class TruckSalesService {
       }
 
       if (paidDelta !== 0) {
+        // Шилжүүлгийн сувгаар хөдөлсөн мөнгө орлогын дансанд тусна.
+        const bankId = payChannel === 'BANK_TRANSFER' ? incomeAccountId : null;
+
         const payment = await tx.payment.create({
           data: {
             customerId: sale.customerId,
@@ -612,8 +655,16 @@ export class TruckSalesService {
               paidDelta > 0
                 ? `Борлуулалт #${sale.saleNumber} засвар - нэмэлт төлбөр`
                 : `Борлуулалт #${sale.saleNumber} засвар - буцаалт`,
+            ...(bankId ? { bankAccountId: bankId } : {}),
           },
         });
+
+        if (bankId) {
+          await tx.bankAccount.update({
+            where: { id: bankId },
+            data: { currentBalance: { increment: paidDelta } },
+          });
+        }
         debt -= paidDelta;
         await tx.customerLedgerEntry.create({
           data: {
@@ -670,6 +721,12 @@ export class TruckSalesService {
     }
 
     const totalAmount = Number(sale.totalAmount);
+
+    const incomeAcc = await this.prisma.bankAccount.findFirst({
+      where: { isIncomeDefault: true, isActive: true },
+      select: { id: true },
+    });
+    const incomeAccountId = incomeAcc?.id ?? null;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Decrement soldQty on each TruckLoadItem
@@ -774,6 +831,9 @@ export class TruckSalesService {
         }
       } else {
         // Cash/Bank/Card - reverse the payment
+        // Шилжүүлгээр төлсөн байсан бол орлогын дансны үлдэгдлийг ч буцаана.
+        const bankId = sale.paymentMethod === 'BANK_TRANSFER' ? incomeAccountId : null;
+
         await tx.payment.create({
           data: {
             customerId: sale.customerId,
@@ -782,8 +842,16 @@ export class TruckSalesService {
             status: 'COMPLETED',
             paidAt: new Date(),
             notes: `Борлуулалт #${sale.saleNumber} цуцлагдсан - Буцаалт`,
+            ...(bankId ? { bankAccountId: bankId } : {}),
           },
         });
+
+        if (bankId) {
+          await tx.bankAccount.update({
+            where: { id: bankId },
+            data: { currentBalance: { decrement: totalAmount } },
+          });
+        }
       }
 
       // 3. Delete the sale (cascade deletes sale items)

@@ -8,4 +8,6 @@ export class CreateBankAccountDto {
   @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  /** Орлогын данс эсэх. Зөвхөн нэг данс ийм байж болно. */
+  @IsOptional() @IsBoolean() isIncomeDefault?: boolean;
 }

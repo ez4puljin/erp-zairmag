@@ -227,5 +227,22 @@ export function parseStatement(buffer: Buffer, filename: string): ParsedStatemen
     });
   }
 
+  // Хуулгын огноог ГҮЙЛГЭЭНЭЭС нь тодорхойлно.
+  //
+  // Толгой мөрөнд хуулгын интервал ба хэвлэсэн огноо хоёулаа байдаг бөгөөд
+  // дараалал нь банк тус бүрд харилцан адилгүй. Улмаас хэвлэсэн огноог
+  // хуулгын огноо гэж андуурч, 8/9-ний хуулга өнөөдрийн өдөр дээр
+  // бүртгэгддэг байв. Гүйлгээний огноо нь эргэлзээгүй тул түүнийг эх
+  // сурвалж болгоно; толгойн огноог зөвхөн гүйлгээгүй үед нөөцөд үлдээв.
+  if (transactions.length > 0) {
+    const times = transactions
+      .map((t) => t.txnDate?.getTime())
+      .filter((v): v is number => typeof v === 'number');
+    if (times.length > 0) {
+      dateFrom = new Date(Math.min(...times));
+      dateTo = new Date(Math.max(...times));
+    }
+  }
+
   return { accountNumber, currency, dateFrom, dateTo, filename, transactions };
 }

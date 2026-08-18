@@ -25,6 +25,7 @@ interface BankAccount {
   currentBalance: number;
   notes: string | null;
   isActive: boolean;
+  isIncomeDefault: boolean;
   createdAt: string;
 }
 
@@ -54,6 +55,7 @@ const EMPTY_FORM = {
   openingBalance: 0,
   notes: '',
   isActive: true,
+  isIncomeDefault: false,
 };
 
 export default function BankAccountsPage() {
@@ -116,6 +118,7 @@ export default function BankAccountsPage() {
       openingBalance: Number(acc.openingBalance),
       notes: acc.notes ?? '',
       isActive: acc.isActive,
+      isIncomeDefault: acc.isIncomeDefault,
     });
     setShowForm(true);
   }
@@ -298,11 +301,18 @@ export default function BankAccountsPage() {
                     <p className="text-[11px] text-[#8C8FA3]">{acc.currency}</p>
                   </div>
                 </div>
-                {!acc.isActive && (
-                  <span className="text-[10px] font-bold text-[#FF3B30] bg-[#FF3B30]/10 px-2 py-0.5 rounded-full">
-                    ИДЭВХГҮЙ
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {acc.isIncomeDefault && (
+                    <span className="text-[10px] font-bold text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      ОРЛОГЫН ДАНС
+                    </span>
+                  )}
+                  {!acc.isActive && (
+                    <span className="text-[10px] font-bold text-[#FF3B30] bg-[#FF3B30]/10 px-2 py-0.5 rounded-full">
+                      ИДЭВХГҮЙ
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5 mb-4">
@@ -587,6 +597,23 @@ export default function BankAccountsPage() {
                   className="w-5 h-5 rounded accent-[#007AFF]"
                 />
                 <span className="text-[14px] font-medium text-[#1A1D26]">Идэвхтэй</span>
+              </label>
+
+              {/* ПОС дээр "Шилжүүлэг"-ээр төлсөн мөнгө энэ данс дээр суух */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.isIncomeDefault}
+                  onChange={e => update('isIncomeDefault', e.target.checked)}
+                  className="w-5 h-5 rounded accent-[#34C759] mt-0.5"
+                />
+                <span>
+                  <span className="block text-[14px] font-medium text-[#1A1D26]">Орлогын данс</span>
+                  <span className="block text-[12px] text-[#8C8FA3]">
+                    ПОС дээр «Шилжүүлэг»-ээр борлуулалт хийхэд төлбөр шууд энэ данс дээр
+                    бүртгэгдэнэ. Зөвхөн нэг данс ийм байж болно.
+                  </span>
+                </span>
               </label>
             </div>
 
