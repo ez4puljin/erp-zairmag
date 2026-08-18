@@ -23,9 +23,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
+    // Зарим алдаа нь `code` талбар дамжуулдаг (ж: WAREHOUSE_RETURN_CONFIRM) —
+    // клиент үүгээр нь ялган асуулт тавьдаг тул хасалгүй дамжуулна.
+    const body: any = typeof message === 'string' ? { message } : message;
+
     response.status(status).json({
       statusCode: status,
-      message: typeof message === 'string' ? message : (message as any).message,
+      message: body?.message,
+      ...(body?.code ? { code: body.code } : {}),
       timestamp: new Date().toISOString(),
     });
   }

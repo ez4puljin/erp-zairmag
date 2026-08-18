@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTruckSaleDto } from './dto/create-truck-sale.dto';
+import { UpdateTruckSaleDto } from './dto/update-truck-sale.dto';
 import { Prisma, StockMovementReason } from '@prisma/client';
 
 @Injectable()
@@ -335,6 +336,317 @@ export class TruckSalesService {
         customer: { select: { id: true, storeName: true, contactName: true, phone: true, address: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Төлбөрийн хэлбэрээр дүнг "зээл" ба "төлсөн" хоёрт хуваана.
+   * Борлуулалтын цэвэр нөлөө: харилцагчийн өр += зээлийн хэсэг.
+   */
+  private static splitMoney(
+    method: string,
+    total: number,
+    combined?: { method: string; amount: number }[] | null,
+    notes?: string | null,
+  ): { credit: number; paid: number } {
+    if (method === 'CREDIT') return { credit: total, paid: 0 };
+
+    if (method === 'COMBINED') {
+      let credit = 0;
+      if (combined && combined.length) {
+        credit = combined
+          .filter((p) => p.method === 'CREDIT')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+      } else {
+        // Хуучин борлуулалтын задаргаа notes дотор хадгалагдсан байдаг.
+        const m = (notes || '').match(/COMBINED:(.+?)($|\s*\|)/);
+        if (m) {
+          for (const part of m[1].split(',')) {
+            const [pm, amt] = part.split(':');
+            if (pm === 'CREDIT') credit += parseFloat(amt) || 0;
+          }
+        } else {
+          credit = total; // задаргаа алдагдсан бол voidSale-тай адил бүгдийг зээл гэж үзнэ
+        }
+      }
+      return { credit, paid: total - credit };
+    }
+
+    return { credit: 0, paid: total };
+  }
+
+  /**
+   * Борлуулалт засах (зөвхөн админ).
+   *
+   * `items` нь эцсийн байдлыг илэрхийлнэ — зөрүү биш. Тоо буурвал үлдэгдэл
+   * машин руу буцна. Ачилт хаагдсан бол машинд буцаах газаргүй тул агуулах
+   * руу буцаах бөгөөд үүнийг хэрэглэгч зөвшөөрсөн (allowWarehouseReturn)
+   * үед л гүйцэтгэнэ.
+   */
+  async updateSale(id: string, dto: UpdateTruckSaleDto, userId: string) {
+    const sale = await this.prisma.truckSale.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        truckLoad: { include: { items: true } },
+        customer: { select: { id: true, storeName: true } },
+      },
+    });
+    if (!sale) throw new NotFoundException('Борлуулалт олдсонгүй.');
+
+    const loadOpen = sale.truckLoad.status === 'DISPATCHED';
+    const wantsItemChange = Array.isArray(dto.items);
+
+    // Ачилт хаагдсан үед барааны тоо өөрчлөх нь агуулахын нөөцөд шууд нөлөөлнө.
+    if (wantsItemChange && !loadOpen && !dto.allowWarehouseReturn) {
+      throw new BadRequestException({
+        code: 'WAREHOUSE_RETURN_CONFIRM',
+        message:
+          `Ачилт #${sale.truckLoad.loadNumber} хаагдсан байна. ` +
+          'Үлдэгдлийг шууд агуулах руу буцаах уу?',
+      });
+    }
+
+    const isRural = (sale.truckLoad as any).locationType === 'RURAL';
+    const oldItems = sale.items;
+    const oldTotal = Number(sale.totalAmount);
+
+    // Хуучин мөрийн үнийг хэвээр үлдээнэ (борлуулсан үеийн үнэ), зөвхөн шинээр
+    // нэмсэн бараанд одоогийн үнийг авна.
+    let newItems = oldItems.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+    }));
+
+    if (wantsItemChange) {
+      const oldPrice = new Map(oldItems.map((i) => [i.productId, Number(i.unitPrice)]));
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: dto.items!.map((i) => i.productId) } },
+        select: { id: true, name: true, sellingPrice: true, sellingPriceRural: true },
+      });
+      const pMap = new Map(products.map((p) => [p.id, p]));
+
+      newItems = dto.items!.map((i) => {
+        const prev = oldPrice.get(i.productId);
+        if (prev !== undefined) return { ...i, unitPrice: prev };
+        const p = pMap.get(i.productId);
+        if (!p) throw new BadRequestException(`Бараа ${i.productId} олдсонгүй.`);
+        const price = Number(isRural ? (p as any).sellingPriceRural : p.sellingPrice);
+        if (price <= 0) {
+          throw new BadRequestException(
+            `Бараа "${p.name}"-ын ${isRural ? 'орон нутгийн' : 'Мөрөн'} үнэ тохируулаагүй байна.`,
+          );
+        }
+        return { ...i, unitPrice: price };
+      });
+    }
+
+    const newTotal = newItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+    const newMethod = dto.paymentMethod ?? sale.paymentMethod;
+
+    if (newMethod === 'COMBINED') {
+      const cp = dto.combinedPayments;
+      if (!cp || cp.length < 2) {
+        throw new BadRequestException('Хосолсон төлбөрт 2-оос дээш төлбөрийн хэлбэр шаардлагатай.');
+      }
+      const sum = cp.reduce((s, p) => s + Number(p.amount), 0);
+      if (Math.abs(sum - newTotal) > 1) {
+        throw new BadRequestException(
+          `Хосолсон төлбөрийн нийт дүн (${sum}) нийт дүнтэй (${newTotal}) тохирохгүй байна.`,
+        );
+      }
+    }
+
+    // Барааны тоо хэмжээний зөрүү (эерэг = илүү зарлаа, сөрөг = буцаалаа)
+    const delta = new Map<string, number>();
+    for (const i of oldItems) delta.set(i.productId, -i.quantity);
+    for (const i of newItems) delta.set(i.productId, (delta.get(i.productId) ?? 0) + i.quantity);
+
+    const info = new Map(
+      (
+        await this.prisma.product.findMany({
+          where: { id: { in: [...delta.keys()] } },
+          select: { id: true, name: true, stockAvailable: true },
+        })
+      ).map((p) => [p.id, p]),
+    );
+    const nameOf = (pid: string) => info.get(pid)?.name ?? pid;
+
+    for (const [productId, d] of delta) {
+      if (d <= 0) continue;
+      if (loadOpen) {
+        const li = sale.truckLoad.items.find((x) => x.productId === productId);
+        if (!li) throw new BadRequestException(`"${nameOf(productId)}" бараа машинд байхгүй.`);
+        const available = li.loadedQty - li.soldQty - li.returnedQty - li.damagedQty;
+        if (d > available) {
+          throw new BadRequestException(
+            `"${nameOf(productId)}" бараа хүрэлцэхгүй. Машинд: ${available}, Нэмэх: ${d}`,
+          );
+        }
+      } else {
+        // Хаагдсан ачилтад нэмэх нь агуулахаас гаргаж байна гэсэн үг.
+        const stock = info.get(productId)?.stockAvailable ?? 0;
+        if (d > stock) {
+          throw new BadRequestException(
+            `"${nameOf(productId)}" бараа агуулахад хүрэлцэхгүй. Байгаа: ${stock}, Нэмэх: ${d}`,
+          );
+        }
+      }
+    }
+
+    const oldSplit = TruckSalesService.splitMoney(String(sale.paymentMethod), oldTotal, null, sale.notes);
+    const newSplit = TruckSalesService.splitMoney(String(newMethod), newTotal, dto.combinedPayments, null);
+    const totalDelta = newTotal - oldTotal;
+    const paidDelta = newSplit.paid - oldSplit.paid;
+
+    // Буцаалт нь анхны сувгаараа буцна, нэмэлт төлбөр нь шинэ сувгаар орно.
+    const channel = (m: string) => (m === 'COMBINED' || m === 'CREDIT' ? 'CASH' : m);
+    const payChannel = channel(String(paidDelta > 0 ? newMethod : sale.paymentMethod));
+
+    // Хосолсон задаргааг notes-д шинэчилнэ.
+    let newNotes =
+      dto.notes !== undefined ? dto.notes : (sale.notes || '').replace(/\s*\|?\s*COMBINED:.+$/, '');
+    if (newMethod === 'COMBINED' && dto.combinedPayments) {
+      const detail = dto.combinedPayments.map((p) => `${p.method}:${p.amount}`).join(',');
+      newNotes = newNotes ? `${newNotes} | COMBINED:${detail}` : `COMBINED:${detail}`;
+    }
+
+    // Засварыг борлуулалтын анхны огноогоор бүртгэнэ — эс бөгөөс тухайн
+    // өдрийн борлуулалтын дүн ба харилцагчийн дэвтэр зөрнө.
+    const at = sale.createdAt;
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const [productId, d] of delta) {
+        if (d === 0) continue;
+
+        await tx.truckLoadItem.updateMany({
+          where: { truckLoadId: sale.truckLoadId, productId },
+          data: { soldQty: { increment: d } },
+        });
+
+        if (!loadOpen) {
+          // Ачилт аль хэдийн хаагдсан тул зөрүүг агуулахаар дамжуулж тэнцүүлнэ:
+          // ачилтын loadedQty = sold + returned хэвээр үлдэнэ.
+          await tx.truckLoadItem.updateMany({
+            where: { truckLoadId: sale.truckLoadId, productId },
+            data: { returnedQty: { increment: -d } },
+          });
+          await tx.product.update({
+            where: { id: productId },
+            data: { stockAvailable: { increment: -d }, version: { increment: 1 } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productId,
+              quantity: -d,
+              reason: d > 0 ? StockMovementReason.TRANSFER_OUT : StockMovementReason.TRANSFER_IN,
+              createdById: userId,
+              locationCode: `TRUCK-${sale.truckLoad.loadNumber}`,
+              notes: `Борлуулалт #${sale.saleNumber} засвар - агуулахын тооцоо`,
+              createdAt: at,
+            },
+          });
+        }
+
+        await tx.stockMovement.create({
+          data: {
+            productId,
+            quantity: -d,
+            reason: StockMovementReason.SALE_DISPATCH,
+            createdById: userId,
+            locationCode: `TRUCK-${sale.truckLoad.loadNumber}`,
+            notes: `Борлуулалт #${sale.saleNumber} засвар - ${sale.customer.storeName}`,
+            createdAt: at,
+          },
+        });
+      }
+
+      if (wantsItemChange) {
+        await tx.truckSaleItem.deleteMany({ where: { truckSaleId: id } });
+        for (const i of newItems) {
+          await tx.truckSaleItem.create({
+            data: {
+              truckSaleId: id,
+              productId: i.productId,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              lineTotal: i.quantity * i.unitPrice,
+            },
+          });
+        }
+      }
+
+      // Мөнгөн дүн: createSale-тай ижил бүтэц — эхлээд борлуулалтын зөрүү өр
+      // болж бичигдээд, дараа нь төлсөн хэсэг нь хасагдана.
+      const fresh = await tx.customer.findUniqueOrThrow({
+        where: { id: sale.customerId },
+        select: { outstandingDebt: true },
+      });
+      const startDebt = Number(fresh.outstandingDebt);
+      let debt = startDebt;
+
+      if (totalDelta !== 0) {
+        debt += totalDelta;
+        await tx.customerLedgerEntry.create({
+          data: {
+            customerId: sale.customerId,
+            amount: totalDelta,
+            balanceAfter: debt,
+            description: `Борлуулалт #${sale.saleNumber} засвар (дүнгийн зөрүү)`,
+            createdAt: at,
+          },
+        });
+      }
+
+      if (paidDelta !== 0) {
+        const payment = await tx.payment.create({
+          data: {
+            customerId: sale.customerId,
+            amount: paidDelta,
+            method: payChannel as any,
+            status: 'COMPLETED',
+            paidAt: at,
+            createdAt: at,
+            notes:
+              paidDelta > 0
+                ? `Борлуулалт #${sale.saleNumber} засвар - нэмэлт төлбөр`
+                : `Борлуулалт #${sale.saleNumber} засвар - буцаалт`,
+          },
+        });
+        debt -= paidDelta;
+        await tx.customerLedgerEntry.create({
+          data: {
+            customerId: sale.customerId,
+            amount: -paidDelta,
+            balanceAfter: debt,
+            description: `Борлуулалт #${sale.saleNumber} засвар - төлбөр`,
+            paymentId: payment.id,
+            createdAt: at,
+          },
+        });
+      }
+
+      if (debt !== startDebt) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data: { outstandingDebt: debt },
+        });
+      }
+
+      return tx.truckSale.update({
+        where: { id },
+        data: {
+          paymentMethod: newMethod,
+          subtotal: newTotal,
+          totalAmount: newTotal,
+          notes: newNotes || null,
+        },
+        include: {
+          items: { include: { product: { select: { id: true, name: true, barcodes: { select: { code: true } }, unit: true } } } },
+          customer: { select: { id: true, storeName: true, contactName: true, phone: true, address: true } },
+        },
+      });
     });
   }
 

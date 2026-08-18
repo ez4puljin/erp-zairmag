@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Delete, Param, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { TruckSalesService } from './truck-sales.service';
 import { CreateTruckSaleDto } from './dto/create-truck-sale.dto';
+import { UpdateTruckSaleDto } from './dto/update-truck-sale.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/truck-sales')
@@ -29,6 +30,13 @@ export class TruckSalesController {
   @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER, Role.DRIVER)
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
+  }
+
+  // Борлуулалт засах — үлдэгдэл, өр, төлбөрт нөлөөлдөг тул зөвхөн админ.
+  @Patch(':id')
+  @Roles(Role.ADMIN)
+  update(@Param('id') id: string, @Body() dto: UpdateTruckSaleDto, @Req() req: any) {
+    return this.service.updateSale(id, dto, req.user.id);
   }
 
   @Delete(':id/void')

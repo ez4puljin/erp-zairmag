@@ -14,6 +14,8 @@ import { PageHeader } from '@/components/shared/page-header';
 import { StatCard } from '@/components/shared/stat-card';
 import { formatMnt, formatWeight, formatQty } from '@/components/shared/money';
 import { SearchableSelect } from '@/components/shared/searchable-select';
+import { MoneyInput } from '@/components/shared/money-input';
+import { useAuth } from '@/hooks/use-auth';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   LOADING:              { label: 'Ачиж байна',          color: '#007AFF', bg: '#EAF2FF' },
@@ -162,11 +164,40 @@ function buildHandoverReceipt(load: any, type: 'dispatch' | 'additional' | 'retu
   return lines;
 }
 
+// ====================== SALE EDIT HELPERS ======================
+interface EditItem {
+  productId: string;
+  name: string;
+  quantity: number;
+  /** Одоо байгаа мөрийн үнэ. Шинээр нэмсэн бараанд серверээс тодорхойлогдоно. */
+  unitPrice: number | null;
+}
+
+/** Засварын цонхонд сонгуулах төлбөрийн хэлбэрүүд. */
+const EDITABLE_METHODS = ['CASH', 'BANK_TRANSFER', 'CARD', 'CREDIT', 'COMBINED'] as const;
+
+/**
+ * Хосолсон төлбөрийн бэлэн хэсгийг тэмдэглэлээс уншина.
+ * Формат: `COMBINED:CASH:80000,CREDIT:100500`
+ */
+function parseCombinedCash(notes?: string | null): number {
+  const m = (notes || '').match(/COMBINED:(.+?)($|\s*\|)/);
+  if (!m) return 0;
+  let cash = 0;
+  for (const part of m[1].split(',')) {
+    const [method, amount] = part.split(':');
+    if (method !== 'CREDIT') cash += parseFloat(amount) || 0;
+  }
+  return cash;
+}
+
 // ====================== COMPONENT ======================
 export default function TruckLoadDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
 
   const [load, setLoad] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -187,6 +218,13 @@ export default function TruckLoadDetailPage() {
   const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
+
+  // Борлуулалт засах (зөвхөн админ)
+  const [editSale, setEditSale] = useState<any>(null);
+  const [editItems, setEditItems] = useState<EditItem[]>([]);
+  const [editMethod, setEditMethod] = useState('CASH');
+  const [editCash, setEditCash] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (id) fetchLoad();
@@ -381,6 +419,89 @@ export default function TruckLoadDetailPage() {
       alert('Борлуулалт цуцлахад алдаа гарлаа: ' + (err.response?.data?.message || err.message));
     }
     setActionLoading(false);
+  }
+
+  function openEditSale(sale: any) {
+    setEditSale(sale);
+    setEditItems(
+      (sale.items ?? []).map((si: any) => ({
+        productId: si.productId,
+        name: si.product?.name ?? '—',
+        quantity: si.quantity ?? 0,
+        unitPrice: Number(si.unitPrice ?? 0),
+      })),
+    );
+    setEditMethod(sale.paymentMethod);
+    setEditCash(String(parseCombinedCash(sale.notes) || ''));
+    if (products.length === 0) fetchProducts();
+  }
+
+  function closeEditSale() {
+    setEditSale(null);
+    setEditItems([]);
+  }
+
+  function addEditItem(productId: string) {
+    if (!productId || editItems.some((i) => i.productId === productId)) return;
+    const p = products.find((x: any) => x.id === productId);
+    // Үнийг сервер ачилтын байршлаар тодорхойлно — энд зөвхөн урьдчилсан харагдац.
+    setEditItems((prev) => [...prev, { productId, name: p?.name ?? '—', quantity: 1, unitPrice: null }]);
+  }
+
+  /** Мэдэгдэж буй үнээр тооцсон дүн. Шинэ мөрийн үнэ серверээс ирнэ. */
+  const editTotal = editItems.reduce((sum, i) => sum + i.quantity * (i.unitPrice ?? 0), 0);
+  const hasUnknownPrice = editItems.some((i) => i.unitPrice === null);
+
+  async function handleSaveEdit(allowWarehouseReturn = false) {
+    if (!editSale) return;
+
+    const items = editItems.filter((i) => i.quantity > 0);
+    if (items.length === 0) {
+      alert('Бүх барааг хасах бол борлуулалтыг цуцлана уу.');
+      return;
+    }
+
+    const payload: any = {
+      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      paymentMethod: editMethod,
+    };
+    if (allowWarehouseReturn) payload.allowWarehouseReturn = true;
+
+    if (editMethod === 'COMBINED') {
+      if (hasUnknownPrice) {
+        alert('Шинэ барааны үнэ мэдэгдэхгүй тул хосолсон төлбөрийг тооцох боломжгүй. Эхлээд хадгалаад дараа нь төлбөрийн хэлбэрийг засна уу.');
+        return;
+      }
+      const cash = Number(editCash || 0);
+      if (cash <= 0 || cash >= editTotal) {
+        alert('Хосолсон төлбөрт бэлэн дүн 0-ээс их, нийт дүнгээс бага байх ёстой.');
+        return;
+      }
+      payload.combinedPayments = [
+        { method: 'CASH', amount: cash },
+        { method: 'CREDIT', amount: editTotal - cash },
+      ];
+    }
+
+    setSavingEdit(true);
+    try {
+      await api.patch(`/api/truck-sales/${editSale.id}`, payload);
+      await fetchLoad();
+      closeEditSale();
+    } catch (err: any) {
+      const data = err.response?.data;
+      // Ачилт хаагдсан бол үлдэгдэл машин руу биш агуулах руу буцна — баталгаажуулна.
+      if (data?.code === 'WAREHOUSE_RETURN_CONFIRM' && !allowWarehouseReturn) {
+        setSavingEdit(false);
+        if (confirm(`${data.message}\n\nАгуулах руу үлдэгдэл буцаахад итгэлтэй байна уу?`)) {
+          await handleSaveEdit(true);
+        }
+        return;
+      }
+      const msg = Array.isArray(data?.message) ? data.message.join(', ') : data?.message || err.message;
+      alert('Борлуулалт засахад алдаа гарлаа: ' + msg);
+    }
+    setSavingEdit(false);
   }
 
   function toggleSaleExpand(saleId: string) {
@@ -739,6 +860,15 @@ export default function TruckLoadDetailPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[15px] font-bold text-[#1A1D26]">{formatMnt(sale.totalAmount)}</span>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditSale(sale); }}
+                          disabled={actionLoading}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors disabled:opacity-50"
+                        >
+                          Засах
+                        </button>
+                      )}
                       {(load.status === 'DISPATCHED' || load.status === 'COMPLETION_REQUESTED') && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleVoidSale(sale.id); }}
@@ -883,6 +1013,152 @@ export default function TruckLoadDetailPage() {
               <p>Баталгаажуулсан: <span className="font-semibold">{load.returnVerifiedBy.lastName} {load.returnVerifiedBy.firstName}</span></p>
             )}
             {load.returnNotes && <p className="col-span-2">Тэмдэглэл: <span className="italic text-[#8C8FA3]">{load.returnNotes}</span></p>}
+          </div>
+        </div>
+      )}
+
+      {/* Борлуулалт засах цонх (зөвхөн админ) */}
+      {editSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F2F5] sticky top-0 bg-white">
+              <div>
+                <h3 className="text-[17px] font-bold text-[#1A1D26]">
+                  Борлуулалт #{editSale.saleNumber} засах
+                </h3>
+                <p className="text-[13px] text-[#8C8FA3]">
+                  {editSale.customer?.storeName ?? editSale.customer?.contactName ?? '—'}
+                </p>
+              </div>
+              <button onClick={closeEditSale} className="p-2 rounded-lg hover:bg-[#F2F4F7]">
+                <X className="w-4 h-4 text-[#8C8FA3]" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {load.status !== 'DISPATCHED' && (
+                <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-[#FF9500]/10 border border-[#FF9500]/25">
+                  <AlertTriangle className="w-4 h-4 text-[#FF9500] shrink-0 mt-0.5" />
+                  <p className="text-[13px] text-[#1A1D26]">
+                    Ачилт хаагдсан тул тоо хэмжээний өөрчлөлт шууд агуулахын үлдэгдэлд тусна.
+                  </p>
+                </div>
+              )}
+
+              {/* Барааны мөрүүд */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-2">Бараа</label>
+                <div className="rounded-xl border border-[#E8ECF0] divide-y divide-[#F2F4F7]">
+                  {editItems.map((item, idx) => (
+                    <div key={item.productId} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14px] font-medium text-[#1A1D26] truncate">{item.name}</div>
+                        <div className="text-[12px] text-[#8C8FA3]">
+                          {item.unitPrice === null
+                            ? 'Үнэ серверээс тодорхойлогдоно'
+                            : `${formatMnt(item.unitPrice)} × ${item.quantity} = ${formatMnt(item.quantity * item.unitPrice)}`}
+                        </div>
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const q = parseInt(e.target.value, 10);
+                          setEditItems((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, quantity: Number.isNaN(q) ? 0 : q } : x)),
+                          );
+                        }}
+                        className="w-24 px-3 py-2 rounded-lg bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-center outline-none focus:border-[#007AFF]"
+                      />
+                      <button
+                        onClick={() => setEditItems((prev) => prev.filter((_, i) => i !== idx))}
+                        className="p-2 rounded-lg text-[#FF3B30] hover:bg-[#FF3B30]/10"
+                        title="Мөр хасах"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {editItems.length === 0 && (
+                    <div className="px-4 py-6 text-center text-[13px] text-[#8C8FA3]">
+                      Бараа үлдээгүй байна. Бүх барааг хасах бол борлуулалтыг цуцлана уу.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Бараа нэмэх */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-2">Бараа нэмэх</label>
+                <SearchableSelect
+                  value=""
+                  onChange={addEditItem}
+                  options={products
+                    .filter((p: any) => !editItems.some((i) => i.productId === p.id))
+                    .map((p: any) => ({ value: p.id, label: p.name }))}
+                  emptyText="Бараа сонгох..."
+                  inputClassName={inputClass}
+                />
+              </div>
+
+              {/* Төлбөрийн хэлбэр */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-2">Төлбөрийн хэлбэр</label>
+                <div className="flex flex-wrap gap-2">
+                  {EDITABLE_METHODS.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setEditMethod(m)}
+                      className={`px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
+                        editMethod === m
+                          ? 'bg-[#007AFF] text-white'
+                          : 'bg-[#F5F6FA] text-[#1A1D26] hover:bg-[#E8ECF0]'
+                      }`}
+                    >
+                      {PAYMENT_LABELS[m] ?? m}
+                    </button>
+                  ))}
+                </div>
+                {editMethod === 'COMBINED' && (
+                  <div className="mt-3">
+                    <label className="block text-[12px] font-medium text-[#8C8FA3] mb-1.5">
+                      Бэлэн төлсөн дүн (үлдсэн нь дараа тооцоо)
+                    </label>
+                    <MoneyInput value={editCash} onChange={setEditCash} className={inputClass} />
+                    {!hasUnknownPrice && (
+                      <p className="mt-1.5 text-[12px] text-[#8C8FA3]">
+                        Дараа тооцоо: {formatMnt(Math.max(0, editTotal - Number(editCash || 0)))}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#F9FAFB]">
+                <span className="text-[14px] font-semibold text-[#1A1D26]">Нийт дүн</span>
+                <span className="text-[17px] font-bold text-[#1A1D26]">
+                  {hasUnknownPrice ? 'Хадгалсны дараа тодорхой болно' : formatMnt(editTotal)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#F0F2F5] sticky bottom-0 bg-white">
+              <button
+                onClick={closeEditSale}
+                disabled={savingEdit}
+                className="px-4 py-2.5 rounded-xl text-[14px] font-semibold text-[#8C8FA3] bg-[#F5F6FA] hover:bg-[#E8ECF0] disabled:opacity-50"
+              >
+                Болих
+              </button>
+              <button
+                onClick={() => handleSaveEdit()}
+                disabled={savingEdit || editItems.length === 0}
+                className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-[#007AFF] hover:bg-[#0066DB] disabled:opacity-50"
+              >
+                {savingEdit ? 'Хадгалж байна...' : 'Хадгалах'}
+              </button>
+            </div>
           </div>
         </div>
       )}
