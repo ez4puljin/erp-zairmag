@@ -223,6 +223,8 @@ export default function TruckLoadDetailPage() {
   const [editSale, setEditSale] = useState<any>(null);
   const [editItems, setEditItems] = useState<EditItem[]>([]);
   const [editMethod, setEditMethod] = useState('CASH');
+  const [editCustomerId, setEditCustomerId] = useState('');
+  const [customers, setCustomers] = useState<any[]>([]);
   const [editCash, setEditCash] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -281,6 +283,13 @@ export default function TruckLoadDetailPage() {
     try {
       const res = await api.get('/api/products?limit=100');
       setProducts(res.data?.data ?? res.data ?? []);
+    } catch (err) { console.error(err); }
+  }
+
+  async function fetchCustomers() {
+    try {
+      const res = await api.get('/api/customers', { params: { limit: 1000 } });
+      setCustomers(res.data?.data ?? res.data ?? []);
     } catch (err) { console.error(err); }
   }
 
@@ -455,7 +464,9 @@ export default function TruckLoadDetailPage() {
     );
     setEditMethod(sale.paymentMethod);
     setEditCash(String(parseCombinedCash(sale.notes) || ''));
+    setEditCustomerId(sale.customerId ?? sale.customer?.id ?? '');
     if (products.length === 0) fetchProducts();
+    if (customers.length === 0) fetchCustomers();
   }
 
   function closeEditSale() {
@@ -487,6 +498,11 @@ export default function TruckLoadDetailPage() {
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       paymentMethod: editMethod,
     };
+    // Харилцагч солигдсон үед л илгээнэ — сервер өр, төлбөрийг бүхэлд нь шилжүүлнэ.
+    const origCustomerId = editSale.customerId ?? editSale.customer?.id ?? '';
+    if (editCustomerId && editCustomerId !== origCustomerId) {
+      payload.customerId = editCustomerId;
+    }
     if (allowWarehouseReturn) payload.allowWarehouseReturn = true;
 
     if (editMethod === 'COMBINED') {
@@ -1066,6 +1082,26 @@ export default function TruckLoadDetailPage() {
                   </p>
                 </div>
               )}
+
+              {/* Харилцагч — жолооч буруу сонгосон бол эндээс солино */}
+              <div>
+                <label className="block text-[13px] font-semibold text-[#1A1D26] mb-2">Харилцагч</label>
+                <SearchableSelect
+                  value={editCustomerId}
+                  onChange={setEditCustomerId}
+                  options={customers.map((c: any) => ({
+                    value: c.id,
+                    label: `${c.storeName}${c.phone ? ` · ${c.phone}` : ''}`,
+                  }))}
+                  emptyText="Харилцагч сонгох..."
+                  inputClassName={inputClass}
+                />
+                {editCustomerId && editCustomerId !== (editSale.customerId ?? editSale.customer?.id) && (
+                  <p className="mt-1.5 text-[12px] text-[#FF9500]">
+                    Хадгалахад борлуулалтын өр, төлбөр бүхэлдээ шинэ харилцагч руу шилжинэ.
+                  </p>
+                )}
+              </div>
 
               {/* Барааны мөрүүд */}
               <div>

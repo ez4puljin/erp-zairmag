@@ -31,6 +31,14 @@ export class UpdateTruckSaleCombinedDto {
  * `items` нь эцсийн байдлыг илэрхийлнэ — өөрчлөлтийн зөрүү биш.
  */
 export class UpdateTruckSaleDto {
+  /**
+   * Харилцагчийг солих. Жолооч буруу харилцагч сонгосон тохиолдолд
+   * борлуулалтын өр, төлбөр бүхэлдээ шинэ харилцагч руу шилжинэ.
+   */
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)

@@ -531,6 +531,46 @@ export class TruckSalesService {
   }
 
   /**
+   * Төлбөрийн төлсөн (зээл биш) хэсгийг хэлбэр тус бүрээр нь задална.
+   * Данс бүрт зөв дүн буцаах/нэмэхэд ашиглана.
+   */
+  private static paidLines(
+    method: string,
+    total: number,
+    combined?: { method: string; amount: number }[] | null,
+    notes?: string | null,
+  ): { method: string; amount: number }[] {
+    if (method === 'CREDIT') return [];
+
+    if (method === 'COMBINED') {
+      const src =
+        combined && combined.length
+          ? combined.map((p) => ({
+              method: p.method,
+              amount: Number(p.amount),
+            }))
+          : (() => {
+              // Хуучин борлуулалтын задаргаа notes дотор хадгалагддаг.
+              const m = (notes || '').match(/COMBINED:(.+?)($|\s*\|)/);
+              if (!m) return [];
+              return m[1].split(',').map((part) => {
+                const [pm, amt] = part.split(':');
+                return { method: pm, amount: parseFloat(amt) || 0 };
+              });
+            })();
+
+      const byMethod = new Map<string, number>();
+      for (const p of src) {
+        if (p.method === 'CREDIT') continue;
+        byMethod.set(p.method, (byMethod.get(p.method) ?? 0) + p.amount);
+      }
+      return [...byMethod].map(([m, amount]) => ({ method: m, amount }));
+    }
+
+    return [{ method, amount: total }];
+  }
+
+  /**
    * Борлуулалт засах (зөвхөн админ).
    *
    * `items` нь эцсийн байдлыг илэрхийлнэ — зөрүү биш. Тоо буурвал үлдэгдэл
@@ -565,6 +605,18 @@ export class TruckSalesService {
     const isRural = (sale.truckLoad as any).locationType === 'RURAL';
     const oldItems = sale.items;
     const oldTotal = Number(sale.totalAmount);
+
+    // Жолооч буруу харилцагч сонгосон бол бүх мөнгөн үр дагаврыг нь
+    // хуучин харилцагчаас нь бүрэн буцааж, шинэ дээр нь дахин бичнэ.
+    const newCustomerId = dto.customerId ?? sale.customerId;
+    const customerChanged = newCustomerId !== sale.customerId;
+    if (customerChanged) {
+      const target = await this.prisma.customer.findFirst({
+        where: { id: newCustomerId, isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+      if (!target) throw new NotFoundException('Шинэ харилцагч олдсонгүй.');
+    }
 
     // Хуучин мөрийн үнийг хэвээр үлдээнэ (борлуулсан үеийн үнэ), зөвхөн шинээр
     // нэмсэн бараанд одоогийн үнийг авна.
@@ -779,77 +831,209 @@ export class TruckSalesService {
         }
       }
 
-      // Мөнгөн дүн: createSale-тай ижил бүтэц — эхлээд борлуулалтын зөрүү өр
-      // болж бичигдээд, дараа нь төлсөн хэсэг нь хасагдана.
-      const fresh = await tx.customer.findUniqueOrThrow({
-        where: { id: sale.customerId },
-        select: { outstandingDebt: true },
-      });
-      const startDebt = Number(fresh.outstandingDebt);
-      let debt = startDebt;
+      // Мөнгөн дүн. Харилцагч солигдоогүй бол зөвхөн зөрүүг бичнэ; солигдсон
+      // бол хуучин харилцагчаас бүрэн буцаагаад шинэ дээр нь бүрэн бичнэ.
+      if (customerChanged) {
+        // Бичилтүүд борлуулалттай ижил хормыг давхарлахгүй байх нь чухал —
+        // дэвтэр дээр ижил хугацаатай мөрүүд дурын дарааллаар эрэмбэлэгдэж,
+        // гүйлгээний үлдэгдэл холилдож харагдана.
+        let seq = 0;
+        const stamp = () => new Date(at.getTime() + ++seq);
 
-      if (totalDelta !== 0) {
-        debt += totalDelta;
+        const oldLines = TruckSalesService.paidLines(
+          String(sale.paymentMethod),
+          oldTotal,
+          null,
+          sale.notes,
+        );
+        const newLines = TruckSalesService.paidLines(
+          String(newMethod),
+          newTotal,
+          dto.combinedPayments,
+          null,
+        );
+
+        // --- Хуучин харилцагчаас бүрэн буцаана ---
+        const fromCust = await tx.customer.findUniqueOrThrow({
+          where: { id: sale.customerId },
+          select: { outstandingDebt: true },
+        });
+        let fromDebt = Number(fromCust.outstandingDebt) - oldTotal;
         await tx.customerLedgerEntry.create({
           data: {
             customerId: sale.customerId,
-            amount: totalDelta,
-            balanceAfter: debt,
-            description: `Борлуулалт #${sale.saleNumber} засвар (дүнгийн зөрүү)`,
-            createdAt: at,
-          },
-        });
-      }
-
-      if (paidDelta !== 0) {
-        // Тухайн сувгийг хүлээн авдаг данс байвал зөрүү нь тэнд тусна.
-        const bankId = posAccounts.get(String(payChannel)) ?? null;
-
-        const payment = await tx.payment.create({
-          data: {
-            customerId: sale.customerId,
-            amount: paidDelta,
-            method: payChannel as any,
-            status: 'COMPLETED',
-            paidAt: at,
-            createdAt: at,
-            notes:
-              paidDelta > 0
-                ? `Борлуулалт #${sale.saleNumber} засвар - нэмэлт төлбөр`
-                : `Борлуулалт #${sale.saleNumber} засвар - буцаалт`,
-            ...(bankId ? { bankAccountId: bankId } : {}),
+            amount: -oldTotal,
+            balanceAfter: fromDebt,
+            description: `Борлуулалт #${sale.saleNumber} өөр харилцагч руу шилжсэн`,
+            createdAt: stamp(),
           },
         });
 
-        if (bankId) {
-          await tx.bankAccount.update({
-            where: { id: bankId },
-            data: { currentBalance: { increment: paidDelta } },
+        for (const line of oldLines) {
+          if (line.amount <= 0) continue;
+          const bankId = posAccounts.get(line.method) ?? null;
+          const payment = await tx.payment.create({
+            data: {
+              customerId: sale.customerId,
+              amount: -line.amount,
+              method: line.method as any,
+              status: 'COMPLETED',
+              paidAt: at,
+              createdAt: stamp(),
+              notes: `Борлуулалт #${sale.saleNumber} шилжсэн - төлбөр буцаав (${line.method})`,
+              ...(bankId ? { bankAccountId: bankId } : {}),
+            },
+          });
+          if (bankId) {
+            await tx.bankAccount.update({
+              where: { id: bankId },
+              data: { currentBalance: { decrement: line.amount } },
+            });
+          }
+          fromDebt += line.amount;
+          await tx.customerLedgerEntry.create({
+            data: {
+              customerId: sale.customerId,
+              amount: line.amount,
+              balanceAfter: fromDebt,
+              description: `Борлуулалт #${sale.saleNumber} шилжсэн - төлбөр буцаав`,
+              paymentId: payment.id,
+              createdAt: stamp(),
+            },
           });
         }
-        debt -= paidDelta;
-        await tx.customerLedgerEntry.create({
-          data: {
-            customerId: sale.customerId,
-            amount: -paidDelta,
-            balanceAfter: debt,
-            description: `Борлуулалт #${sale.saleNumber} засвар - төлбөр`,
-            paymentId: payment.id,
-            createdAt: at,
-          },
-        });
-      }
-
-      if (debt !== startDebt) {
         await tx.customer.update({
           where: { id: sale.customerId },
-          data: { outstandingDebt: debt },
+          data: { outstandingDebt: fromDebt },
         });
+
+        // --- Шинэ харилцагч дээр бүрэн бичнэ ---
+        const toCust = await tx.customer.findUniqueOrThrow({
+          where: { id: newCustomerId },
+          select: { outstandingDebt: true },
+        });
+        let toDebt = Number(toCust.outstandingDebt) + newTotal;
+        await tx.customerLedgerEntry.create({
+          data: {
+            customerId: newCustomerId,
+            amount: newTotal,
+            balanceAfter: toDebt,
+            description: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
+            createdAt: stamp(),
+          },
+        });
+
+        for (const line of newLines) {
+          if (line.amount <= 0) continue;
+          const bankId = posAccounts.get(line.method) ?? null;
+          const payment = await tx.payment.create({
+            data: {
+              customerId: newCustomerId,
+              amount: line.amount,
+              method: line.method as any,
+              status: 'COMPLETED',
+              paidAt: at,
+              createdAt: stamp(),
+              notes: `Түгээлтийн борлуулалт #${sale.saleNumber} (${line.method})`,
+              ...(bankId ? { bankAccountId: bankId } : {}),
+            },
+          });
+          if (bankId) {
+            await tx.bankAccount.update({
+              where: { id: bankId },
+              data: { currentBalance: { increment: line.amount } },
+            });
+          }
+          toDebt -= line.amount;
+          await tx.customerLedgerEntry.create({
+            data: {
+              customerId: newCustomerId,
+              amount: -line.amount,
+              balanceAfter: toDebt,
+              description: `Түгээлтийн төлбөр #${sale.saleNumber}`,
+              paymentId: payment.id,
+              createdAt: stamp(),
+            },
+          });
+        }
+        await tx.customer.update({
+          where: { id: newCustomerId },
+          data: { outstandingDebt: toDebt },
+        });
+      } else {
+        // createSale-тай ижил бүтэц — эхлээд борлуулалтын зөрүү өр болж
+        // бичигдээд, дараа нь төлсөн хэсэг нь хасагдана.
+        const fresh = await tx.customer.findUniqueOrThrow({
+          where: { id: sale.customerId },
+          select: { outstandingDebt: true },
+        });
+        const startDebt = Number(fresh.outstandingDebt);
+        let debt = startDebt;
+
+        if (totalDelta !== 0) {
+          debt += totalDelta;
+          await tx.customerLedgerEntry.create({
+            data: {
+              customerId: sale.customerId,
+              amount: totalDelta,
+              balanceAfter: debt,
+              description: `Борлуулалт #${sale.saleNumber} засвар (дүнгийн зөрүү)`,
+              createdAt: at,
+            },
+          });
+        }
+
+        if (paidDelta !== 0) {
+          // Тухайн сувгийг хүлээн авдаг данс байвал зөрүү нь тэнд тусна.
+          const bankId = posAccounts.get(String(payChannel)) ?? null;
+
+          const payment = await tx.payment.create({
+            data: {
+              customerId: sale.customerId,
+              amount: paidDelta,
+              method: payChannel as any,
+              status: 'COMPLETED',
+              paidAt: at,
+              createdAt: at,
+              notes:
+                paidDelta > 0
+                  ? `Борлуулалт #${sale.saleNumber} засвар - нэмэлт төлбөр`
+                  : `Борлуулалт #${sale.saleNumber} засвар - буцаалт`,
+              ...(bankId ? { bankAccountId: bankId } : {}),
+            },
+          });
+
+          if (bankId) {
+            await tx.bankAccount.update({
+              where: { id: bankId },
+              data: { currentBalance: { increment: paidDelta } },
+            });
+          }
+          debt -= paidDelta;
+          await tx.customerLedgerEntry.create({
+            data: {
+              customerId: sale.customerId,
+              amount: -paidDelta,
+              balanceAfter: debt,
+              description: `Борлуулалт #${sale.saleNumber} засвар - төлбөр`,
+              paymentId: payment.id,
+              createdAt: at,
+            },
+          });
+        }
+
+        if (debt !== startDebt) {
+          await tx.customer.update({
+            where: { id: sale.customerId },
+            data: { outstandingDebt: debt },
+          });
+        }
       }
 
       return tx.truckSale.update({
         where: { id },
         data: {
+          customerId: newCustomerId,
           paymentMethod: newMethod,
           subtotal: newTotal,
           totalAmount: newTotal,
