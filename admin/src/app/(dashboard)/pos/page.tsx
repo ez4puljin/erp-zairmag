@@ -44,6 +44,7 @@ interface TruckLoadItem {
     name: string;
     barcodes?: { code: string }[];
     sellingPrice: number;
+    sellingPriceRural?: number;
     unitsPerBox?: number;
   };
   loadedQty: number;
@@ -54,6 +55,8 @@ interface TruckLoadItem {
 interface TruckLoad {
   id: string;
   loadNumber: string;
+  /** Ачилтын байршил — үнийг үүгээр сонгоно (URBAN=Мөрөн, RURAL=орон нутаг). */
+  locationType?: 'URBAN' | 'RURAL';
   driver?: { id: string; firstName?: string; lastName?: string; name?: string; phone?: string };
   driverName?: string;
   items: TruckLoadItem[];
@@ -67,6 +70,9 @@ interface Customer {
   phone?: string;
   address?: string;
   region?: { name: string };
+  /** Эцсийн үлдэгдэл (авлага). Жолооч харилцагч сонгохдоо хардаг. */
+  outstandingDebt?: number | string;
+  creditLimit?: number | string;
 }
 
 interface CartItem {
@@ -230,6 +236,25 @@ export default function POSPage() {
     (item) => item.loadedQty - item.soldQty > 0
   );
 
+  /**
+   * Ачилтын байршилд тохирох зарах үнэ.
+   *
+   * Сервер борлуулалт бүртгэхдээ ачилтын locationType-аар үнийг дахин
+   * тодорхойлдог тул энд өөр үнэ харуулбал дэлгэц дээрх дүн ба хэвлэгдсэн
+   * баримт зөрнө. Тиймээс серверийнхтэй ижил дүрмээр бодно.
+   */
+  const priceOf = useCallback(
+    (product: { sellingPrice: number; sellingPriceRural?: number }) => {
+      const rural = Number(product.sellingPriceRural ?? 0);
+      if (truckLoad?.locationType === 'RURAL' && rural > 0) return rural;
+      return Number(product.sellingPrice ?? 0);
+    },
+    [truckLoad?.locationType],
+  );
+
+  /** Харилцагчийн эцсийн үлдэгдэл (авлага). Жолооч борлуулахын өмнө хардаг. */
+  const debtOf = (c?: Customer | null) => Number(c?.outstandingDebt ?? 0);
+
   // Filtered products by search
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return availableProducts;
@@ -265,7 +290,7 @@ export default function POSPage() {
           name: item.product.name,
           barcode: primaryBarcode(item.product) ?? undefined,
           quantity: next,
-          unitPrice: item.unitPrice || item.product.sellingPrice,
+          unitPrice: priceOf(item.product),
           maxQty: remaining,
           unitsPerBox: upb,
         },
@@ -301,12 +326,12 @@ export default function POSPage() {
         productId: item.productId,
         name: item.product.name,
         barcode: primaryBarcode(item.product) ?? undefined,
-        unitPrice: item.unitPrice || item.product.sellingPrice,
+        unitPrice: priceOf(item.product),
         remaining: item.loadedQty - item.soldQty,
         unitsPerBox: item.product.unitsPerBox || 1,
         quantity: cart.find((c) => c.productId === item.productId)?.quantity ?? 0,
       })),
-    [filteredProducts, cart]
+    [filteredProducts, cart, priceOf]
   );
 
   /** Барааны id-гаар сагсны тоог тохируулна (гар утасны stepper-үүд ашиглана). */
@@ -779,7 +804,7 @@ export default function POSPage() {
                         )}
                       </div>
                       <span className="text-[14px] font-bold text-[#1A1D26] flex-shrink-0 tabular-nums">
-                        {formatMnt(item.unitPrice || item.product.sellingPrice)}
+                        {formatMnt(priceOf(item.product))}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
@@ -922,7 +947,16 @@ export default function POSPage() {
                       onClick={() => selectCustomer(c)}
                       className="w-full text-left px-3 py-2.5 hover:bg-[#F5F6FA] active:bg-[#F2F4F7] transition-colors border-b border-[#F2F4F7] last:border-b-0"
                     >
-                      <p className="text-[13px] font-medium text-[#1A1D26]">{c.storeName}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[13px] font-medium text-[#1A1D26] truncate">{c.storeName}</p>
+                        <span
+                          className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                            debtOf(c) > 0 ? 'text-[#FF3B30]' : 'text-[#34C759]'
+                          }`}
+                        >
+                          {formatMnt(debtOf(c))}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {c.phone && (
                           <span className="text-[11px] text-[#8C8FA3] flex items-center gap-0.5">
@@ -953,6 +987,16 @@ export default function POSPage() {
                 <span className="text-[13px] text-[#1A1D26] font-semibold truncate block">{selectedCustomer.storeName}</span>
                 <span className="text-[11px] text-[#8C8FA3] truncate block">
                   {[selectedCustomer.phone, selectedCustomer.address].filter(Boolean).join(' / ')}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="block text-[10px] text-[#8C8FA3] uppercase tracking-wide">Үлдэгдэл</span>
+                <span
+                  className={`block text-[13px] font-bold tabular-nums ${
+                    debtOf(selectedCustomer) > 0 ? 'text-[#FF3B30]' : 'text-[#34C759]'
+                  }`}
+                >
+                  {formatMnt(debtOf(selectedCustomer))}
                 </span>
               </div>
             </div>
@@ -1181,7 +1225,15 @@ export default function POSPage() {
         onRefresh={fetchData}
         customerName={selectedCustomer?.storeName ?? null}
         customerDetail={
-          [selectedCustomer?.phone, selectedCustomer?.address].filter(Boolean).join(' · ') || null
+          selectedCustomer
+            ? [
+                `Үлдэгдэл: ${formatMnt(debtOf(selectedCustomer))}`,
+                selectedCustomer.phone,
+                selectedCustomer.address,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : null
         }
         onPickCustomer={() => setCustomerSheetOpen(true)}
         productSearch={productSearch}
@@ -1281,7 +1333,7 @@ export default function POSPage() {
                   >
                     <p className="text-[14px] font-semibold text-[#1A1D26]">{item.product.name}</p>
                     <p className="text-[12px] text-[#8C8FA3] mt-0.5">
-                      Үлдэгдэл: {remaining}ш · {formatMnt(item.unitPrice || item.product.sellingPrice)}
+                      Үлдэгдэл: {remaining}ш · {formatMnt(priceOf(item.product))}
                     </p>
                   </button>
                 );

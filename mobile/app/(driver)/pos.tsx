@@ -25,7 +25,7 @@ interface TruckLoadItem {
   soldQty: number;
 }
 interface TruckLoad { id: string; loadNumber: number; status: string; locationType?: 'URBAN' | 'RURAL'; items: TruckLoadItem[]; driver?: { firstName?: string; lastName?: string; phone?: string }; }
-interface Customer { id: string; storeName: string; contactName: string; phone: string; address: string; }
+interface Customer { id: string; storeName: string; contactName: string; phone: string; address: string; outstandingDebt?: number | string; }
 interface CartItem { productId: string; productName: string; unitPrice: number; quantity: number; maxQuantity: number; unitsPerBox: number; }
 interface CombinedLine { method: string; amount: string; }
 interface SaleResult { id: string; saleNumber?: number; totalAmount: number; createdAt: string; customer?: Customer; items?: any[]; }
@@ -197,6 +197,9 @@ export default function POSScreen() {
   const removeFromCart = (pid: string) => setCart(prev => prev.filter(c => c.productId !== pid));
 
   const cartTotal = cart.reduce((s, c) => s + c.unitPrice * c.quantity, 0);
+  /** Харилцагчийн эцсийн үлдэгдэл (авлага). Борлуулахын өмнө харагдана. */
+  const debtOf = (c?: Customer | null) => Number(c?.outstandingDebt ?? 0);
+  const fmtMnt = (n: number) => `₮${Math.round(n).toLocaleString()}`;
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
   const totalLoaded = (truckLoad?.items ?? []).reduce((s, i) => s + (i.loadedQty ?? 0), 0);
   const totalSold = (truckLoad?.items ?? []).reduce((s, i) => s + (i.soldQty ?? 0), 0);
@@ -377,6 +380,12 @@ export default function POSScreen() {
                   <Text style={st.custName}>{c.storeName}</Text>
                   <Text style={st.custInfo}>{c.phone} · {c.address}</Text>
                 </View>
+                <View style={{ alignItems: 'flex-end', marginRight: selected ? 6 : 0 }}>
+                  <Text style={{ fontSize: 10, color: '#8E8E93' }}>Үлдэгдэл</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: debtOf(c) > 0 ? '#FF3B30' : '#34C759' }}>
+                    {fmtMnt(debtOf(c))}
+                  </Text>
+                </View>
                 {selected && <Ionicons name="checkmark-circle" size={22} color="#34C759" />}
               </TouchableOpacity>
             );
@@ -403,6 +412,9 @@ export default function POSScreen() {
         <View style={st.miniCustBar}>
           <Ionicons name="storefront" size={14} color="#34C759" />
           <Text style={st.miniCustName} numberOfLines={1}>{selectedCustomer?.storeName}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: debtOf(selectedCustomer) > 0 ? '#FF3B30' : '#34C759' }}>
+            {fmtMnt(debtOf(selectedCustomer))}
+          </Text>
           <TouchableOpacity onPress={() => setStep('customer')}><Text style={{ fontSize: 12, color: '#007AFF', fontWeight: '600' }}>Солих</Text></TouchableOpacity>
         </View>
         {/* Search + Filter */}

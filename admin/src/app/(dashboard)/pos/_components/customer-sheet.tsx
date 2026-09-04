@@ -12,6 +12,8 @@ export interface PosCustomer {
   phone?: string;
   address?: string;
   region?: { name: string };
+  /** Эцсийн үлдэгдэл (авлага). Жолооч сонгохын өмнө хардаг. */
+  outstandingDebt?: number | string;
 }
 
 /**
@@ -152,11 +154,20 @@ export function CustomerSheet({
                       )}
                     </div>
                   </div>
-                  {c.region && (
-                    <span className="flex-shrink-0 text-[10px] font-semibold text-[#007AFF] bg-[#007AFF]/10 px-2 py-1 rounded-lg">
-                      {c.region.name}
+                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                    <span
+                      className={`text-[13px] font-bold tabular-nums ${
+                        Number(c.outstandingDebt ?? 0) > 0 ? 'text-[#FF3B30]' : 'text-[#34C759]'
+                      }`}
+                    >
+                      ₮{Math.round(Number(c.outstandingDebt ?? 0)).toLocaleString()}
                     </span>
-                  )}
+                    {c.region && (
+                      <span className="text-[10px] font-semibold text-[#007AFF] bg-[#007AFF]/10 px-2 py-0.5 rounded-lg">
+                        {c.region.name}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
