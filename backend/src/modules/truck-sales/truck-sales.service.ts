@@ -8,6 +8,25 @@ import { Prisma, StockMovementReason } from '@prisma/client';
 export class TruckSalesService {
   constructor(private prisma: PrismaService) {}
 
+  /**
+   * ПОС-ын төлбөрийн хэлбэр бүрийг хүлээн авах дансны зураглал.
+   *
+   * Данс бүр дээр `posMethods` тохируулагдсан байдаг (жишээ нь бэлэн мөнгө
+   * нэг данс, шилжүүлэг өөр данс). Борлуулалт бүртгэгдэх үедээ төлбөр нь
+   * тухайн дансанд шууд суух тул гараар нөхөж бүртгэх шаардлагагүй.
+   */
+  private async posAccountMap(): Promise<Map<string, string>> {
+    const accounts = await this.prisma.bankAccount.findMany({
+      where: { isActive: true, NOT: { posMethods: { isEmpty: true } } },
+      select: { id: true, posMethods: true },
+    });
+    const map = new Map<string, string>();
+    for (const a of accounts) {
+      for (const m of a.posMethods) if (!map.has(m)) map.set(m, a.id);
+    }
+    return map;
+  }
+
   async createSale(dto: CreateTruckSaleDto, userId: string) {
     // Verify truck load exists and is DISPATCHED
     const truckLoad = await this.prisma.truckLoad.findUnique({
@@ -124,15 +143,10 @@ export class TruckSalesService {
       saleNotes = saleNotes ? `${saleNotes} | COMBINED:${detail}` : `COMBINED:${detail}`;
     }
 
-    // Шилжүүлгээр төлсөн мөнгө шууд орлогын данс дээр суух ёстой — эс бөгөөс
-    // дансны үлдэгдэл бодит байдлаас хоцорч, дараа нь гараар бүртгэхэд
+    // Төлсөн мөнгө шууд тохирох данс дээр суух ёстой — эс бөгөөс дансны
+    // үлдэгдэл бодит байдлаас хоцорч, дараа нь гараар бүртгэхэд
     // харилцагчийн дэвтэрт төлбөр давхар орно.
-    const incomeAccount = await this.prisma.bankAccount.findFirst({
-      where: { isIncomeDefault: true, isActive: true },
-      select: { id: true },
-    });
-    /** Шилжүүлгийн төлбөрийг хаах данс. Тохируулаагүй бол хоосон. */
-    const transferAccountId = incomeAccount?.id ?? null;
+    const posAccounts = await this.posAccountMap();
 
     // Нөхөж бүртгэх огноо. Заагаагүй бол одоо. Ирээдүйн огноо зөвшөөрөхгүй.
     const saleAt = dto.saleDate ? new Date(dto.saleDate) : new Date();
@@ -240,47 +254,56 @@ export class TruckSalesService {
         });
 
         if (paidPortion > 0) {
-          // Хосолсон төлбөрийн шилжүүлгийн хэсэг байвал уг дүнг орлогын данс
-          // дээр бүртгэнэ. Бэлэн хэсэг нь ямар ч дансанд хамаарахгүй.
-          const transferPortion = dto.combinedPayments
-            .filter((p) => p.method === 'BANK_TRANSFER')
-            .reduce((s, p) => s + p.amount, 0);
-          const bankPortion = transferAccountId ? Math.min(transferPortion, paidPortion) : 0;
+          // Хэсэг бүрийг өөрийнх нь хэлбэрээр тусад нь бүртгэнэ — ингэснээр
+          // бэлэн хэсэг бэлэн мөнгөний данс руу, шилжүүлгийн хэсэг
+          // шилжүүлгийн данс руу тус тусдаа очно.
+          const byMethod = new Map<string, number>();
+          for (const p of dto.combinedPayments) {
+            if (p.method === 'CREDIT') continue;
+            byMethod.set(p.method, (byMethod.get(p.method) ?? 0) + p.amount);
+          }
 
-          const payment = await tx.payment.create({
-            data: {
-              customerId: dto.customerId,
-              amount: paidPortion,
-              method: 'CASH', // primary method for combined
-              status: 'COMPLETED',
-              paidAt: saleAt,
-              createdAt: saleAt,
-              notes: `Түгээлтийн хосолсон төлбөр #${sale.saleNumber}`,
-              ...(bankPortion === paidPortion ? { bankAccountId: transferAccountId } : {}),
-            },
-          });
+          let runningDebt = afterSaleDebt;
+          for (const [method, amount] of byMethod) {
+            if (amount <= 0) continue;
+            const accId = posAccounts.get(method) ?? null;
 
-          if (bankPortion > 0) {
-            await tx.bankAccount.update({
-              where: { id: transferAccountId! },
-              data: { currentBalance: { increment: bankPortion } },
+            const payment = await tx.payment.create({
+              data: {
+                customerId: dto.customerId,
+                amount,
+                method: method as any,
+                status: 'COMPLETED',
+                paidAt: saleAt,
+                createdAt: saleAt,
+                notes: `Түгээлтийн хосолсон төлбөр #${sale.saleNumber} (${method})`,
+                ...(accId ? { bankAccountId: accId } : {}),
+              },
+            });
+
+            if (accId) {
+              await tx.bankAccount.update({
+                where: { id: accId },
+                data: { currentBalance: { increment: amount } },
+              });
+            }
+
+            runningDebt -= amount;
+            await tx.customerLedgerEntry.create({
+              data: {
+                customerId: dto.customerId,
+                amount: -amount,
+                balanceAfter: runningDebt,
+                description: `Түгээлтийн төлбөр #${sale.saleNumber} (хосолсон)`,
+                paymentId: payment.id,
+                createdAt: saleAt,
+              },
             });
           }
 
-          const afterPaymentDebt = afterSaleDebt - paidPortion;
           await tx.customer.update({
             where: { id: dto.customerId },
-            data: { outstandingDebt: afterPaymentDebt },
-          });
-          await tx.customerLedgerEntry.create({
-            data: {
-              customerId: dto.customerId,
-              amount: -paidPortion,
-              balanceAfter: afterPaymentDebt,
-              description: `Түгээлтийн төлбөр #${sale.saleNumber} (хосолсон)`,
-              paymentId: payment.id,
-              createdAt: saleAt,
-            },
+            data: { outstandingDebt: runningDebt },
           });
         } else {
           // All credit
@@ -291,7 +314,7 @@ export class TruckSalesService {
         }
       } else {
         // Cash/Bank/Card/etc - immediate payment
-        const useIncomeAccount = dto.paymentMethod === 'BANK_TRANSFER' && transferAccountId;
+        const posAccountId = posAccounts.get(String(dto.paymentMethod)) ?? null;
 
         const payment = await tx.payment.create({
           data: {
@@ -302,13 +325,13 @@ export class TruckSalesService {
             paidAt: saleAt,
             createdAt: saleAt,
             notes: `Түгээлтийн борлуулалт #${sale.saleNumber}`,
-            ...(useIncomeAccount ? { bankAccountId: transferAccountId } : {}),
+            ...(posAccountId ? { bankAccountId: posAccountId } : {}),
           },
         });
 
-        if (useIncomeAccount) {
+        if (posAccountId) {
           await tx.bankAccount.update({
-            where: { id: transferAccountId! },
+            where: { id: posAccountId },
             data: { currentBalance: { increment: totalAmount } },
           });
         }
@@ -550,11 +573,7 @@ export class TruckSalesService {
     // өдрийн борлуулалтын дүн ба харилцагчийн дэвтэр зөрнө.
     const at = sale.createdAt;
 
-    const incomeAcc = await this.prisma.bankAccount.findFirst({
-      where: { isIncomeDefault: true, isActive: true },
-      select: { id: true },
-    });
-    const incomeAccountId = incomeAcc?.id ?? null;
+    const posAccounts = await this.posAccountMap();
 
     return this.prisma.$transaction(async (tx) => {
       for (const [productId, d] of delta) {
@@ -640,8 +659,8 @@ export class TruckSalesService {
       }
 
       if (paidDelta !== 0) {
-        // Шилжүүлгийн сувгаар хөдөлсөн мөнгө орлогын дансанд тусна.
-        const bankId = payChannel === 'BANK_TRANSFER' ? incomeAccountId : null;
+        // Тухайн сувгийг хүлээн авдаг данс байвал зөрүү нь тэнд тусна.
+        const bankId = posAccounts.get(String(payChannel)) ?? null;
 
         const payment = await tx.payment.create({
           data: {
@@ -722,11 +741,7 @@ export class TruckSalesService {
 
     const totalAmount = Number(sale.totalAmount);
 
-    const incomeAcc = await this.prisma.bankAccount.findFirst({
-      where: { isIncomeDefault: true, isActive: true },
-      select: { id: true },
-    });
-    const incomeAccountId = incomeAcc?.id ?? null;
+    const posAccounts = await this.posAccountMap();
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Decrement soldQty on each TruckLoadItem
@@ -780,6 +795,8 @@ export class TruckSalesService {
         // Parse combined payment info from notes
         let creditPortion = 0;
         let paidPortion = 0;
+        /** Төлсөн хэсгийн хэлбэр бүрийн дүн — данс тус бүрээр буцаана. */
+        const paidByMethod = new Map<string, number>();
         const notesStr = sale.notes || '';
         const combinedMatch = notesStr.match(/COMBINED:(.+?)($|\s*\|)/);
         if (combinedMatch) {
@@ -791,6 +808,7 @@ export class TruckSalesService {
               creditPortion += amount;
             } else {
               paidPortion += amount;
+              paidByMethod.set(method, (paidByMethod.get(method) ?? 0) + amount);
             }
           }
         } else {
@@ -815,24 +833,35 @@ export class TruckSalesService {
           });
         }
 
-        // Reverse payment records for paid portion
-        if (paidPortion > 0) {
-          // Create a refund payment record
+        // Төлсөн хэсгийг хэлбэр тус бүрээр нь буцаана — ингэснээр бэлэн,
+        // шилжүүлгийн данс хоёулаа зөв хэмжээгээр буурна.
+        for (const [method, amount] of paidByMethod) {
+          if (amount <= 0) continue;
+          const bankId = posAccounts.get(method) ?? null;
+
           await tx.payment.create({
             data: {
               customerId: sale.customerId,
-              amount: -paidPortion,
-              method: 'CASH',
+              amount: -amount,
+              method: method as any,
               status: 'COMPLETED',
               paidAt: new Date(),
-              notes: `Борлуулалт #${sale.saleNumber} цуцлагдсан - Буцаалт`,
+              notes: `Борлуулалт #${sale.saleNumber} цуцлагдсан - Буцаалт (${method})`,
+              ...(bankId ? { bankAccountId: bankId } : {}),
             },
           });
+
+          if (bankId) {
+            await tx.bankAccount.update({
+              where: { id: bankId },
+              data: { currentBalance: { decrement: amount } },
+            });
+          }
         }
       } else {
         // Cash/Bank/Card - reverse the payment
-        // Шилжүүлгээр төлсөн байсан бол орлогын дансны үлдэгдлийг ч буцаана.
-        const bankId = sale.paymentMethod === 'BANK_TRANSFER' ? incomeAccountId : null;
+        // Тухайн хэлбэрийг хүлээн авдаг данс байвал үлдэгдлийг ч буцаана.
+        const bankId = posAccounts.get(String(sale.paymentMethod)) ?? null;
 
         await tx.payment.create({
           data: {

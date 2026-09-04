@@ -627,9 +627,11 @@ model BankAccount {
   isActive       Boolean  @default(true) @map("is_active")
   /** Банкны шимтгэлийг энэ данснаас хаах эсэх. */
   isFeeDefault   Boolean  @default(false) @map("is_fee_default")
-  /// Орлогын данс. ПОС дээр "Шилжүүлэг"-ээр борлуулалт хийхэд төлбөр нь
-  /// шууд энэ данс дээр бүртгэгдэнэ. Зөвхөн НЭГ данс ийм байж болно.
-  isIncomeDefault Boolean @default(false) @map("is_income_default")
+  /// ПОС-оос энэ данс руу автоматаар бүртгэгдэх төлбөрийн хэлбэрүүд
+  /// (CASH, BANK_TRANSFER, CARD). Жолооч тухайн хэлбэрээр борлуулалт
+  /// хийхэд төлбөр нь харилцагч бүрээр энэ данс дээр шууд суух болно.
+  /// Нэг хэлбэрийг зөвхөн НЭГ данс авч болно.
+  posMethods     String[] @default([]) @map("pos_methods")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

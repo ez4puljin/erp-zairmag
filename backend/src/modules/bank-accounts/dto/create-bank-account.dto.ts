@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Min } from 'class-validator';
 
 export class CreateBankAccountDto {
   @IsString() @Length(1, 100) bankName!: string;
@@ -8,6 +8,12 @@ export class CreateBankAccountDto {
   @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
-  /** Орлогын данс эсэх. Зөвхөн нэг данс ийм байж болно. */
-  @IsOptional() @IsBoolean() isIncomeDefault?: boolean;
+  /**
+   * ПОС-оос энэ данс руу автоматаар бүртгэгдэх төлбөрийн хэлбэрүүд.
+   * Нэг хэлбэрийг зөвхөн нэг данс авч болно.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsIn(['CASH', 'BANK_TRANSFER', 'CARD'], { each: true })
+  posMethods?: string[];
 }

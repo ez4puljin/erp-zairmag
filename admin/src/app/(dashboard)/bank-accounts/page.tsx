@@ -12,6 +12,16 @@ import { CURRENCIES } from '@/lib/options';
 import { MoneyInput } from '@/components/shared/money-input';
 import { useAuth } from '@/hooks/use-auth';
 
+/** ПОС-оос данс руу шууд бүртгэгдэж болох төлбөрийн хэлбэрүүд. */
+const POS_METHODS = [
+  { value: 'CASH', label: 'Бэлэн мөнгө' },
+  { value: 'BANK_TRANSFER', label: 'Шилжүүлэг' },
+  { value: 'CARD', label: 'Карт' },
+];
+const POS_METHOD_LABEL: Record<string, string> = Object.fromEntries(
+  POS_METHODS.map((m) => [m.value, m.label]),
+);
+
 const inputClass =
   'w-full px-4 py-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[15px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none transition-all focus:border-[#007AFF]/40 focus:ring-[3px] focus:ring-[#007AFF]/15 focus:bg-white';
 
@@ -25,7 +35,7 @@ interface BankAccount {
   currentBalance: number;
   notes: string | null;
   isActive: boolean;
-  isIncomeDefault: boolean;
+  posMethods: string[];
   createdAt: string;
 }
 
@@ -55,7 +65,7 @@ const EMPTY_FORM = {
   openingBalance: 0,
   notes: '',
   isActive: true,
-  isIncomeDefault: false,
+  posMethods: [] as string[],
 };
 
 export default function BankAccountsPage() {
@@ -118,7 +128,7 @@ export default function BankAccountsPage() {
       openingBalance: Number(acc.openingBalance),
       notes: acc.notes ?? '',
       isActive: acc.isActive,
-      isIncomeDefault: acc.isIncomeDefault,
+      posMethods: acc.posMethods ?? [],
     });
     setShowForm(true);
   }
@@ -302,11 +312,14 @@ export default function BankAccountsPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  {acc.isIncomeDefault && (
-                    <span className="text-[10px] font-bold text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                      ОРЛОГЫН ДАНС
+                  {(acc.posMethods ?? []).map((m) => (
+                    <span
+                      key={m}
+                      className="text-[10px] font-bold text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-full whitespace-nowrap"
+                    >
+                      ПОС: {POS_METHOD_LABEL[m] ?? m}
                     </span>
-                  )}
+                  ))}
                   {!acc.isActive && (
                     <span className="text-[10px] font-bold text-[#FF3B30] bg-[#FF3B30]/10 px-2 py-0.5 rounded-full">
                       ИДЭВХГҮЙ
@@ -599,22 +612,35 @@ export default function BankAccountsPage() {
                 <span className="text-[14px] font-medium text-[#1A1D26]">Идэвхтэй</span>
               </label>
 
-              {/* ПОС дээр "Шилжүүлэг"-ээр төлсөн мөнгө энэ данс дээр суух */}
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={!!form.isIncomeDefault}
-                  onChange={e => update('isIncomeDefault', e.target.checked)}
-                  className="w-5 h-5 rounded accent-[#34C759] mt-0.5"
-                />
-                <span>
-                  <span className="block text-[14px] font-medium text-[#1A1D26]">Орлогын данс</span>
-                  <span className="block text-[12px] text-[#8C8FA3]">
-                    ПОС дээр «Шилжүүлэг»-ээр борлуулалт хийхэд төлбөр шууд энэ данс дээр
-                    бүртгэгдэнэ. Зөвхөн нэг данс ийм байж болно.
-                  </span>
-                </span>
-              </label>
+              {/* ПОС-ын аль төлбөрийн хэлбэр энэ данс руу орох вэ */}
+              <div className="rounded-xl bg-[#F9FAFB] border border-[#E8ECF0] p-4">
+                <p className="text-[14px] font-semibold text-[#1A1D26]">ПОС-оос автоматаар орох гүйлгээ</p>
+                <p className="text-[12px] text-[#8C8FA3] mt-0.5 mb-3">
+                  Тэмдэглэсэн хэлбэрээр жолооч борлуулалт хийхэд төлбөр нь харилцагч бүрээр
+                  энэ данс дээр шууд бүртгэгдэнэ. Нэг хэлбэрийг зөвхөн нэг данс авна —
+                  өөр данс дээр тэмдэглэвэл эндээс автоматаар сална.
+                </p>
+                <div className="space-y-2.5">
+                  {POS_METHODS.map((m) => (
+                    <label key={m.value} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(form.posMethods ?? []).includes(m.value)}
+                        onChange={(e) =>
+                          update(
+                            'posMethods',
+                            e.target.checked
+                              ? [...(form.posMethods ?? []), m.value]
+                              : (form.posMethods ?? []).filter((x: string) => x !== m.value),
+                          )
+                        }
+                        className="w-5 h-5 rounded accent-[#34C759]"
+                      />
+                      <span className="text-[14px] text-[#1A1D26]">{m.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-3 p-5 border-t border-[#F0F2F5] shrink-0">

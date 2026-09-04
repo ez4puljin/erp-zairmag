@@ -11,7 +11,7 @@ export class BankAccountsService {
   async create(dto: CreateBankAccountDto) {
     const opening = dto.openingBalance ?? 0;
     return this.prisma.$transaction(async (tx) => {
-      if (dto.isIncomeDefault) await this.clearIncomeDefault(tx);
+      if (dto.posMethods?.length) await this.releaseMethods(tx, dto.posMethods);
       return tx.bankAccount.create({
         data: {
           bankName: dto.bankName,
@@ -22,24 +22,40 @@ export class BankAccountsService {
           currentBalance: opening,
           notes: dto.notes ?? null,
           isActive: dto.isActive ?? true,
-          isIncomeDefault: dto.isIncomeDefault ?? false,
+          posMethods: dto.posMethods ?? [],
         },
       });
     });
   }
 
-  /** Одоо байгаа орлогын дансны тэмдгийг арилгана — зөвхөн нэг байх ёстой. */
-  private async clearIncomeDefault(tx: any, exceptId?: string) {
-    await tx.bankAccount.updateMany({
-      where: { isIncomeDefault: true, ...(exceptId ? { id: { not: exceptId } } : {}) },
-      data: { isIncomeDefault: false },
+  /**
+   * Заасан төлбөрийн хэлбэрүүдийг бусад данснаас чөлөөлнө.
+   *
+   * Нэг хэлбэрийг хоёр данс зэрэг авбал ПОС-ын төлбөр аль руу нь орохыг
+   * тодорхойлох боломжгүй болно. Тиймээс шинэ данс тухайн хэлбэрийг авахад
+   * өмнөх эзэмшигчээс нь хасна.
+   */
+  private async releaseMethods(tx: any, methods: string[], exceptId?: string) {
+    if (!methods.length) return;
+    const holders = await tx.bankAccount.findMany({
+      where: {
+        posMethods: { hasSome: methods },
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
+      select: { id: true, posMethods: true },
     });
+    for (const h of holders) {
+      await tx.bankAccount.update({
+        where: { id: h.id },
+        data: { posMethods: h.posMethods.filter((m: string) => !methods.includes(m)) },
+      });
+    }
   }
 
-  /** ПОС-ын шилжүүлгийн төлбөрийг хаах данс. Тохируулаагүй бол null. */
-  async getIncomeAccount() {
+  /** Тухайн ПОС төлбөрийн хэлбэрийг хүлээн авах данс. Тохируулаагүй бол null. */
+  async getPosAccount(method: string) {
     return this.prisma.bankAccount.findFirst({
-      where: { isIncomeDefault: true, isActive: true },
+      where: { posMethods: { has: method }, isActive: true },
       select: { id: true },
     });
   }
@@ -69,9 +85,8 @@ export class BankAccountsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Өмнөх орлогын дансыг эхлээд арилгана — эс бөгөөс өгөгдлийн сангийн
-      // цор ганц индекс зөрчигдөж алдаа өгнө.
-      if (dto.isIncomeDefault) await this.clearIncomeDefault(tx, id);
+      // Тухайн хэлбэрийг өмнө эзэмшиж байсан данснаас нь эхлээд салгана.
+      if (dto.posMethods?.length) await this.releaseMethods(tx, dto.posMethods, id);
       return tx.bankAccount.update({ where: { id }, data });
     });
   }
