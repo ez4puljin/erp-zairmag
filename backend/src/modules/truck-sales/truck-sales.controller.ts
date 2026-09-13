@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { TruckSalesService } from './truck-sales.service';
 import { CreateTruckSaleDto } from './dto/create-truck-sale.dto';
@@ -41,7 +41,11 @@ export class TruckSalesController {
 
   @Delete(':id/void')
   @Roles(Role.ADMIN, Role.WAREHOUSE_MANAGER)
-  voidSale(@Param('id') id: string, @Req() req: any) {
-    return this.service.voidSale(id, req.user.id);
+  voidSale(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Query('allowWarehouseReturn') allowWarehouseReturn?: string,
+  ) {
+    return this.service.voidSale(id, req.user.id, allowWarehouseReturn === 'true');
   }
 }

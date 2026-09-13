@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, subDays } from 'date-fns';
-import { ReceiptText, ChevronDown, ChevronRight, Package, Pencil } from 'lucide-react';
+import { ReceiptText, ChevronDown, ChevronRight, Package, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { PageHeader } from '@/components/shared/page-header';
@@ -14,7 +14,7 @@ import { FilterBar, DateField, SelectField, ActionButton } from '@/components/sh
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
 import { downloadFile } from '@/lib/download';
-import { reportsApi, PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type SalesRegister } from '@/lib/reports-api';
+import { reportsApi, PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type SalesRegister, type SalesRegisterRow } from '@/lib/reports-api';
 
 interface Opt { value: string; label: string }
 
@@ -72,6 +72,41 @@ export default function SalesRegisterPage() {
   }, []);
 
   const rangeLabel = useMemo(() => (report ? `${report.from} — ${report.to}` : ''), [report]);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  /**
+   * Борлуулалт устгах (цуцлах). Ачилт хаагдсан бол сервер баталгаажуулалт
+   * шаардана — тэр үед агуулах руу буцаахыг асууж дахин илгээнэ.
+   */
+  async function deleteSale(r: SalesRegisterRow, allowWarehouseReturn = false) {
+    if (!allowWarehouseReturn) {
+      if (!confirm(`${r.number} борлуулалтыг устгах уу?
+Бараа буцаагдаж, харилцагчийн өр, төлбөр буцаана.`)) return;
+    }
+    setDeletingId(r.id);
+    try {
+      await api.delete(`/api/truck-sales/${r.id}/void`, {
+        params: allowWarehouseReturn ? { allowWarehouseReturn: 'true' } : {},
+      });
+      await run();
+    } catch (err: any) {
+      const data = err.response?.data;
+      if (data?.code === 'WAREHOUSE_RETURN_CONFIRM' && !allowWarehouseReturn) {
+        setDeletingId(null);
+        if (confirm(`${data.message}
+
+Агуулах руу үлдэгдэл буцаахад итгэлтэй байна уу?`)) {
+          await deleteSale(r, true);
+        }
+        return;
+      }
+      const msg = Array.isArray(data?.message) ? data.message.join(', ') : data?.message || err.message;
+      alert('Борлуулалт устгахад алдаа гарлаа: ' + msg);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function doExport() {
     setExporting(true);
@@ -182,12 +217,21 @@ export default function SalesRegisterPage() {
                           {/* Засвар нь ачилтын хуудсан дээр хийгддэг тул тэр борлуулалтыг
                               шууд нээлттэйгээр очно. Захиалгын сувагт засвар байхгүй. */}
                           {r.channel === 'TRUCK' && r.truckLoadId && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); router.push(`/truck-loads/${r.truckLoadId}?sale=${r.id}`); }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
-                            >
-                              <Pencil className="w-3 h-3" /> Засах
-                            </button>
+                            <span className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); router.push(`/truck-loads/${r.truckLoadId}?sale=${r.id}`); }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 transition-colors"
+                              >
+                                <Pencil className="w-3 h-3" /> Засах
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); void deleteSale(r); }}
+                                disabled={deletingId === r.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#FF3B30] bg-[#FF3B30]/10 hover:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
+                              >
+                                <Trash2 className="w-3 h-3" /> {deletingId === r.id ? '...' : 'Устгах'}
+                              </button>
+                            </span>
                           )}
                         </td>
                       )}

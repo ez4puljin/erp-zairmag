@@ -1067,7 +1067,14 @@ export class TruckSalesService {
   }
 
   // VOID/CANCEL a truck sale
-  async voidSale(id: string, userId: string) {
+  /**
+   * Борлуулалт цуцлах.
+   *
+   * Ачилт идэвхтэй бол бараа машин руу буцна. Ачилт хаагдсан бол машинд
+   * буцаах газаргүй тул агуулах руу буцаана — үүнийг хэрэглэгч зөвшөөрсөн
+   * (allowWarehouseReturn) үед л гүйцэтгэнэ. updateSale-тай ижил дүрэм.
+   */
+  async voidSale(id: string, userId: string, allowWarehouseReturn = false) {
     const sale = await this.prisma.truckSale.findUnique({
       where: { id },
       include: {
@@ -1080,11 +1087,14 @@ export class TruckSalesService {
     });
     if (!sale) throw new NotFoundException('Борлуулалт олдсонгүй.');
 
-    // Verify the truck load is still DISPATCHED
-    if (sale.truckLoad.status !== 'DISPATCHED') {
-      throw new BadRequestException(
-        'Зөвхөн DISPATCHED статустай ачилтын борлуулалтыг цуцлах боломжтой.',
-      );
+    const loadOpen = sale.truckLoad.status === 'DISPATCHED';
+    if (!loadOpen && !allowWarehouseReturn) {
+      throw new BadRequestException({
+        code: 'WAREHOUSE_RETURN_CONFIRM',
+        message:
+          `Ачилт #${sale.truckLoad.loadNumber} хаагдсан байна. ` +
+          'Барааг шууд агуулах руу буцаах уу?',
+      });
     }
 
     const totalAmount = Number(sale.totalAmount);
@@ -1115,6 +1125,32 @@ export class TruckSalesService {
             notes: `Борлуулалт #${sale.saleNumber} цуцлагдсан - ${sale.customer.storeName}`,
           },
         });
+
+        if (!loadOpen) {
+          // Ачилт хаагдсан: машинд буцаах газаргүй тул агуулах руу буцаана.
+          // Ачилтын тэнцэл (loaded = sold + returned) хадгалагдана.
+          await tx.truckLoadItem.updateMany({
+            where: { truckLoadId: sale.truckLoadId, productId: saleItem.productId },
+            data: { returnedQty: { increment: saleItem.quantity } },
+          });
+          await tx.product.update({
+            where: { id: saleItem.productId },
+            data: {
+              stockAvailable: { increment: saleItem.quantity },
+              version: { increment: 1 },
+            },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productId: saleItem.productId,
+              quantity: saleItem.quantity,
+              reason: StockMovementReason.TRANSFER_IN,
+              createdById: userId,
+              locationCode: `TRUCK-${sale.truckLoad.loadNumber}`,
+              notes: `Борлуулалт #${sale.saleNumber} цуцлагдсан - агуулах руу буцаав`,
+            },
+          });
+        }
       }
 
       // 2. Reverse customer debt changes based on payment method
