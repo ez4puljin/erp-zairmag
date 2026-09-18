@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { PaginationDto, PaginatedResponse } from '../../common/dto/pagination.dto';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { SetOpeningBalanceDto } from './dto/set-opening-balance.dto';
 
 @Injectable()
 export class CustomersService {
@@ -293,5 +294,106 @@ export class CustomersService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  // ==================== АВЛАГЫН ЭХНИЙ ҮЛДЭГДЭЛ (8/6) ====================
+
+  /** 8/6-ны эхний үлдэгдлийн бичилтийн огноо/тайлбар — импорттой яг ижил. */
+  private static readonly OPENING_AT = new Date('2026-08-06T23:59:00Z');
+  private static readonly OPENING_DESC = '8/6-ны эцсийн үлдэгдэл (эхний үлдэгдэл)';
+
+  private findOpeningEntry(customerId: string) {
+    return this.prisma.customerLedgerEntry.findFirst({
+      where: {
+        customerId,
+        description: { contains: 'эхний үлдэгдэл', mode: 'insensitive' },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getOpeningBalance(customerId: string) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true },
+    });
+    if (!customer) throw new NotFoundException('Харилцагч олдсонгүй');
+    const entry = await this.findOpeningEntry(customerId);
+    return {
+      amount: entry ? Number(entry.amount) : 0,
+      exists: !!entry,
+      date: entry?.createdAt ?? CustomersService.OPENING_AT,
+    };
+  }
+
+  /**
+   * Эхний үлдэгдлийг засах.
+   *
+   * Дэвтрийн тайлан эхний үлдэгдлийг бичилтүүдийн дүнгийн нийлбэрээр боддог
+   * тул 8/6-ны бичилтийн дүнг өөрчлөхөд л хангалттай. Гэхдээ дараах бүх
+   * мөрийн balance_after болон харилцагчийн одоогийн өрийг зөрүүгээр нь
+   * дагуулж хөдөлгөнө — эс бөгөөс тэдгээр нь хуучин утгаа харуулсаар байна.
+   * Бичилт байхгүй харилцагчид импорттой ижил огноо/тайлбараар шинээр үүсгэнэ.
+   */
+  async setOpeningBalance(customerId: string, dto: SetOpeningBalanceDto) {
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true },
+    });
+    if (!customer) throw new NotFoundException('Харилцагч олдсонгүй');
+
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.customerLedgerEntry.findFirst({
+        where: {
+          customerId,
+          description: { contains: 'эхний үлдэгдэл', mode: 'insensitive' },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      const oldAmount = entry ? Number(entry.amount) : 0;
+      const delta = dto.amount - oldAmount;
+      const at = entry?.createdAt ?? CustomersService.OPENING_AT;
+
+      if (entry) {
+        await tx.customerLedgerEntry.update({
+          where: { id: entry.id },
+          data: { amount: dto.amount, balanceAfter: { increment: delta } },
+        });
+      } else {
+        // Энэ харилцагчид 8/6-ны бичилт байгаагүй — тухайн өдрийн үлдэгдэл
+        // гэж үзэн импорттой яг ижил огноо, тайлбараар үүсгэнэ.
+        await tx.customerLedgerEntry.create({
+          data: {
+            customerId,
+            amount: dto.amount,
+            balanceAfter: dto.amount,
+            description: CustomersService.OPENING_DESC,
+            createdAt: at,
+          },
+        });
+      }
+
+      if (delta !== 0) {
+        await tx.customerLedgerEntry.updateMany({
+          where: { customerId, createdAt: { gt: at } },
+          data: { balanceAfter: { increment: delta } },
+        });
+        await tx.customer.update({
+          where: { id: customerId },
+          data: { outstandingDebt: { increment: delta } },
+        });
+      }
+
+      const fresh = await tx.customer.findUniqueOrThrow({
+        where: { id: customerId },
+        select: { outstandingDebt: true },
+      });
+      return {
+        amount: dto.amount,
+        previous: oldAmount,
+        delta,
+        outstandingDebt: Number(fresh.outstandingDebt),
+      };
+    });
   }
 }

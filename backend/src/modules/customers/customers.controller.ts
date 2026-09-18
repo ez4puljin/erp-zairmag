@@ -14,6 +14,7 @@ import { Role } from '@prisma/client';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { SetOpeningBalanceDto } from './dto/set-opening-balance.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -96,6 +97,22 @@ export class CustomersController {
     @Body() body: { password: string },
   ) {
     return this.customersService.resetPassword(id, body.password);
+  }
+
+  // 8/6-ны авлагын эхний үлдэгдэл — зөвхөн админ засна.
+  @Get(':id/opening-balance')
+  @Roles(Role.ADMIN)
+  getOpeningBalance(@Param('id', ParseUUIDPipe) id: string) {
+    return this.customersService.getOpeningBalance(id);
+  }
+
+  @Patch(':id/opening-balance')
+  @Roles(Role.ADMIN)
+  setOpeningBalance(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetOpeningBalanceDto,
+  ) {
+    return this.customersService.setOpeningBalance(id, dto);
   }
 
   @Get(':id/balance')

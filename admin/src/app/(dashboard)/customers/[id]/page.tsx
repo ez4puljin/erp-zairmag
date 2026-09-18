@@ -30,6 +30,8 @@ import { StatCard, StatGrid } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { formatMnt } from '@/components/shared/money';
+import { MoneyInput } from '@/components/shared/money-input';
+import { useAuth } from '@/hooks/use-auth';
 import { SearchableSelect } from '@/components/shared/searchable-select';
 import { PRICING_TIERS } from '@/lib/options';
 
@@ -97,6 +99,14 @@ export default function CustomerDetailPage() {
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // 8/6-ны авлагын эхний үлдэгдэл (зөвхөн админ засна)
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+  const [opening, setOpening] = useState<{ amount: number; exists: boolean } | null>(null);
+  const [openingInput, setOpeningInput] = useState('');
+  const [openingSaving, setOpeningSaving] = useState(false);
+  const [openingMsg, setOpeningMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showResetPw, setShowResetPw] = useState(false);
@@ -116,6 +126,37 @@ export default function CustomerDetailPage() {
       })
       .finally(() => setLoading(false));
   };
+
+  const fetchOpening = () =>
+    api
+      .get(`/api/customers/${id}/opening-balance`)
+      .then((res) => {
+        const d = res.data?.data ?? res.data;
+        setOpening(d);
+        setOpeningInput(String(Number(d?.amount ?? 0)));
+      })
+      .catch(() => { /* админ биш бол 403 — картыг харуулахгүй */ });
+
+  const saveOpening = async () => {
+    setOpeningSaving(true);
+    setOpeningMsg(null);
+    try {
+      const res = await api.patch(`/api/customers/${id}/opening-balance`, { amount: Number(openingInput || 0) });
+      const d = res.data?.data ?? res.data;
+      setOpeningMsg({ ok: true, text: `Хадгалагдлаа. Зөрүү: ${formatMnt(d.delta)} · Одоогийн өр: ${formatMnt(d.outstandingDebt)}` });
+      await Promise.all([fetchOpening(), fetchCustomer()]);
+    } catch (err: any) {
+      const m = err.response?.data?.message;
+      setOpeningMsg({ ok: false, text: Array.isArray(m) ? m.join(', ') : m || 'Алдаа гарлаа' });
+    } finally {
+      setOpeningSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id && isAdmin) fetchOpening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAdmin]);
 
   useEffect(() => {
     if (id) {
@@ -332,6 +373,42 @@ export default function CustomerDetailPage() {
         <StatCard label="Зээлийн хязгаар" value={formatMnt(customer.creditLimit ?? 0)} icon={CreditCard} gradient="purple" index={1} />
         <StatCard label="Одоогийн өр" value={formatMnt(customer.outstandingDebt ?? 0)} icon={Wallet} gradient="red" index={2} />
       </StatGrid>
+
+      {isAdmin && opening && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#E8ECF0]/70 p-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h3 className="text-[15px] font-bold text-[#1A1D26]">Авлагын эхний үлдэгдэл (8/6)</h3>
+              <p className="text-[12px] text-[#8C8FA3] mt-0.5">
+                {opening.exists
+                  ? 'Импортоор орсон 8/6-ны эцсийн үлдэгдэл. Засахад зөрүү нь одоогийн өр болон дэвтрийн дараах мөрүүдэд тусна.'
+                  : 'Энэ харилцагчид 8/6-ны эхний үлдэгдэл бүртгэгдээгүй. Дүн оруулбал 8/6-ны огноогоор үүснэ.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-44">
+                <MoneyInput
+                  value={openingInput}
+                  onChange={setOpeningInput}
+                  className="w-full px-3 py-2 rounded-xl bg-[#F5F6FA] border border-[#E8ECF0] text-[14px] text-right tabular-nums outline-none focus:border-[#007AFF]"
+                />
+              </div>
+              <button
+                onClick={saveOpening}
+                disabled={openingSaving || Number(openingInput || 0) === Number(opening.amount)}
+                className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white bg-[#007AFF] hover:bg-[#0066DB] disabled:opacity-50"
+              >
+                {openingSaving ? 'Хадгалж байна…' : 'Хадгалах'}
+              </button>
+            </div>
+          </div>
+          {openingMsg && (
+            <p className={`mt-3 text-[12px] font-medium ${openingMsg.ok ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+              {openingMsg.text}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Section 1: Customer Info */}
       <SectionCard title="Мэдээлэл">
