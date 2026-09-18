@@ -7,16 +7,16 @@ import { SearchableSelect, type SelectOption } from './searchable-select';
 /** Шүүлтүүрийн мөрийн нэгдсэн байршуулагч. */
 export function FilterBar({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`flex flex-wrap items-end gap-2.5 bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm p-3 ${className}`}>
+    <div className={`flex flex-wrap items-end gap-2.5 2xl:gap-3 bg-white rounded-2xl border border-[#E8ECF0]/70 shadow-sm p-3 2xl:p-4 ${className}`}>
       {children}
     </div>
   );
 }
 
 const fieldWrap = 'flex flex-col gap-1';
-const labelCls = 'text-[11px] font-semibold text-[#8C8FA3] uppercase tracking-wide';
+const labelCls = 'text-[11px] 2xl:text-[12px] font-semibold text-[#8C8FA3] uppercase tracking-wide';
 const controlCls =
-  'h-9 px-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[13px] text-[#1A1D26] outline-none focus:border-[#007AFF]/40 focus:bg-white transition-all';
+  'h-9 2xl:h-10 px-3 rounded-xl bg-[#F5F6FA] border border-transparent text-[13px] 2xl:text-[14px] text-[#1A1D26] outline-none focus:border-[#007AFF]/40 focus:bg-white transition-all';
 
 export function DateField({ label, value, onChange }: { label?: string; value: string; onChange: (v: string) => void }) {
   return (
@@ -80,14 +80,14 @@ export function SearchField({
   return (
     <label className={`${fieldWrap} ${className}`}>
       {label && <span className={labelCls}>{label}</span>}
-      <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-[#F5F6FA] border border-transparent focus-within:border-[#007AFF]/40 focus-within:bg-white transition-all">
+      <div className="flex items-center gap-2 h-9 2xl:h-10 px-3 rounded-xl bg-[#F5F6FA] border border-transparent focus-within:border-[#007AFF]/40 focus-within:bg-white transition-all">
         <Search className="w-4 h-4 text-[#8C8FA3] shrink-0" />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="bg-transparent text-[13px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none flex-1 min-w-0"
+          className="bg-transparent text-[13px] 2xl:text-[14px] text-[#1A1D26] placeholder-[#8C8FA3] outline-none flex-1 min-w-0"
         />
       </div>
     </label>
@@ -106,7 +106,7 @@ export function ActionButton({
   disabled?: boolean;
   variant?: 'primary' | 'ghost';
 }) {
-  const base = 'h-9 px-4 rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50 inline-flex items-center gap-1.5';
+  const base = 'h-9 2xl:h-10 px-4 2xl:px-5 rounded-xl text-[13px] 2xl:text-[14px] font-semibold transition-all disabled:opacity-50 inline-flex items-center gap-1.5';
   const styles =
     variant === 'primary'
       ? 'bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/25 hover:brightness-105'

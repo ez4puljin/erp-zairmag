@@ -277,7 +277,7 @@ export default function DashboardLayout({
           }`}
         >
           <LayoutDashboard className="w-[18px] h-[18px] shrink-0" />
-          <span className="text-[13px] font-semibold">Хянах самбар</span>
+          <span className="text-[13px] 2xl:text-[14px] font-semibold">Хянах самбар</span>
         </Link>
 
         {/* Nav Groups */}
@@ -310,7 +310,7 @@ export default function DashboardLayout({
                         style={{ color: active ? 'white' : item.color }}
                       />
                     </div>
-                    <span className="text-[13px] font-medium truncate">{item.label}</span>
+                    <span className="text-[13px] 2xl:text-[14px] font-medium truncate">{item.label}</span>
                   </Link>
                 );
               })}
@@ -358,7 +358,7 @@ export default function DashboardLayout({
 
       {/* Desktop Sidebar */}
       <aside
-        className="hidden lg:flex lg:flex-col lg:w-[260px] lg:shrink-0 sticky top-0 h-screen bg-white border-r border-[#E8ECF0]"
+        className="hidden lg:flex lg:flex-col lg:w-[260px] 2xl:w-[280px] lg:shrink-0 sticky top-0 h-screen bg-white border-r border-[#E8ECF0]"
       >
         {sidebarContent}
       </aside>
@@ -383,7 +383,7 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-14 flex items-center gap-3 px-4 lg:px-6 bg-white/80 backdrop-blur-xl border-b border-[#E8ECF0]/60">
+        <header className="sticky top-0 z-30 h-14 2xl:h-16 flex items-center gap-3 px-4 lg:px-6 2xl:px-8 bg-white/80 backdrop-blur-xl border-b border-[#E8ECF0]/60">
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(true)}
@@ -424,7 +424,7 @@ export default function DashboardLayout({
           <div className="flex-1" />
 
           {/* Search (desktop) */}
-          <div className="hidden md:flex items-center gap-2 bg-[#F5F6FA] rounded-xl px-3 py-2 w-56 border border-transparent focus-within:border-[#007AFF]/30 focus-within:bg-white transition-all">
+          <div className="hidden md:flex items-center gap-2 bg-[#F5F6FA] rounded-xl px-3 py-2 w-56 2xl:w-72 border border-transparent focus-within:border-[#007AFF]/30 focus-within:bg-white transition-all">
             <Search className="w-4 h-4 text-[#8C8FA3]" />
             <input
               type="text"
@@ -458,8 +458,9 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6">
-          {children}
+        <main className="flex-1 p-4 lg:p-6 2xl:px-10 2xl:py-8">
+          {/* 1920px дээр 1,600px өргөн хүснэгт уншихад хэцүү тул контентыг төвлөрүүлж хязгаарлана. */}
+          <div className="w-full 2xl:max-w-[1480px] 2xl:mx-auto">{children}</div>
         </main>
       </div>
     </div>

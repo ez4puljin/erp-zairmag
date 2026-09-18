@@ -16,16 +16,16 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 2xl:gap-4">
       <div className="flex items-center gap-3 min-w-0">
         {Icon && (
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${iconColor}14` }}>
+          <div className="w-11 h-11 2xl:w-12 2xl:h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${iconColor}14` }}>
             <Icon className="w-5 h-5" style={{ color: iconColor }} />
           </div>
         )}
         <div className="min-w-0">
-          <h1 className="text-[24px] lg:text-[28px] font-bold text-[#1A1D26] tracking-tight truncate">{title}</h1>
-          {subtitle && <p className="text-[13px] lg:text-[14px] text-[#8C8FA3] mt-0.5">{subtitle}</p>}
+          <h1 className="text-[24px] lg:text-[28px] 2xl:text-[30px] font-bold text-[#1A1D26] tracking-tight truncate">{title}</h1>
+          {subtitle && <p className="text-[13px] lg:text-[14px] 2xl:text-[15px] text-[#8C8FA3] mt-0.5">{subtitle}</p>}
         </div>
       </div>
       {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}

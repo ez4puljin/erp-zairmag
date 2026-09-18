@@ -32,24 +32,24 @@ export function StatCard({
 }) {
   return (
     <div
-      className={`rounded-2xl p-4 lg:p-5 text-white shadow-lg animate-ios-slide-up stagger-${(index % 5) + 1}`}
+      className={`rounded-2xl p-4 lg:p-5 2xl:p-6 text-white shadow-lg animate-ios-slide-up stagger-${(index % 5) + 1}`}
       style={{ background: GRADIENTS[gradient] }}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[12px] font-medium text-white/80">{label}</span>
+        <span className="text-[12px] 2xl:text-[13px] font-medium text-white/80">{label}</span>
         {Icon && (
           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
             <Icon className="w-4 h-4 text-white" />
           </div>
         )}
       </div>
-      <div className="text-[20px] lg:text-[26px] font-bold mt-2 leading-tight tabular-nums">{value}</div>
-      {hint && <div className="text-[11px] text-white/70 mt-0.5">{hint}</div>}
+      <div className="text-[20px] lg:text-[26px] 2xl:text-[30px] font-bold mt-2 leading-tight tabular-nums">{value}</div>
+      {hint && <div className="text-[11px] 2xl:text-[12px] text-white/70 mt-0.5">{hint}</div>}
     </div>
   );
 }
 
 export function StatGrid({ children, cols = 4 }: { children: ReactNode; cols?: 2 | 3 | 4 }) {
   const lg = cols === 2 ? 'lg:grid-cols-2' : cols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
-  return <div className={`grid grid-cols-2 ${lg} gap-3`}>{children}</div>;
+  return <div className={`grid grid-cols-2 ${lg} gap-3 2xl:gap-4`}>{children}</div>;
 }

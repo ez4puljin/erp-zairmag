@@ -49,13 +49,13 @@ export function DataTable<T>({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[13px]">
+      <table className="w-full text-[13px] 2xl:text-[14px]">
         <thead>
           <tr className="border-b border-[#F0F2F5]">
             {columns.map((c) => (
               <th
                 key={c.key}
-                className={`px-3 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-[#8C8FA3] whitespace-nowrap ${alignCls(c.align)}`}
+                className={`px-3 py-2.5 2xl:px-4 2xl:py-3 font-semibold text-[11px] 2xl:text-[12px] uppercase tracking-wide text-[#8C8FA3] whitespace-nowrap ${alignCls(c.align)}`}
                 style={c.width ? { width: c.width } : undefined}
               >
                 {c.header}
@@ -71,7 +71,7 @@ export function DataTable<T>({
               className={`${onRowClick ? 'cursor-pointer hover:bg-[#F7F9FC] transition-colors' : ''} ${rowClassName?.(row) ?? ''}`}
             >
               {columns.map((c) => (
-                <td key={c.key} className={`px-3 py-2.5 text-[#1A1D26] ${alignCls(c.align)} ${c.className ?? ''}`}>
+                <td key={c.key} className={`px-3 py-2.5 2xl:px-4 2xl:py-3 text-[#1A1D26] ${alignCls(c.align)} ${c.className ?? ''}`}>
                   {c.render ? c.render(row, i) : ((row as Record<string, unknown>)[c.key] as ReactNode)}
                 </td>
               ))}
